@@ -1,6 +1,6 @@
 # DTB Metadata
 
-A [metadata](metadata.md) entry with `type: "dtb"` references a PE section
+A [metadata](metadata.md) entry with `type: "pmi:dtb"` references a PE section
 containing a Devicetree Blob (FDT v17) that describes the image's expected
 platform topology and address-space layout.
 
@@ -65,14 +65,14 @@ at image build time.
 
 ## Per-platform variants
 
-Multiple `metadata` entries with `type: "dtb"` and disjoint `platforms`
-annotations are valid; the VMM uses the entry matching the current platform.
-Most images can use a single entry with no `platforms` field or with all
-supported platforms listed.
+Multiple `metadata` entries with `type: "pmi:dtb"` and disjoint `platforms`
+filters are valid; the VMM uses the entry matching the current platform. Most
+images can use a single entry with no `platforms` field or with all supported
+platforms listed.
 
 When per-platform DTB sections share a `VirtualAddress` (per the
 [VirtualAddress sharing rule](../pe.md#virtualaddress-sharing-for-mutually-exclusive-sections)),
-they MAY also share PE section names; the `platforms` annotation on the metadata
+they MAY also share PE section names; the `platforms` filter on the metadata
 entries resolves which one is loaded.
 
 ## Loading the DTB into guest memory

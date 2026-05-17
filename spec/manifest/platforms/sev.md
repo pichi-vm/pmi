@@ -4,31 +4,36 @@
 
 `"sev"`
 
-## Segment annotations
+## PE section naming convention
 
 PE sections specific to SEV 3.0 use the `.sev.` prefix (e.g., `.sev.vms`,
 `.sev.sec`, `.sev.cpu`, `.sev.svm`).
 
-Segment-level platform annotations for SEV 3.0 use string values in the
-segment's `"platforms"` map:
+## Segment types
 
-| Annotation  | Behavior                                              |
-| ----------- | ----------------------------------------------------- |
-| `null`      | Load as normal measured data                          |
-| `"vmsa"`    | Load via `SNP_LAUNCH_UPDATE` with `page_type=vmsa`    |
-| `"secrets"` | Load via `SNP_LAUNCH_UPDATE` with `page_type=secrets` |
-| `"cpuid"`   | Load via `SNP_LAUNCH_UPDATE` with `page_type=cpuid`   |
+SEV 3.0 defines the following segment `type` values. Each MUST be paired with a
+`platforms` filter that includes `"sev"`; the VMM rejects an SEV-typed segment
+that could be selected on a non-SEV launch.
 
-- **vmsa**: The PE section contains the 4K VMPL0 BSP register state. This is
-  image-authored data on disk, measured with its actual content.
-- **secrets**: The PE section is a zero section (`SizeOfRawData == 0`). The
-  VMM allocates the page and the PSP populates it with secrets at launch.
-  Measured with zero content in the launch digest (GPA is bound, content is
-  not).
-- **cpuid**: The PE section is a zero section (`SizeOfRawData == 0`). The VMM
-  fills the CPUID table with the values it wants to expose to the guest. The
-  PSP validates the entries and rejects impossible values. Measured with zero
-  content in the launch digest (GPA is bound, content is not).
+| Type                | Behavior                                                                                                 |
+| ------------------- | -------------------------------------------------------------------------------------------------------- |
+| `"pmi:sev:vmsa"`    | Load via `SNP_LAUNCH_UPDATE` with `page_type=vmsa`. PE section contains the 4K VMPL0 BSP register state. |
+| `"pmi:sev:secrets"` | Reserve a 4K zero section; the PSP populates it with secrets at launch.                                  |
+| `"pmi:sev:cpuid"`   | Reserve a 4K zero section; the VMM fills the CPUID table, the PSP validates entries.                     |
+
+- **`pmi:sev:vmsa`** carries image-authored data on disk. Measured via
+  `SNP_LAUNCH_UPDATE` with its actual content.
+- **`pmi:sev:secrets`** references a zero PE section (`SizeOfRawData == 0`,
+  `VirtualSize > 0`). Measured with zero content in the launch digest (GPA is
+  bound, content is not).
+- **`pmi:sev:cpuid`** references a zero PE section. The VMM fills the CPUID
+  table with values it wants to expose to the guest; the PSP validates entries
+  and rejects impossible values. Measured with zero content in the launch digest
+  (GPA is bound, content is not).
+
+Ordinary data segments on SEV (e.g., `.sev.svm`, `.ovmf`, `.linux`) use the
+default `"pmi:load"` type with a `platforms` filter naming `"sev"` where the
+section is SEV-only.
 
 ## Policy schema
 
@@ -59,10 +64,10 @@ merge semantics.
 
 ## Execution model mapping
 
-| Step          | API call                                                             |
-| ------------- | -------------------------------------------------------------------- |
-| 4. Initialize | `SNP_LAUNCH_START` (merged policy)                                   |
-| 5. Pre-load   | (none)                                                               |
-| 6. Segments   | `SNP_LAUNCH_UPDATE` per segment (page type determined by annotation) |
-| 7. Post-load  | (none)                                                               |
-| 8. Finalize   | `SNP_LAUNCH_FINISH` (id_block)                                       |
+| Step          | API call                                                       |
+| ------------- | -------------------------------------------------------------- |
+| 4. Initialize | `SNP_LAUNCH_START` (merged policy)                             |
+| 5. Pre-load   | (none)                                                         |
+| 6. Segments   | `SNP_LAUNCH_UPDATE` per segment (page type determined by type) |
+| 7. Post-load  | (none)                                                         |
+| 8. Finalize   | `SNP_LAUNCH_FINISH` (id_block)                                 |

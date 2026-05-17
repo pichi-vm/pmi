@@ -18,8 +18,8 @@ guest memory or generates for the guest to consume.
 
 ```cddl
 metadata = {
-  "name"         => tstr,                ; PE section name
-  "type"         => tstr,                ; metadata kind (e.g., "dtb")
+  "section"      => tstr,                ; PE section name
+  "type"         => tstr,                ; metadata kind (e.g., "pmi:dtb")
   ? "platforms"  => { + tstr => any },   ; platform filter
   * tstr => any,                         ; extension point
 }
@@ -28,30 +28,31 @@ metadata = {
 ## Extensibility
 
 Every PMI-defined map accepts additional keys beyond those defined here.
-Well-known type values are short, unnamespaced strings (e.g., `"dtb"`).
-Extension types MUST use a collision-resistant namespaced form
-(`"namespace:type"`). VMMs MUST reject types they do not recognize.
+Type values defined by this specification use the `"pmi:"` prefix (e.g.,
+`"pmi:dtb"`). Extension types MUST use a collision-resistant namespaced form
+with a non-`"pmi:"` prefix (e.g., `"vendor:custom"`). VMMs MUST reject types
+they do not recognize.
 
 ## Processing
 
-For each metadata entry whose `platforms` annotation matches the current
-platform (or which has no `platforms` field), the VMM looks up the PE
-section by `name` in the PE section table, reads its on-disk bytes
-(`SizeOfRawData` bytes at `PointerToRawData`), and processes them
-according to the `type` field.
+For each metadata entry whose `platforms` filter matches the current platform
+(or which has no `platforms` field), the VMM looks up the PE section
+named by `section` in the PE section table, reads its on-disk bytes
+(`SizeOfRawData` bytes at `PointerToRawData`), and processes them according to
+the `type` field.
 
 The VMM MUST process all metadata entries before processing the `segments`
 array, so that information learned from metadata (such as the
 address-space layout from a base DTB) is available when allocating guest
 resources and loading segments.
 
-## Platform annotations
+## Platform filter
 
 The `platforms` field has the same semantics as on
-[segments](segments.md#platform-annotations): if the current platform is
-not a key in the map, the entry is skipped. Multiple metadata entries
-with the same `type` and disjoint `platforms` annotations are valid;
-the VMM uses the entry whose annotation matches the current platform.
+[segments](segments.md#schema): if the current platform is not a key in the
+map, the entry is skipped. Multiple metadata entries with the same `type` and
+disjoint `platforms` filters are valid; the VMM uses the entry whose filter
+matches the current platform.
 
 If `platforms` is absent, the entry applies on every platform.
 
@@ -64,6 +65,6 @@ section's `VirtualAddress`. The two references are independent.
 
 ## Defined types
 
-| Type    | Definition                              |
-| ------- | --------------------------------------- |
-| `"dtb"` | Devicetree Blob — see [dtb.md](dtb.md). |
+| Type        | Definition                              |
+| ----------- | --------------------------------------- |
+| `"pmi:dtb"` | Devicetree Blob — see [dtb.md](dtb.md). |

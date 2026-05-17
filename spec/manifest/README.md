@@ -43,8 +43,8 @@ manifest = {
   manifests with an unrecognized version.
 
 - **`segments`** — an ordered array of segment entries. See
-  [segments.md](segments.md) for the segment schema, loading rules, fill types,
-  and platform annotations.
+  [segments.md](segments.md) for the segment schema, loading rules, defined
+  segment types, and platforms filter.
 
 - **`metadata`** — an optional array of metadata entries. Each entry references
   a PE section by name and identifies what kind of metadata the section
@@ -57,17 +57,19 @@ manifest = {
   per-platform definitions.
 
 All PMI-defined maps accept additional keys beyond those defined here.
-Well-known keys are short, unnamespaced strings (e.g., `"name"`, `"measured"`,
-`"sev"`). Extension keys MUST use a collision-resistant namespaced form:
-`"namespace:key"` (e.g., `"vendor:feature"`). Consumers MUST ignore keys they do
-not recognize.
+Well-known keys are short, unnamespaced strings (e.g., `"section"`, `"type"`,
+`"platforms"`). Extension keys MUST use a collision-resistant namespaced form:
+`"namespace:key"` (e.g., `"vendor:feature"`). Type values defined by this
+specification use the `"pmi:"` prefix (e.g., `"pmi:load"`, `"pmi:dtb"`,
+`"pmi:dtbo"`, `"pmi:sev:vmsa"`); extension types use a non-`"pmi:"` namespaced
+prefix. Consumers MUST ignore unknown keys but MUST reject unknown type values.
 
 ## Platform Bindings
 
-Each CC platform defines its own policy schema and segment annotation values.
-These are specified in separate binding documents:
+Each CC platform defines its own policy schema and segment types. These are
+specified in separate binding documents:
 
-- [AMD SEV 3.0](platforms/sev.md) — Policy, annotations, API mapping
+- [AMD SEV 3.0](platforms/sev.md) — Policy, segment types, API mapping
 - [Intel TDX](platforms/tdx.md) — TODO
 - [Arm CCA](platforms/cca.md) — TODO
 - [Native](platforms/native.md) — No CC

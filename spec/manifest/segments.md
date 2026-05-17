@@ -6,7 +6,7 @@ guest. See the [manifest schema](README.md#schema) for the top-level structure.
 
 PMI uses ELF-style terminology: a **segment** is a runtime-loadable entry the
 VMM acts on, while a **PE section** is the file-format container that supplies
-its bytes (or, for filled segments, only its address range). Each segment
+its bytes (or, for VMM-generated segments, only its address range). Each segment
 references one PE section by name.
 
 VMM-inspectable image data that is not loaded into guest memory (such as the
@@ -17,23 +17,40 @@ declared in the [metadata](metadata.md) array, not here.
 
 ```cddl
 segment = {
-  "name"         => tstr,               ; PE section name (e.g., ".ovmf", ".sev.svm")
-  ? "fill"        => fill,              ; VMM-generated content; absent = load from disk
-  ? "platforms"   => { + tstr => any },  ; platform name => platform-defined annotation
-  ? "measured"    => bool,              ; default true
-  * tstr => any,                        ; extension point
+  "section"      => tstr,                ; PE section name (e.g., ".ovmf", ".sev.svm")
+  ? "type"        => tstr,               ; segment kind; default "pmi:load"
+  ? "platforms"   => { + tstr => any }, ; platform filter; absent = all platforms
+  * tstr => any,                        ; type-specific parameters
 }
 ```
+
+- **`section`** — the PE section this segment references. The VMM reads
+  `VirtualAddress`, `SizeOfRawData`, `VirtualSize`, and `PointerToRawData` from
+  this PE section's header.
+
+- **`type`** — identifies the segment kind. Defaults to `"pmi:load"` when
+  absent. See [Defined types](#defined-types) for the types this specification
+  defines and [Extensibility](#extensibility) for the namespacing rules.
+
+- **`platforms`** — restricts the segment to the listed platforms. If present
+  and the current platform is not a key in the map, the segment is skipped. If
+  absent, the segment applies on every platform. The map's values are reserved
+  for future per-platform extensions; current PMI-defined types ignore them and
+  use `null` in examples.
 
 ## Extensibility
 
 Every PMI-defined map accepts additional keys beyond those defined here.
-Well-known keys are short, unnamespaced strings (e.g., `"name"`, `"measured"`,
-`"sev"`). Extension keys MUST use a collision-resistant namespaced form:
-`"namespace:key"` (e.g., `"vendor:feature"`). Well-known fill values use the
-same namespaced convention.
+Well-known keys are short, unnamespaced strings (e.g., `"section"`, `"type"`,
+`"platforms"`). Extension keys MUST use a collision-resistant namespaced form:
+`"namespace:key"` (e.g., `"vendor:feature"`).
 
-Consumers MUST ignore keys and fill values they do not recognize.
+Type values defined by this specification use the `"pmi:"` prefix (e.g.,
+`"pmi:load"`, `"pmi:dtbo"`, `"pmi:sev:vmsa"`). Extension type values MUST use a
+namespaced form with a non-`"pmi:"` prefix (e.g., `"vendor:custom"`). VMMs MUST
+reject type values they do not recognize.
+
+Consumers MUST ignore keys and type-specific parameters they do not recognize.
 
 ## Processing Order
 
@@ -41,43 +58,31 @@ The VMM processes segments in array order during
 [step 6](../overview.md#vmm-execution-model) of the execution model. Measurement
 follows the same order.
 
-Each segment references a PE section by name. The VMM reads `VirtualAddress`,
-`SizeOfRawData`, `VirtualSize`, and `PointerToRawData` from the PE section
-header.
+## Defined types
 
-## Data Segments
+### `"pmi:load"` — Load PE section bytes
 
-When `fill` is absent, the segment is a data segment. The VMM loads on-disk data
-from the PE into guest memory at `VirtualAddress`.
+The default segment type. The VMM loads the referenced PE section's bytes into
+guest memory at `VirtualAddress`, following the three PE patterns described in
+[Segment loading](#segment-loading).
 
-## Filled Segments
+Type-specific parameters:
 
-When `fill` is present, the referenced PE section has `SizeOfRawData == 0` and
-`VirtualSize > 0` — it reserves an address range with no on-disk data. The VMM
-generates content based on the `fill` value and writes it into the region at
-`VirtualAddress`. Filled segments SHOULD be unmeasured (`"measured": false`)
-since their content is VMM-generated and cannot be predicted by a verifier.
-
-A segment MUST NOT have both `fill` and a non-null platform annotation.
-
-The `fill` field is a map with a required `"type"` key that identifies the fill
-type. Additional keys are type-specific parameters.
-
-```cddl
-fill = {
-  "type"         => tstr,              ; fill type identifier
-  * tstr => any,                       ; type-specific parameters
-}
-```
-
-VMMs MUST reject fill types they do not recognize. Well-known fill types use the
-`"namespace:type"` convention. The following are defined by PMI:
+| Key          | Type   | Default | Meaning                                                  |
+| ------------ | ------ | ------- | -------------------------------------------------------- |
+| `"measured"` | `bool` | `true`  | Whether to feed bytes to the platform's measurement API. |
 
 ### `"pmi:dtbo"` — Devicetree Blob Overlay
 
 The VMM MUST write a Devicetree Blob Overlay (FDT v17) into the segment at
 `VirtualAddress`, conveying the host-decided runtime properties that extend the
 image's base [DTB](dtb.md): vCPU enumeration, memory layout, and NUMA topology.
+
+The referenced PE section MUST be a zero section (`SizeOfRawData == 0`,
+`VirtualSize > 0`) — it reserves an address range with no on-disk data. The VMM
+generates the overlay and writes it into the region. Segments of this type are
+not measured: their content is VMM-generated and cannot be predicted by a
+verifier.
 
 The overlay is applied to the base DTB by a consumer inside the guest. This
 specification does not mandate the consumer's identity (a guest stub, the kernel
@@ -151,42 +156,37 @@ The consumer is NOT required to validate:
   driver curation is the appropriate defense against driver- specific attacks;
   this is out of scope for the DTBO consumer).
 
-## Platform Annotations
+### Platform-defined types
 
-The `platforms` field, when present, is a map from platform name to a
-platform-defined value. If the current platform is not a key in the map, the
-segment is skipped.
+Each platform binding may define additional segment types under its own
+namespace. These types describe how segments are handed to platform-specific
+APIs and what measurement semantics apply. See:
 
-- A `null` value means "load this segment on this platform with no special
-  behavior."
-- A non-null value is interpreted by the platform adapter — for example, SEV 3.0
-  uses string values to indicate page types (`"vmsa"`, `"secrets"`, `"cpuid"`).
-  See [platforms/sev.md](platforms/sev.md) for details.
+- [AMD SEV 3.0](platforms/sev.md) — `pmi:sev:vmsa`, `pmi:sev:secrets`,
+  `pmi:sev:cpuid`
+- [Native](platforms/native.md) — `pmi:native:vcpu`
 
-Segments with a non-null platform annotation are loaded in step 6 using the
-platform adapter's segment-specific API, in array order alongside all other
-segments.
+A platform-defined type only makes sense when the segment is gated to that
+platform via `platforms`. The platform binding specifies the required filter.
 
-If `platforms` is absent, the segment is loaded on all platforms during step 6.
+## Segment loading
 
-## Segment Loading
-
-For each segment loaded in step 6, the VMM reads the referenced PE section
-header and determines how to load it based on `VirtualAddress`, `SizeOfRawData`,
-`VirtualSize`, and `PointerToRawData`.
+For each `pmi:load` segment processed in step 6, the VMM reads the referenced PE
+section header and determines how to load it based on `VirtualAddress`,
+`SizeOfRawData`, `VirtualSize`, and `PointerToRawData`.
 
 The VMM loads pages from the lowest GPA to the highest within each segment.
 This ordering is significant: CC platforms measure pages in submission order, so
 lowest-to-highest produces a deterministic measurement.
 
-There are three cases:
+There are three PE-section shapes:
 
-1. **Data segment** (`SizeOfRawData > 0`, `VirtualSize == SizeOfRawData`). Load
-   the on-disk data at `VirtualAddress`. The VMM chooses page granularity based
-   on alignment — see [overview](../pe.md#page-granularity).
+1. **Data** (`SizeOfRawData > 0`, `VirtualSize == SizeOfRawData`). Load the
+   on-disk data at `VirtualAddress`. The VMM chooses page granularity based on
+   alignment — see [overview](../pe.md#page-granularity).
 
-2. **Padded segment** (`SizeOfRawData > 0`, `VirtualSize > SizeOfRawData`). Load
-   the on-disk data at `VirtualAddress` as in case 1. Then zero-fill from
+2. **Padded** (`SizeOfRawData > 0`, `VirtualSize > SizeOfRawData`). Load the
+   on-disk data at `VirtualAddress` as in case 1. Then zero-fill from
    `VirtualAddress + SizeOfRawData` to `VirtualAddress + VirtualSize`. The
    trailing zero region SHOULD use the platform's zero-page API where available
    (e.g., `SNP_LAUNCH_UPDATE` with `PAGE_TYPE_ZERO`), which validates pages as
@@ -194,28 +194,29 @@ There are three cases:
    firmware or service modules that need reserved memory beyond their code use
    this to express it without file backing.
 
-3. **Zero segment** (`SizeOfRawData == 0`, `VirtualSize > 0`). The entire region
-   is zero-filled. No disk data is loaded. The VMM SHOULD use the platform's
-   zero-page API for the full range. This is how reserved memory regions are
-   expressed — for example, SEV secrets pages and CPUID pages that the platform
-   adapter populates via their platform annotation.
+3. **Zero** (`SizeOfRawData == 0`, `VirtualSize > 0`). The entire region is
+   zero-filled. No disk data is loaded. The VMM SHOULD use the platform's
+   zero-page API for the full range. This is also the shape required by
+   `pmi:dtbo` and by platform-defined types that reserve address space for
+   VMM-generated content.
 
 ## Measurement
 
-If `measured` is true (the default), the segment's data is fed to the platform's
-measurement API during loading.
+Measurement behavior is determined by the segment's type:
 
-The distinction between on-disk data and zero-fill matters for measurement.
-On-disk bytes are measured as normal data pages. Zero-filled bytes are measured
-as zero pages using the platform's zero-page measurement semantic, which may
-produce a different measurement than loading actual zeros as data pages. VMM
-implementations MUST NOT substitute data-page loads for zero-page operations or
-vice versa.
+- **`pmi:load`** is measured by default. Setting `"measured": false` suppresses
+  measurement (e.g., for VMM-supplied data the verifier does not need to bind).
+- **`pmi:dtbo`** is never measured.
+- **Platform-defined types** specify their measurement semantics in the
+  platform binding — typically the platform's measurement API binds the GPA
+  and page type without binding content for VMM-populated pages.
 
-Filled segments SHOULD be unmeasured since their content is VMM-generated.
-Platform-annotated segments are measured by the platform as appropriate — the
-measurement rules for platform-annotated segments are defined by the platform's
-binding specification, not by PMI.
+The distinction between on-disk data and zero-fill matters for `pmi:load`
+measurement. On-disk bytes are measured as normal data pages. Zero-filled bytes
+are measured as zero pages using the platform's zero-page measurement semantic,
+which may produce a different measurement than loading actual zeros as data
+pages. VMM implementations MUST NOT substitute data-page loads for zero-page
+operations or vice versa.
 
 In serviced configurations, the launch measurement covers the service module and
 firmware. Kernel boot is measured separately by firmware via the service

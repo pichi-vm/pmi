@@ -58,7 +58,7 @@ many 4K calls were needed to populate them.
 ## VirtualAddress sharing for mutually-exclusive sections
 
 PE sections whose corresponding manifest segments carry disjoint `platforms`
-annotations MAY share a `VirtualAddress`. The VMM loads at most one such segment
+filters MAY share a `VirtualAddress`. The VMM loads at most one such segment
 per launch (per the `platforms` filter), so there is never a runtime conflict in
 guest memory.
 

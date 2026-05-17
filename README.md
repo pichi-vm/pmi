@@ -37,9 +37,9 @@ boots on bare metal, in a VM, and in a confidential VM on multiple platforms.
 3. **Everything is a PE section.** Data loaded from the PE, VMM-generated
    runtime data, platform-specific pages, and VMM-inspectable image data are
    all expressed as PE sections, declared in the manifest's `segments` and
-   `metadata` arrays. Each entry carries its own platform annotations — which
-   platform applies it, and how. The manifest expresses regions, not pages; the
-   host decides page granularity.
+   `metadata` arrays. Each entry carries a type that selects its behavior and a
+   platforms filter that selects where it applies. The manifest expresses
+   regions, not pages; the host decides page granularity.
 
 4. **Policy is separate and mergeable.** The image may embed required platform
    policy. A deployer may supply external policy that is deep-merged with the
@@ -67,15 +67,15 @@ boots on bare metal, in a VM, and in a confidential VM on multiple platforms.
 
 - [Manifest](spec/manifest/README.md) — Top-level schema, extensibility,
   versioning
-- [Segments](spec/manifest/segments.md) — Segment schema, loading, fill types,
-  platform annotations
+- [Segments](spec/manifest/segments.md) — Segment schema, loading, segment
+  types, platforms filter
 - [Metadata](spec/manifest/metadata.md) — VMM-inspectable image data
 - [DTB](spec/manifest/dtb.md) — Devicetree-Blob metadata type
 - [Policy](spec/manifest/policy.md) — Policy schema and merge algorithm
 
 ### Platform Bindings
 
-- [AMD SEV 3.0](spec/manifest/platforms/sev.md) — Policy, annotations, API
+- [AMD SEV 3.0](spec/manifest/platforms/sev.md) — Policy, segment types, API
   mapping
 - [Intel TDX](spec/manifest/platforms/tdx.md) — TODO
 - [Arm CCA](spec/manifest/platforms/cca.md) — TODO

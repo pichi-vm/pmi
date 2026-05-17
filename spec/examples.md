@@ -6,14 +6,15 @@
 {
   "version": 1,
   "metadata": [
-    {"name": ".dtb", "type": "dtb"}
+    {"section": ".dtb", "type": "pmi:dtb"}
   ],
   "segments": [
-    {"name": ".linux"},
-    {"name": ".initrd"},
-    {"name": ".cmdline"},
-    {"name": ".dtbo",   "fill": {"type": "pmi:dtbo"}},
-    {"name": ".sev.vms", "platforms": {"sev": "vmsa"}}
+    {"section": ".linux"},
+    {"section": ".initrd"},
+    {"section": ".cmdline"},
+    {"section": ".dtbo", "type": "pmi:dtbo"},
+    {"section": ".sev.vms", "type": "pmi:sev:vmsa", "platforms": {"sev": null}},
+    {"section": ".vcpu", "type": "pmi:native:vcpu", "platforms": {"native": null}}
   ],
   "policy": {
     "sev": {"smt": true, "migrate-ma": false, "debug": false},
@@ -32,16 +33,19 @@
 4. `SNP_LAUNCH_START` with merged policy.
 5. (No pre-load for SEV.)
 6. Process segments in order: `SNP_LAUNCH_UPDATE` for `.linux`, `.initrd`,
-   `.cmdline` (all measured, normal page type). Fill `.dtbo` with the
-   host-decided memory/cpus/NUMA overlay (unmeasured). Load `.sev.vms`
-   via `SNP_LAUNCH_UPDATE` with `page_type=vmsa` (platform annotation).
+   `.cmdline` (all `pmi:load`, measured, normal page type). Write the
+   host-decided memory/cpus/NUMA overlay into `.dtbo` (`pmi:dtbo`,
+   unmeasured). Load `.sev.vms` via `SNP_LAUNCH_UPDATE` with
+   `page_type=vmsa` (`pmi:sev:vmsa`). Skip the `.vcpu` segment (filtered —
+   not in `"sev"`).
 7. (No post-load for SEV.)
 8. `SNP_LAUNCH_FINISH`.
 9. Kernel starts.
 
 **Native:** Steps 3–5, 7, 8 are no-ops. VMM inspects `.dtb`, validates
-conformance, loads data segments, fills `.dtbo`, sets registers per the
-image's `vcpu` annotation, starts guest.
+conformance, loads `pmi:load` segments, writes `.dtbo`, sets registers from
+the `pmi:native:vcpu` segment, starts guest. The `.sev.vms` segment is
+skipped (filtered — not in `"native"`).
 
 **Bare metal:** UEFI ignores `.pmi`, `.dtb`, `.dtbo`. EFI stub in `.linux`
 executes normally. Standard UKI boot.
@@ -52,19 +56,20 @@ executes normally. Standard UKI boot.
 {
   "version": 1,
   "metadata": [
-    {"name": ".dtb", "type": "dtb"}
+    {"section": ".dtb", "type": "pmi:dtb"}
   ],
   "segments": [
-    {"name": ".sev.svm", "platforms": {"sev": null}},
-    {"name": ".ovmf"},
-    {"name": ".linux"},
-    {"name": ".initrd"},
-    {"name": ".cmdline"},
-    {"name": ".osrel"},
-    {"name": ".dtbo",   "fill": {"type": "pmi:dtbo"}},
-    {"name": ".sev.sec", "platforms": {"sev": "secrets"}},
-    {"name": ".sev.cpu", "platforms": {"sev": "cpuid"}},
-    {"name": ".sev.vms", "platforms": {"sev": "vmsa"}}
+    {"section": ".sev.svm", "platforms": {"sev": null}},
+    {"section": ".ovmf"},
+    {"section": ".linux"},
+    {"section": ".initrd"},
+    {"section": ".cmdline"},
+    {"section": ".osrel"},
+    {"section": ".dtbo",    "type": "pmi:dtbo"},
+    {"section": ".sev.sec", "type": "pmi:sev:secrets", "platforms": {"sev": null}},
+    {"section": ".sev.cpu", "type": "pmi:sev:cpuid",   "platforms": {"sev": null}},
+    {"section": ".sev.vms", "type": "pmi:sev:vmsa",    "platforms": {"sev": null}},
+    {"section": ".vcpu",    "type": "pmi:native:vcpu", "platforms": {"native": null}}
   ],
   "policy": {
     "sev": {"smt": true, "migrate-ma": false, "debug": false},
@@ -81,13 +86,13 @@ executes normally. Standard UKI boot.
 4. `SNP_LAUNCH_START` with merged policy.
 5. (No pre-load for SEV.)
 6. Process segments in order: `SNP_LAUNCH_UPDATE` for `.sev.svm`, `.ovmf`
-   (all measured, normal page type). Skip
+   (all `pmi:load`, measured, normal page type). Skip
    `.linux`/`.initrd`/`.cmdline`/`.osrel` if doing indirect boot (OVMF
-   boots kernel from disk). Fill `.dtbo` with the host-decided
-   memory/cpus/NUMA overlay (unmeasured). Load `.sev.sec`
-   (`page_type=secrets`), `.sev.cpu` (`page_type=cpuid`), `.sev.vms`
-   (`page_type=vmsa`) via `SNP_LAUNCH_UPDATE` with the corresponding
-   page types (platform annotations).
+   boots kernel from disk). Write the host-decided memory/cpus/NUMA overlay
+   into `.dtbo` (`pmi:dtbo`, unmeasured). Load `.sev.sec`
+   (`pmi:sev:secrets`), `.sev.cpu` (`pmi:sev:cpuid`), `.sev.vms`
+   (`pmi:sev:vmsa`) via `SNP_LAUNCH_UPDATE` with the corresponding page
+   types. Skip `.vcpu` (filtered — not in `"sev"`).
 7. (No post-load for SEV.)
 8. `SNP_LAUNCH_FINISH`.
 9. SVSM starts at VMPL0, initializes vTPM, creates VMPL1 VMSA for OVMF,
@@ -103,14 +108,15 @@ executes normally. Standard UKI boot.
 5. (No-op.)
 6. Skip `.sev.svm`, `.sev.sec`, `.sev.cpu`, `.sev.vms` segments (filtered — not
    in `"native"`). Load `.ovmf`, `.linux`, `.initrd`, `.cmdline`, `.osrel`.
-   Fill `.dtbo`.
+   Write `.dtbo`.
 7. (No-op.)
 8. (No-op.)
-9. Set registers from `vcpu` annotation. OVMF boots kernel from disk.
+9. Set registers from the `pmi:native:vcpu` segment. OVMF boots kernel from
+   disk.
 
-**Bare metal:** UEFI ignores `.pmi`, `.dtb`, `.dtbo`, `.sev.svm`, `.ovmf`
-(non-loaded PE sections). EFI stub in `.linux` executes normally. Standard
-UKI boot.
+**Bare metal:** UEFI ignores `.pmi`, `.dtb`, `.dtbo`, `.sev.svm`, `.ovmf`,
+`.vcpu` (non-loaded PE sections). EFI stub in `.linux` executes normally.
+Standard UKI boot.
 
 One artifact. One manifest. Three execution paths.
 
@@ -120,16 +126,17 @@ One artifact. One manifest. Three execution paths.
 {
   "version": 1,
   "metadata": [
-    {"name": ".dtb.native", "type": "dtb", "platforms": {"native": null}},
-    {"name": ".dtb.sev",    "type": "dtb", "platforms": {"sev":    null}}
+    {"section": ".dtb.native", "type": "pmi:dtb", "platforms": {"native": null}},
+    {"section": ".dtb.sev",    "type": "pmi:dtb", "platforms": {"sev":    null}}
   ],
   "segments": [
-    {"name": ".sev.svm", "platforms": {"sev": null}},
-    {"name": ".ovmf"},
-    {"name": ".linux"},
-    {"name": ".initrd"},
-    {"name": ".cmdline"},
-    {"name": ".dtbo", "fill": {"type": "pmi:dtbo"}}
+    {"section": ".sev.svm", "platforms": {"sev": null}},
+    {"section": ".ovmf"},
+    {"section": ".linux"},
+    {"section": ".initrd"},
+    {"section": ".cmdline"},
+    {"section": ".dtbo", "type": "pmi:dtbo"},
+    {"section": ".vcpu", "type": "pmi:native:vcpu", "platforms": {"native": null}}
   ],
   "policy": {
     "sev": {"smt": true, "migrate-ma": false, "debug": false},
@@ -141,7 +148,7 @@ One artifact. One manifest. Three execution paths.
 The image carries two base DTBs: one for `native` (plain virtual
 platform), one for `sev` (with SEV-specific platform topology, e.g.
 SVSM-provided vTPM nodes). The VMM picks the matching one based on the
-current platform's `metadata` annotation. The host overlay (`.dtbo`) is
+current platform's `platforms` filter. The host overlay (`.dtbo`) is
 the same regardless of platform — resource info is platform-agnostic.
 
 If both base DTBs are at the same `VirtualAddress` (per the

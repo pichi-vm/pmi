@@ -16,41 +16,40 @@ native-policy = {
 }
 ```
 
-## Segment annotations
+## Segment types
 
-| Annotation | Behavior                                                          |
-| ---------- | ----------------------------------------------------------------- |
-| `null`     | Load as normal data.                                              |
-| `"vcpu"`   | CBOR-encoded register state for the boot vCPU. See [vcpu](#vcpu). |
+| Type                | Behavior                                                          |
+| ------------------- | ----------------------------------------------------------------- |
+| `"pmi:native:vcpu"` | CBOR-encoded register state for the boot vCPU. See [vcpu](#vcpu). |
+
+Ordinary data segments use the default `"pmi:load"` type.
 
 ## vcpu
 
-A segment annotated `"vcpu"` carries a CBOR-encoded map of register
-values for the boot vCPU. The VMM decodes the segment's on-disk bytes as
-CBOR, looks up each key in the architecture-specific schema selected by the
-PE header's `FileHeader.Machine` field, and applies the corresponding
-values to the boot vCPU before starting the guest. Other vCPUs start in
-their architecture-defined reset state; the boot vCPU is responsible for
-bringing them up.
+A `"pmi:native:vcpu"` segment carries a CBOR-encoded map of register values for
+the boot vCPU. The VMM decodes the referenced PE section's on-disk bytes as
+CBOR, looks up each key in the architecture-specific schema selected by the PE
+header's `FileHeader.Machine` field, and applies the corresponding values to the
+boot vCPU before starting the guest. Other vCPUs start in their
+architecture-defined reset state; the boot vCPU is responsible for bringing them
+up.
 
-The vcpu segment's contents are consumed only by the VMM; the bytes
-MUST NOT be written to guest memory. The PE section MUST be non-loaded
+The segment's contents are consumed only by the VMM; the bytes MUST NOT be
+written to guest memory. The PE section MUST be non-loaded
 (`IMAGE_SCN_MEM_DISCARDABLE`) so that UEFI loaders also skip it. The PE
-section's `VirtualAddress` field has no semantic meaning for vcpu; its
-content is the CBOR blob occupying `SizeOfRawData` bytes at
-`PointerToRawData`.
+section's `VirtualAddress` field has no semantic meaning for vcpu; its content
+is the CBOR blob occupying `SizeOfRawData` bytes at `PointerToRawData`.
 
-On native, the manifest MUST contain at least one segment annotated
-`"vcpu"`. If multiple are present, the VMM MUST use the last one in
-segment array order; earlier vcpu segments are ignored.
+On native, the manifest MUST contain at least one `"pmi:native:vcpu"` segment.
+If multiple are present, the VMM MUST use the last one in segment array order;
+earlier vcpu segments are ignored.
 
-Per PMI's general extensibility rule, missing keys default to zero (with
-the per-architecture exceptions noted below). Unknown keys MUST be
-ignored. Vendor extensions MUST use the namespaced form `"vendor:key"`.
+Per PMI's general extensibility rule, missing keys default to zero (with the
+per-architecture exceptions noted below). Unknown keys MUST be ignored. Vendor
+extensions MUST use the namespaced form `"vendor:key"`.
 
-The VMM MUST reject a vcpu where any value exceeds the field width
-defined by the architecture schema (e.g., a `selector` value greater than
-`0xFFFF`).
+The VMM MUST reject a vcpu where any value exceeds the field width defined by
+the architecture schema (e.g., a `selector` value greater than `0xFFFF`).
 
 ## Architectures
 
