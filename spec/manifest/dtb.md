@@ -1,10 +1,13 @@
-# `pmi:dtb` — Base DTB
+# Base DTB
 
-An [info](info.md) entry with `type: "pmi:dtb"` references a PE section
-containing a Devicetree Blob (FDT v17) that describes the image's expected
-platform topology and address-space layout.
+The key words "MUST", "MUST NOT", "SHOULD", "SHOULD NOT", and "MAY" in this
+specification are to be interpreted as described in
+[RFC 2119](https://www.rfc-editor.org/rfc/rfc2119).
 
-The VMM reads this DTB during launch to learn:
+The manifest's `dtb` array references one or more PE sections, each containing
+a Devicetree Blob (FDT v17) that describes the image's expected platform
+topology and address-space layout. The VMM reads the selected DTB during launch
+to learn:
 
 - MMIO regions where the image expects virtual devices (PCIe controller,
   interrupt controller, virtio devices, console UART, timer, etc.)
@@ -12,11 +15,33 @@ The VMM reads this DTB during launch to learn:
 - Reserved-memory regions to exclude from RAM allocation
 - The platform topology the image was built against
 
-## Type-specific parameters
+## Schema
 
-| Key         | Type   | Required | Meaning                        |
-| ----------- | ------ | -------- | ------------------------------ |
-| `"section"` | `tstr` | yes      | PE section containing the FDT. |
+```cddl
+dtb-ref = {
+  ? "platforms" => [+ tstr],            ; platform filter; absent = all
+  "section"     => tstr,                ; PE section containing the FDT
+  * tstr => any,                        ; extension point
+}
+```
+
+- **`platforms`** — restricts the entry to the listed platforms. If present and
+  the current platform is not in the list, the entry is skipped. If absent,
+  the entry applies on every platform.
+
+- **`section`** — name of the PE section containing the FDT.
+
+## Selection
+
+The VMM picks the first entry in array order whose `platforms` filter matches
+the current platform (or which has no `platforms` field). Later matching
+entries are ignored. Image authors MUST order platform-specific entries before
+any default entry, since a default entry matches every platform and would
+otherwise win.
+
+The VMM MUST process the selected DTB before the `segments` array, so that
+information learned from it (such as the address-space layout) is available
+when allocating guest resources and loading segments.
 
 ## Format
 
@@ -71,15 +96,9 @@ at image build time.
 
 ## Per-platform variants
 
-Multiple `pmi:dtb` entries with disjoint `platforms` filters are valid. The VMM
-applies the first-match selection rule defined in
-[info processing](info.md#processing): platform-specific entries MUST appear
-before any entry with no `platforms` filter, since a default entry matches every
-platform and would otherwise win.
-
 When per-platform DTB sections share a `VirtualAddress` (per the
 [VirtualAddress sharing rule](../pe.md#virtualaddress-sharing-for-mutually-exclusive-sections)),
-they MAY also share PE section names; the `platforms` filter on the `pmi:dtb`
+they MAY also share PE section names; the `platforms` filter on the `dtb`
 entries resolves which one is selected.
 
 ## Loading the DTB into guest memory
@@ -87,6 +106,6 @@ entries resolves which one is selected.
 If the guest needs the DTB content in memory (for example, aarch64 Linux reads
 the DTB via the `x0` register at boot, or an image's stub merges the base DTB
 with the host overlay), the image author MUST also list the same PE section in
-the `segments` array as a normal data segment. The `pmi:dtb` info reference and
-the segment reference are independent: the info entry causes VMM inspection;
-the segment entry causes guest-memory loading.
+the `segments` array as a normal data segment. The `dtb` reference and the
+segment reference are independent: the `dtb` entry causes VMM inspection; the
+segment entry causes guest-memory loading.

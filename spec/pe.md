@@ -72,8 +72,8 @@ when loaded by strict PE loaders outside the PMI consumption path.
 
 The manifest is authoritative for what the VMM does with each PE section. The
 [`segments`](manifest/segments.md) array determines what the VMM loads into
-guest memory or generates; the [`info`](manifest/info.md) array determines what
-the VMM consumes for its own use without loading into guest memory.
+guest memory or generates; the [`dtb`](manifest/dtb.md) array points at the
+base DTB the VMM inspects without loading it into guest memory.
 
 PE section flags such as `IMAGE_SCN_MEM_DISCARDABLE` govern only UEFI/PE
 loader behavior — they signal to non-PMI loaders that a section should be

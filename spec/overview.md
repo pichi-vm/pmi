@@ -111,9 +111,9 @@ sections by name and tells the VMM what to do with them:
 - Which segments the VMM should fill with generated data (e.g., a
   [DTB overlay](manifest/segments.md) carrying host-decided memory and CPU
   topology).
-- What additional information the VMM should
-  [inspect](manifest/info.md) for its own use (e.g., a base
-  [DTB](manifest/dtb.md) describing the image's expected platform topology).
+- A base [DTB](manifest/dtb.md) the VMM inspects to learn the image's expected
+  platform topology and address-space layout (selected per-platform via the
+  `dtb` array).
 - What platform policy to apply (e.g., SEV launch policy).
 
 PMI does not define the additional PE sections themselves — they can contain
@@ -153,11 +153,11 @@ A PMI image for a serviced confidential VM might contain:
 On bare metal, UEFI executes the EFI stub, which boots the kernel from `.linux`.
 The non-loaded PE sections are ignored.
 
-In a VM, the VMM reads `.pmi`, processes the info entries (including the
-base DTB at `.dtb` to learn the image's expected platform topology),
-validates that it can conform to every declaration the image makes, loads
-the segments the manifest specifies, fills the DTB overlay with actual
-host-decided memory/cpus/NUMA values, and starts the guest.
+In a VM, the VMM reads `.pmi`, picks the matching `dtb` entry and parses
+its FDT to learn the image's expected platform topology, validates that it
+can conform to every declaration the image makes, loads the segments the
+manifest specifies, fills the DTB overlay with actual host-decided
+memory/cpus/NUMA values, and starts the guest.
 
 In a confidential VM running in SEV, the VMM additionally loads
 platform-specific segments (`.sev.svm`, `.sev.vms`, `.sev.sec`, `.sev.cpu`),
@@ -176,12 +176,10 @@ full requirements.
 The VMM processes the manifest in nine steps:
 
 1. **Select platform.** Identify the current CC platform (or `"native"`).
-2. **Process info.** For each declared info kind in [info](manifest/info.md),
-   select the first entry whose `platforms` filter matches and process it
-   according to its declared `type`. The VMM MUST validate that it can provide
-   every hardware capability declared in the image's info entries (notably the
-   base [DTB](manifest/dtb.md)), and MUST fail the launch if any declaration
-   cannot be satisfied.
+2. **Inspect DTB.** Select the first entry in the manifest's
+   [`dtb`](manifest/dtb.md) array whose `platforms` filter matches, parse its
+   FDT, and validate that the host can provide every hardware capability the
+   DTB declares. Fail the launch if any declaration cannot be satisfied.
 3. **Merge policy.** Merge image and deployer [policy](manifest/policy.md).
 4. **Platform initialize.** Initialize the platform's cryptographic context.
 5. **Platform pre-load.** Execute platform-specific pre-segment actions.

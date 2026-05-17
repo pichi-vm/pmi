@@ -13,10 +13,11 @@ The manifest serves four purposes:
    memory, in what order, and how each segment should be treated — loaded from
    disk, filled with VMM-generated data, or handled by a platform-specific API.
 
-2. **Info inspection.** It tells the VMM what additional information to consume
-   for its own use — for example, the base [DTB](dtb.md) describing the image's
-   expected platform topology and address-space layout. Info entries are
-   consumed by the VMM but not loaded into guest memory.
+2. **DTB inspection.** It points the VMM at the base [DTB](dtb.md) describing
+   the image's expected platform topology and address-space layout. The VMM
+   reads the DTB to learn what hardware it must provide; it MUST refuse to
+   launch if it cannot match every declaration. The DTB is consumed by the VMM
+   but not loaded into guest memory by this reference.
 
 3. **Platform targeting.** It allows a single image to contain segments for
    multiple platforms (e.g., SEV, TDX, native). The VMM selects the relevant
@@ -31,10 +32,10 @@ The manifest serves four purposes:
 
 ```cddl
 manifest = {
-  "version"     => uint,               ; schema version, currently 1
-  ? "info"       => [+ info],          ; see info.md
-  "segments"    => [+ segment],        ; see segments.md
-  ? "policy"     => policy,            ; see policy.md
+  "version"   => uint,                 ; schema version, currently 1
+  ? "dtb"     => [+ dtb-ref],         ; see dtb.md
+  "segments"  => [+ segment],          ; see segments.md
+  ? "policy"  => policy,               ; see policy.md
   * tstr => any,                       ; extension point
 }
 ```
@@ -42,11 +43,10 @@ manifest = {
 - **`version`** — the manifest schema version. Currently `1`. VMMs MUST reject
   manifests with an unrecognized version.
 
-- **`info`** — an optional array of info entries the VMM consumes during launch
-  but does not load into guest memory. Each entry declares a `type` identifying
-  what kind of information it carries; type-specific parameters describe where
-  to find the bytes. See [info.md](info.md) for the schema, processing model,
-  and defined types.
+- **`dtb`** — an optional ordered array of base DTB references. The VMM picks
+  the first entry whose `platforms` filter matches and reads the referenced
+  FDT before processing segments. See [dtb.md](dtb.md) for the schema,
+  selection rule, format, and host-conformance contract.
 
 - **`segments`** — an ordered array of segment entries. See
   [segments.md](segments.md) for the segment schema, loading rules, defined
