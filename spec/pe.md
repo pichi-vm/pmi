@@ -54,3 +54,30 @@ at 4K granularity. Each small section requires a separate platform API call,
 so packing them together minimizes the number of 2M boundaries they span and
 reduces round-trips. The resulting guest still has 2M pages regardless of how
 many 4K calls were needed to populate them.
+
+## VirtualAddress sharing for mutually-exclusive sections
+
+PE sections whose corresponding manifest segments carry disjoint `platforms`
+annotations MAY share a `VirtualAddress`. The VMM loads at most one such segment
+per launch (per the `platforms` filter), so there is never a runtime conflict in
+guest memory.
+
+Standard PE/UEFI loaders are not aware of PMI's platform filtering and may
+handle overlapping sections in undefined ways (typically last-write-wins
+during image load). Image authors using shared `VirtualAddress` for
+PMI-only sections accept that the resulting PE may not behave correctly
+when loaded by strict PE loaders outside the PMI consumption path.
+
+## Manifest-authoritative loading
+
+The manifest is authoritative for what the VMM does with each PE section. The
+[`segments`](manifest/segments.md) array determines what the VMM loads into
+guest memory or generates; the [`metadata`](manifest/metadata.md) array
+determines what the VMM consumes for its own use without loading into
+guest memory.
+
+PE section flags such as `IMAGE_SCN_MEM_DISCARDABLE` govern only UEFI/PE
+loader behavior — they signal to non-PMI loaders that a section should be
+skipped or may be discarded after init. They do not affect the VMM's
+loading or inspection decisions, which are driven entirely by the
+manifest.

@@ -4,20 +4,20 @@
 
 `"sev"`
 
-## Section annotations
+## Segment annotations
 
 PE sections specific to SEV 3.0 use the `.sev.` prefix (e.g., `.sev.vms`,
 `.sev.sec`, `.sev.cpu`, `.sev.svm`).
 
-Section-level platform annotations for SEV 3.0 use string values in the
-section's `"platforms"` map:
+Segment-level platform annotations for SEV 3.0 use string values in the
+segment's `"platforms"` map:
 
-| Annotation | Behavior |
-| --- | --- |
-| `null` | Load as normal measured data |
-| `"vmsa"` | Load via `SNP_LAUNCH_UPDATE` with `page_type=vmsa` |
+| Annotation  | Behavior                                              |
+| ----------- | ----------------------------------------------------- |
+| `null`      | Load as normal measured data                          |
+| `"vmsa"`    | Load via `SNP_LAUNCH_UPDATE` with `page_type=vmsa`    |
 | `"secrets"` | Load via `SNP_LAUNCH_UPDATE` with `page_type=secrets` |
-| `"cpuid"` | Load via `SNP_LAUNCH_UPDATE` with `page_type=cpuid` |
+| `"cpuid"`   | Load via `SNP_LAUNCH_UPDATE` with `page_type=cpuid`   |
 
 - **vmsa**: The PE section contains the 4K VMPL0 BSP register state. This is
   image-authored data on disk, measured with its actual content.
@@ -59,10 +59,10 @@ merge semantics.
 
 ## Execution model mapping
 
-| Step | API call |
-| --- | --- |
-| 3. Initialize | `SNP_LAUNCH_START` (merged policy) |
-| 4. Pre-load | (none) |
-| 5. Sections | `SNP_LAUNCH_UPDATE` per section (page type determined by annotation) |
-| 6. Post-load | (none) |
-| 7. Finalize | `SNP_LAUNCH_FINISH` (id_block) |
+| Step          | API call                                                             |
+| ------------- | -------------------------------------------------------------------- |
+| 4. Initialize | `SNP_LAUNCH_START` (merged policy)                                   |
+| 5. Pre-load   | (none)                                                               |
+| 6. Segments   | `SNP_LAUNCH_UPDATE` per segment (page type determined by annotation) |
+| 7. Post-load  | (none)                                                               |
+| 8. Finalize   | `SNP_LAUNCH_FINISH` (id_block)                                       |

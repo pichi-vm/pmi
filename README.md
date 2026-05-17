@@ -34,10 +34,11 @@ boots on bare metal, in a VM, and in a confidential VM on multiple platforms.
    make assumptions about image contents. Everything the VMM needs to know is in
    the manifest.
 
-3. **Everything is a section.** Data loaded from the PE, VMM-generated runtime
-   data, and platform-specific pages are all expressed as sections in a single
-   ordered array. Each section carries its own platform annotations — which
-   platform loads it, and how. The manifest expresses regions, not pages; the
+3. **Everything is a PE section.** Data loaded from the PE, VMM-generated
+   runtime data, platform-specific pages, and VMM-inspectable image data are
+   all expressed as PE sections, declared in the manifest's `segments` and
+   `metadata` arrays. Each entry carries its own platform annotations — which
+   platform applies it, and how. The manifest expresses regions, not pages; the
    host decides page granularity.
 
 4. **Policy is separate and mergeable.** The image may embed required platform
@@ -50,7 +51,7 @@ boots on bare metal, in a VM, and in a confidential VM on multiple platforms.
    ignore the manifest. CC semantics are layered on top, never required.
 
 6. **Extensible everywhere.** Every structure accepts unknown keys. New
-   platforms, section types, and policy fields require no schema changes. This
+   platforms, segment types, and policy fields require no schema changes. This
    implies that VMMs can provide VMM-specific extensions without breaking
    compatibility with other VMMs.
 
@@ -60,14 +61,16 @@ boots on bare metal, in a VM, and in a confidential VM on multiple platforms.
 - [Overview](spec/overview.md) — Format overview, execution model, measurement
 - [PE Constraints](spec/pe.md) — Alignment rules and page granularity
 - [Examples](spec/examples.md) — Walkthroughs: direct boot, SVSM+OVMF,
-  per-component ACPI
+  per-platform DTBs
 
 ### Manifest
 
 - [Manifest](spec/manifest/README.md) — Top-level schema, extensibility,
   versioning
-- [Sections](spec/manifest/sections.md) — Section schema, loading, fill types,
+- [Segments](spec/manifest/segments.md) — Segment schema, loading, fill types,
   platform annotations
+- [Metadata](spec/manifest/metadata.md) — VMM-inspectable image data
+- [DTB](spec/manifest/dtb.md) — Devicetree-Blob metadata type
 - [Policy](spec/manifest/policy.md) — Policy schema and merge algorithm
 
 ### Platform Bindings

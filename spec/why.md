@@ -97,8 +97,8 @@ exists because that purpose is too narrow.
    pages with zero copy.
 
 3. **IGVM defines proprietary VMM interfaces.** Specifically, it creates an
-   IGVM-specific memory map instead of reusing the EFI memory map already
-   understood by both VMMs and guests.
+   IGVM-specific memory map instead of reusing standard formats (Devicetree,
+   EFI memory map) already understood by VMMs and guests.
 
 4. **IGVM couples data and policy.** IGVM directives mix guest memory contents,
    page types, measurement boundaries, and platform policy into a single ordered

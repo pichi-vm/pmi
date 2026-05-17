@@ -4,9 +4,10 @@
 
 `"native"`
 
-The native platform is used for non-CC virtual machines. Steps 2–4, 6, and 7
-are no-ops. The VMM loads sections (step 5), applies initial register state
-(see [vcpu](#vcpu)), and starts the guest (step 8).
+The native platform is used for non-CC virtual machines. Steps 3–5, 7, and 8
+are no-ops. The VMM inspects metadata (step 2), loads segments (step 6),
+applies initial register state (see [vcpu](#vcpu)), and starts the guest
+(step 9).
 
 ## Policy schema
 
@@ -15,33 +16,33 @@ native-policy = {
 }
 ```
 
-## Section annotations
+## Segment annotations
 
-| Annotation  | Behavior                                                    |
-| ----------- | ----------------------------------------------------------- |
-| `null`      | Load as normal data.                                        |
-| `"vcpu"` | CBOR-encoded register state for the boot vCPU. See [vcpu](#vcpu). |
+| Annotation | Behavior                                                          |
+| ---------- | ----------------------------------------------------------------- |
+| `null`     | Load as normal data.                                              |
+| `"vcpu"`   | CBOR-encoded register state for the boot vCPU. See [vcpu](#vcpu). |
 
 ## vcpu
 
-A section annotated `"vcpu"` carries a CBOR-encoded map of register
-values for the boot vCPU. The VMM decodes the section's on-disk bytes as
+A segment annotated `"vcpu"` carries a CBOR-encoded map of register
+values for the boot vCPU. The VMM decodes the segment's on-disk bytes as
 CBOR, looks up each key in the architecture-specific schema selected by the
 PE header's `FileHeader.Machine` field, and applies the corresponding
 values to the boot vCPU before starting the guest. Other vCPUs start in
 their architecture-defined reset state; the boot vCPU is responsible for
 bringing them up.
 
-The vcpu section's contents are consumed only by the VMM; the bytes
+The vcpu segment's contents are consumed only by the VMM; the bytes
 MUST NOT be written to guest memory. The PE section MUST be non-loaded
-(`IMAGE_SCN_MEM_DISCARDABLE`) so that UEFI loaders also skip it. The
+(`IMAGE_SCN_MEM_DISCARDABLE`) so that UEFI loaders also skip it. The PE
 section's `VirtualAddress` field has no semantic meaning for vcpu; its
 content is the CBOR blob occupying `SizeOfRawData` bytes at
 `PointerToRawData`.
 
-On native, the manifest MUST contain at least one section annotated
+On native, the manifest MUST contain at least one segment annotated
 `"vcpu"`. If multiple are present, the VMM MUST use the last one in
-section array order; earlier vcpu sections are ignored.
+segment array order; earlier vcpu segments are ignored.
 
 Per PMI's general extensibility rule, missing keys default to zero (with
 the per-architecture exceptions noted below). Unknown keys MUST be
@@ -99,17 +100,17 @@ If specified, bit 1 MUST be 1.
 
 #### Segment attributes encoding
 
-| Bits     | Meaning                                                          |
-| -------- | ---------------------------------------------------------------- |
-| `0–3`    | Type (see Intel SDM Vol. 3 §3.4.5.1 / AMD APM Vol. 2 §4.7).      |
-| `4`      | S — descriptor class: 0 = system, 1 = code/data.                 |
-| `5–6`    | DPL — descriptor privilege level (0–3).                          |
-| `7`      | P — present.                                                     |
-| `8`      | AVL — available for software use.                                |
-| `9`      | L — 64-bit code segment (CS only; ignored elsewhere).            |
-| `10`     | D/B — default operation size (0 = 16/64-bit, 1 = 32-bit).        |
-| `11`     | G — granularity: 0 = byte, 1 = 4 KiB.                            |
-| `12–15`  | Reserved. MUST be zero.                                          |
+| Bits    | Meaning                                                     |
+| ------- | ----------------------------------------------------------- |
+| `0–3`   | Type (see Intel SDM Vol. 3 §3.4.5.1 / AMD APM Vol. 2 §4.7). |
+| `4`     | S — descriptor class: 0 = system, 1 = code/data.            |
+| `5–6`   | DPL — descriptor privilege level (0–3).                     |
+| `7`     | P — present.                                                |
+| `8`     | AVL — available for software use.                           |
+| `9`     | L — 64-bit code segment (CS only; ignored elsewhere).       |
+| `10`    | D/B — default operation size (0 = 16/64-bit, 1 = 32-bit).   |
+| `11`    | G — granularity: 0 = byte, 1 = 4 KiB.                       |
+| `12–15` | Reserved. MUST be zero.                                     |
 
 A typical 64-bit code segment has `attributes = 0x209B`: type = `0xB`
 (code, readable, accessed), S = 1, DPL = 0, P = 1, L = 1. A typical
@@ -156,15 +157,15 @@ is responsible for initializing them as needed.
 
 `pstate` uses the standard AArch64 SPSR encoding:
 
-| Bits     | Meaning                                                          |
-| -------- | ---------------------------------------------------------------- |
-| `0–3`    | M[3:0] — target exception mode. MUST select EL1 (e.g., `0x5` for EL1h). |
-| `4`      | M[4] — execution state. MUST be 0 (AArch64).                     |
-| `6`      | F — FIQ mask.                                                    |
-| `7`      | I — IRQ mask.                                                    |
-| `8`      | A — SError mask.                                                 |
-| `9`      | D — debug mask.                                                  |
-| `28–31`  | NZCV condition flags.                                            |
+| Bits    | Meaning                                                                 |
+| ------- | ----------------------------------------------------------------------- |
+| `0–3`   | M[3:0] — target exception mode. MUST select EL1 (e.g., `0x5` for EL1h). |
+| `4`     | M[4] — execution state. MUST be 0 (AArch64).                            |
+| `6`     | F — FIQ mask.                                                           |
+| `7`     | I — IRQ mask.                                                           |
+| `8`     | A — SError mask.                                                        |
+| `9`     | D — debug mask.                                                         |
+| `28–31` | NZCV condition flags.                                                   |
 
 Other PSTATE bits follow the Arm ARM. A typical kernel-entry value is
 `0x3C5` (EL1h, all DAIF masked, condition flags clear).

@@ -7,17 +7,22 @@ specification are to be interpreted as described in
 The `.pmi` PE section contains a CBOR-encoded manifest — the complete
 instructions for how a VMM should launch a guest from this image.
 
-The manifest serves three purposes:
+The manifest serves four purposes:
 
-1. **Section loading.** It tells the VMM which PE sections to load into guest
-   memory, in what order, and how each section should be treated — loaded from
+1. **Segment loading.** It tells the VMM which PE sections to load into guest
+   memory, in what order, and how each segment should be treated — loaded from
    disk, filled with VMM-generated data, or handled by a platform-specific API.
 
-2. **Platform targeting.** It allows a single image to contain sections for
-   multiple platforms (e.g., SEV, TDX, native). The VMM selects the relevant
-   platform and skips sections that do not apply.
+2. **Metadata inspection.** It tells the VMM which PE sections to read for its
+   own use — for example, the base [DTB](dtb.md) describing the image's
+   expected platform topology and address-space layout. Metadata entries are
+   consumed by the VMM but not loaded into guest memory.
 
-3. **Policy.** It carries platform launch policy that the VMM merges with any
+3. **Platform targeting.** It allows a single image to contain segments for
+   multiple platforms (e.g., SEV, TDX, native). The VMM selects the relevant
+   platform and skips segments that do not apply.
+
+4. **Policy.** It carries platform launch policy that the VMM merges with any
    deployer-supplied policy before initializing the confidential computing
    platform. The image author sets the security floor; the deployer fills in the
    rest.
@@ -27,7 +32,8 @@ The manifest serves three purposes:
 ```cddl
 manifest = {
   "version"      => uint,              ; schema version, currently 1
-  "sections"     => [+ section]        ; see sections.md
+  "segments"     => [+ segment]        ; see segments.md
+  ? "metadata"    => [* metadata]      ; see metadata.md
   ? "policy"      => policy            ; see policy.md
   * tstr => any,                       ; extension point
 }
@@ -36,9 +42,15 @@ manifest = {
 - **`version`** — the manifest schema version. Currently `1`. VMMs MUST reject
   manifests with an unrecognized version.
 
-- **`sections`** — an ordered array of section entries. See
-  [sections.md](sections.md) for the section schema, loading rules, fill types,
+- **`segments`** — an ordered array of segment entries. See
+  [segments.md](segments.md) for the segment schema, loading rules, fill types,
   and platform annotations.
+
+- **`metadata`** — an optional array of metadata entries. Each entry references
+  a PE section by name and identifies what kind of metadata the section
+  contains. Metadata is consumed by the VMM during launch but not loaded into
+  guest memory by default. See [metadata.md](metadata.md) for the schema,
+  processing model, and defined types.
 
 - **`policy`** — an optional map of platform launch policies. See
   [policy.md](policy.md) for the policy schema, merge algorithm, and
@@ -52,7 +64,7 @@ not recognize.
 
 ## Platform Bindings
 
-Each CC platform defines its own policy schema and section annotation values.
+Each CC platform defines its own policy schema and segment annotation values.
 These are specified in separate binding documents:
 
 - [AMD SEV 3.0](platforms/sev.md) — Policy, annotations, API mapping

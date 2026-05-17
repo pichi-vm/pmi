@@ -32,7 +32,7 @@ chooses to launch despite a conflict, it MUST prefer the image's value — no
 image should ever launch without its required configuration.
 
 The VMM performs policy merging in
-[step 2](../overview.md#vmm-execution-model) of the execution model.
+[step 3](../overview.md#vmm-execution-model) of the execution model.
 
 ## Merge Algorithm
 
@@ -67,7 +67,7 @@ at the same depth.
 ; Deployer policy (supplied externally)
 {"sev": {"smt": true, "abi": {"minor": 2}}}
 
-; Merged result (step 2 of execution model)
+; Merged result (step 3 of execution model)
 {"sev": {"debug": false, "smt": true, "abi": {"major": 1, "minor": 2}}}
 ```
 
