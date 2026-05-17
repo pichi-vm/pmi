@@ -5,8 +5,8 @@
 ```cbor-diag
 {
   "version": 1,
-  "metadata": [
-    {"section": ".dtb", "type": "pmi:dtb"}
+  "info": [
+    {"type": "pmi:dtb", "section": ".dtb"}
   ],
   "segments": [
     {"section": ".linux"},
@@ -26,7 +26,7 @@
 **SEV 3.0 (steps 1–9):**
 
 1. Select `"sev"`.
-2. Inspect metadata: parse `.dtb` to learn the image's expected platform
+2. Process info: parse the `.dtb` FDT to learn the image's expected platform
    topology and address layout. Validate the host can conform; fail launch
    otherwise.
 3. Merge image policy with deployer policy (image wins on conflict).
@@ -42,10 +42,10 @@
 8. `SNP_LAUNCH_FINISH`.
 9. Kernel starts.
 
-**Native:** Steps 3–5, 7, 8 are no-ops. VMM inspects `.dtb`, validates
-conformance, loads `pmi:load` segments, writes `.dtbo`, sets registers from
-the `pmi:native:vcpu` segment, starts guest. The `.sev.vms` segment is
-skipped (filtered — not in `"native"`).
+**Native:** Steps 3–5, 7, 8 are no-ops. VMM processes the `.dtb` info entry,
+validates conformance, loads `pmi:load` segments, writes `.dtbo`, sets
+registers from the `pmi:native:vcpu` segment, starts guest. The `.sev.vms`
+segment is skipped (filtered — not in `"native"`).
 
 **Bare metal:** UEFI ignores `.pmi`, `.dtb`, `.dtbo`. EFI stub in `.linux`
 executes normally. Standard UKI boot.
@@ -55,8 +55,8 @@ executes normally. Standard UKI boot.
 ```cbor-diag
 {
   "version": 1,
-  "metadata": [
-    {"section": ".dtb", "type": "pmi:dtb"}
+  "info": [
+    {"type": "pmi:dtb", "section": ".dtb"}
   ],
   "segments": [
     {"section": ".sev.svm", "platforms": {"sev": null}},
@@ -81,7 +81,7 @@ executes normally. Standard UKI boot.
 **SEV 3.0 (steps 1–9):**
 
 1. Select `"sev"`.
-2. Inspect `.dtb` metadata; validate host conformance.
+2. Process the `.dtb` info entry; validate host conformance.
 3. Merge image policy with deployer policy (image wins on conflict).
 4. `SNP_LAUNCH_START` with merged policy.
 5. (No pre-load for SEV.)
@@ -102,7 +102,7 @@ executes normally. Standard UKI boot.
 **Native (steps 1–9):**
 
 1. Select `"native"`.
-2. Inspect `.dtb`; validate conformance.
+2. Process the `.dtb` info entry; validate conformance.
 3. Merge policy (native has no policy fields — no-op).
 4. (No-op.)
 5. (No-op.)
@@ -125,9 +125,9 @@ One artifact. One manifest. Three execution paths.
 ```cbor-diag
 {
   "version": 1,
-  "metadata": [
-    {"section": ".dtb.native", "type": "pmi:dtb", "platforms": {"native": null}},
-    {"section": ".dtb.sev",    "type": "pmi:dtb", "platforms": {"sev":    null}}
+  "info": [
+    {"type": "pmi:dtb", "section": ".dtb.sev",    "platforms": {"sev":    null}},
+    {"type": "pmi:dtb", "section": ".dtb.native", "platforms": {"native": null}}
   ],
   "segments": [
     {"section": ".sev.svm", "platforms": {"sev": null}},
@@ -147,9 +147,10 @@ One artifact. One manifest. Three execution paths.
 
 The image carries two base DTBs: one for `native` (plain virtual
 platform), one for `sev` (with SEV-specific platform topology, e.g.
-SVSM-provided vTPM nodes). The VMM picks the matching one based on the
-current platform's `platforms` filter. The host overlay (`.dtbo`) is
-the same regardless of platform — resource info is platform-agnostic.
+SVSM-provided vTPM nodes). The VMM picks the first `pmi:dtb` entry whose
+`platforms` filter matches the current platform (see
+[info processing](manifest/info.md#processing)). The host overlay (`.dtbo`)
+is the same regardless of platform — resource info is platform-agnostic.
 
 If both base DTBs are at the same `VirtualAddress` (per the
 [VirtualAddress sharing rule](pe.md#virtualaddress-sharing-for-mutually-exclusive-sections)),

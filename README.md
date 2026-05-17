@@ -37,7 +37,7 @@ boots on bare metal, in a VM, and in a confidential VM on multiple platforms.
 3. **Everything is a PE section.** Data loaded from the PE, VMM-generated
    runtime data, platform-specific pages, and VMM-inspectable image data are
    all expressed as PE sections, declared in the manifest's `segments` and
-   `metadata` arrays. Each entry carries a type that selects its behavior and a
+   `info` arrays. Each entry carries a type that selects its behavior and a
    platforms filter that selects where it applies. The manifest expresses
    regions, not pages; the host decides page granularity.
 
@@ -69,8 +69,8 @@ boots on bare metal, in a VM, and in a confidential VM on multiple platforms.
   versioning
 - [Segments](spec/manifest/segments.md) — Segment schema, loading, segment
   types, platforms filter
-- [Metadata](spec/manifest/metadata.md) — VMM-inspectable image data
-- [DTB](spec/manifest/dtb.md) — Devicetree-Blob metadata type
+- [Info](spec/manifest/info.md) — VMM-inspectable image data
+- [DTB](spec/manifest/dtb.md) — the `pmi:dtb` info type
 - [Policy](spec/manifest/policy.md) — Policy schema and merge algorithm
 
 ### Platform Bindings

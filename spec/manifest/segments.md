@@ -11,18 +11,24 @@ references one PE section by name.
 
 VMM-inspectable image data that is not loaded into guest memory (such as the
 base [DTB](dtb.md) describing the image's expected platform topology) is
-declared in the [metadata](metadata.md) array, not here.
+declared in the [info](info.md) array, not here.
 
 ## Schema
 
 ```cddl
 segment = {
+  ? "platforms"  => { + tstr => any },  ; platform filter; absent = all platforms
   "section"      => tstr,                ; PE section name (e.g., ".ovmf", ".sev.svm")
   ? "type"        => tstr,               ; segment kind; default "pmi:load"
-  ? "platforms"   => { + tstr => any }, ; platform filter; absent = all platforms
   * tstr => any,                        ; type-specific parameters
 }
 ```
+
+- **`platforms`** — restricts the segment to the listed platforms. If present
+  and the current platform is not a key in the map, the segment is skipped. If
+  absent, the segment applies on every platform. The map's values are reserved
+  for future per-platform extensions; current PMI-defined types ignore them and
+  use `null` in examples.
 
 - **`section`** — the PE section this segment references. The VMM reads
   `VirtualAddress`, `SizeOfRawData`, `VirtualSize`, and `PointerToRawData` from
@@ -31,12 +37,6 @@ segment = {
 - **`type`** — identifies the segment kind. Defaults to `"pmi:load"` when
   absent. See [Defined types](#defined-types) for the types this specification
   defines and [Extensibility](#extensibility) for the namespacing rules.
-
-- **`platforms`** — restricts the segment to the listed platforms. If present
-  and the current platform is not a key in the map, the segment is skipped. If
-  absent, the segment applies on every platform. The map's values are reserved
-  for future per-platform extensions; current PMI-defined types ignore them and
-  use `null` in examples.
 
 ## Extensibility
 

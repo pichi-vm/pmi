@@ -13,9 +13,9 @@ The manifest serves four purposes:
    memory, in what order, and how each segment should be treated — loaded from
    disk, filled with VMM-generated data, or handled by a platform-specific API.
 
-2. **Metadata inspection.** It tells the VMM which PE sections to read for its
-   own use — for example, the base [DTB](dtb.md) describing the image's
-   expected platform topology and address-space layout. Metadata entries are
+2. **Info inspection.** It tells the VMM what additional information to consume
+   for its own use — for example, the base [DTB](dtb.md) describing the image's
+   expected platform topology and address-space layout. Info entries are
    consumed by the VMM but not loaded into guest memory.
 
 3. **Platform targeting.** It allows a single image to contain segments for
@@ -31,10 +31,10 @@ The manifest serves four purposes:
 
 ```cddl
 manifest = {
-  "version"      => uint,              ; schema version, currently 1
-  "segments"     => [+ segment]        ; see segments.md
-  ? "metadata"    => [* metadata]      ; see metadata.md
-  ? "policy"      => policy            ; see policy.md
+  "version"     => uint,               ; schema version, currently 1
+  ? "info"       => [+ info],          ; see info.md
+  "segments"    => [+ segment],        ; see segments.md
+  ? "policy"     => policy,            ; see policy.md
   * tstr => any,                       ; extension point
 }
 ```
@@ -42,15 +42,15 @@ manifest = {
 - **`version`** — the manifest schema version. Currently `1`. VMMs MUST reject
   manifests with an unrecognized version.
 
+- **`info`** — an optional array of info entries the VMM consumes during launch
+  but does not load into guest memory. Each entry declares a `type` identifying
+  what kind of information it carries; type-specific parameters describe where
+  to find the bytes. See [info.md](info.md) for the schema, processing model,
+  and defined types.
+
 - **`segments`** — an ordered array of segment entries. See
   [segments.md](segments.md) for the segment schema, loading rules, defined
   segment types, and platforms filter.
-
-- **`metadata`** — an optional array of metadata entries. Each entry references
-  a PE section by name and identifies what kind of metadata the section
-  contains. Metadata is consumed by the VMM during launch but not loaded into
-  guest memory by default. See [metadata.md](metadata.md) for the schema,
-  processing model, and defined types.
 
 - **`policy`** — an optional map of platform launch policies. See
   [policy.md](policy.md) for the policy schema, merge algorithm, and

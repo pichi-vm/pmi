@@ -1,6 +1,6 @@
-# DTB Metadata
+# `pmi:dtb` — Base DTB
 
-A [metadata](metadata.md) entry with `type: "pmi:dtb"` references a PE section
+An [info](info.md) entry with `type: "pmi:dtb"` references a PE section
 containing a Devicetree Blob (FDT v17) that describes the image's expected
 platform topology and address-space layout.
 
@@ -11,6 +11,12 @@ The VMM reads this DTB during launch to learn:
 - PCIe ECAM and BAR window addresses
 - Reserved-memory regions to exclude from RAM allocation
 - The platform topology the image was built against
+
+## Type-specific parameters
+
+| Key         | Type   | Required | Meaning                        |
+| ----------- | ------ | -------- | ------------------------------ |
+| `"section"` | `tstr` | yes      | PE section containing the FDT. |
 
 ## Format
 
@@ -65,21 +71,22 @@ at image build time.
 
 ## Per-platform variants
 
-Multiple `metadata` entries with `type: "pmi:dtb"` and disjoint `platforms`
-filters are valid; the VMM uses the entry matching the current platform. Most
-images can use a single entry with no `platforms` field or with all supported
-platforms listed.
+Multiple `pmi:dtb` entries with disjoint `platforms` filters are valid. The VMM
+applies the first-match selection rule defined in
+[info processing](info.md#processing): platform-specific entries MUST appear
+before any entry with no `platforms` filter, since a default entry matches every
+platform and would otherwise win.
 
 When per-platform DTB sections share a `VirtualAddress` (per the
 [VirtualAddress sharing rule](../pe.md#virtualaddress-sharing-for-mutually-exclusive-sections)),
-they MAY also share PE section names; the `platforms` filter on the metadata
-entries resolves which one is loaded.
+they MAY also share PE section names; the `platforms` filter on the `pmi:dtb`
+entries resolves which one is selected.
 
 ## Loading the DTB into guest memory
 
 If the guest needs the DTB content in memory (for example, aarch64 Linux reads
 the DTB via the `x0` register at boot, or an image's stub merges the base DTB
-with the host overlay), the image author MUST also list it in the `segments`
-array as a normal data segment. The metadata reference and the segments-array
-reference are independent: the metadata entry causes VMM inspection; the
-segments entry causes guest-memory loading.
+with the host overlay), the image author MUST also list the same PE section in
+the `segments` array as a normal data segment. The `pmi:dtb` info reference and
+the segment reference are independent: the info entry causes VMM inspection;
+the segment entry causes guest-memory loading.

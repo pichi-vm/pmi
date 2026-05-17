@@ -5,9 +5,8 @@
 `"native"`
 
 The native platform is used for non-CC virtual machines. Steps 3–5, 7, and 8
-are no-ops. The VMM inspects metadata (step 2), loads segments (step 6),
-applies initial register state (see [vcpu](#vcpu)), and starts the guest
-(step 9).
+are no-ops. The VMM processes info (step 2), loads segments (step 6), applies
+initial register state (see [vcpu](#vcpu)), and starts the guest (step 9).
 
 ## Policy schema
 
