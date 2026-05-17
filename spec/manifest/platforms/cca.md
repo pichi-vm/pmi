@@ -1,16 +1,15 @@
 # Arm CCA Platform Binding
 
-## Platform key
+## Platform name
 
-`"cca"`
+`"cca"` (the key used in the [PMI index](../../index.md)'s `platforms` map).
 
-## Policy schema
+Convention: `.pmi.cca` PE section for the manifest.
 
-```cddl
-; TODO: define when CCA binding is specified.
-cca-policy = {
-}
-```
+## Segment types
+
+TODO: define launch-input and page-load segment types when the CCA binding is
+specified.
 
 ## Execution model mapping
 

@@ -1,16 +1,15 @@
 # Intel TDX Platform Binding
 
-## Platform key
+## Platform name
 
-`"tdx"`
+`"tdx"` (the key used in the [PMI index](../../index.md)'s `platforms` map).
 
-## Policy schema
+Convention: `.pmi.tdx` PE section for the manifest.
 
-```cddl
-; TODO: define when TDX binding is specified.
-tdx-policy = {
-}
-```
+## Segment types
+
+TODO: define launch-input and page-load segment types when the TDX binding is
+specified.
 
 ## Execution model mapping
 

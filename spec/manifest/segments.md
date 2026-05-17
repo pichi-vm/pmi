@@ -1,32 +1,32 @@
 # Segments
 
-The manifest's `segments` array is the core of a PMI image. It is an ordered
-list of everything the VMM loads into guest memory or generates when launching a
-guest. See the [manifest schema](README.md#schema) for the top-level structure.
+The per-platform manifest's `segments` array is the launch recipe: an ordered
+list of everything the VMM does during the platform's launch procedure. See
+the [manifest schema](README.md#schema) for the top-level structure.
 
-PMI uses ELF-style terminology: a **segment** is a runtime-loadable entry the
-VMM acts on, while a **PE section** is the file-format container that supplies
-its bytes (or, for VMM-generated segments, only its address range). Each segment
-references one PE section by name.
+PMI uses ELF-style terminology: a **segment** is a runtime-loadable or
+launch-procedure entry the VMM acts on, while a **PE section** is the
+file-format container that supplies its bytes (or, for VMM-generated
+segments, only its address range). Each segment references one PE section by
+name.
+
+There is no `platforms` filter on segments — the entire manifest is
+platform-specific, selected by the [PMI index](../index.md). Every segment in
+the manifest applies on that platform.
 
 VMM-inspectable image data that is not loaded into guest memory (such as the
 base [DTB](dtb.md) describing the image's expected platform topology) is
-declared in the manifest's [`dtb`](dtb.md) array, not here.
+declared by the manifest's [`dtb`](dtb.md) field, not here.
 
 ## Schema
 
 ```cddl
 segment = {
-  ? "platforms"  => [+ tstr],           ; platform filter; absent = all platforms
-  "section"      => tstr,                ; PE section name (e.g., ".ovmf", ".sev.svm")
-  ? "type"        => tstr,               ; segment kind; default "pmi:load"
-  * tstr => any,                        ; type-specific parameters
+  "section"  => tstr,                  ; PE section name (e.g., ".ovmf", ".sev.svm")
+  ? "type"   => tstr,                  ; segment kind; default "pmi:load"
+  * tstr => any,                       ; type-specific parameters
 }
 ```
-
-- **`platforms`** — restricts the segment to the listed platforms. If present
-  and the current platform is not in the list, the segment is skipped. If
-  absent, the segment applies on every platform.
 
 - **`section`** — the PE section this segment references. The VMM reads
   `VirtualAddress`, `SizeOfRawData`, `VirtualSize`, and `PointerToRawData` from
@@ -39,22 +39,27 @@ segment = {
 ## Extensibility
 
 Every PMI-defined map accepts additional keys beyond those defined here.
-Well-known keys are short, unnamespaced strings (e.g., `"section"`, `"type"`,
-`"platforms"`). Extension keys MUST use a collision-resistant namespaced form:
+Well-known keys are short, unnamespaced strings (e.g., `"section"`, `"type"`).
+Extension keys MUST use a collision-resistant namespaced form:
 `"namespace:key"` (e.g., `"vendor:feature"`).
 
 Type values defined by this specification use the `"pmi:"` prefix (e.g.,
-`"pmi:load"`, `"pmi:dtbo"`, `"pmi:sev:vmsa"`). Extension type values MUST use a
-namespaced form with a non-`"pmi:"` prefix (e.g., `"vendor:custom"`). VMMs MUST
-reject type values they do not recognize.
+`"pmi:load"`, `"pmi:dtbo"`, `"pmi:sev:vmsa"`). Extension type values MUST use
+a namespaced form with a non-`"pmi:"` prefix (e.g., `"vendor:custom"`). VMMs
+MUST reject type values they do not recognize.
 
 Consumers MUST ignore keys and type-specific parameters they do not recognize.
 
-## Processing Order
+## Processing order
 
-The VMM processes segments in array order during
-[step 6](../overview.md#vmm-execution-model) of the execution model. Measurement
-follows the same order.
+The VMM processes segments in array order. Each segment's `type` determines
+which step of the platform's launch procedure consumes it; the platform
+binding's execution-model table maps types to steps.
+
+Within each step, segments of types bound to that step are processed in the
+order they appear in the segments array. CC platforms measure pages in
+submission order, so this ordering is security-critical: reordering segments
+produces a different launch digest.
 
 ## Defined types
 
@@ -158,20 +163,18 @@ The consumer is NOT required to validate:
 
 Each platform binding may define additional segment types under its own
 namespace. These types describe how segments are handed to platform-specific
-APIs and what measurement semantics apply. See:
+launch APIs and at which launch step they are consumed:
 
-- [AMD SEV 3.0](platforms/sev.md) — `pmi:sev:vmsa`, `pmi:sev:secrets`,
-  `pmi:sev:cpuid`
+- [AMD SEV 3.0](platforms/sev.md) — page-load types (`pmi:sev:vmsa`,
+  `pmi:sev:secrets`, `pmi:sev:cpuid`) plus launch-input types
+  (`pmi:sev:policy`, `pmi:sev:id-block`, `pmi:sev:id-auth`)
 - [Native](platforms/native.md) — `pmi:native:vcpu`
-
-A platform-defined type only makes sense when the segment is gated to that
-platform via `platforms`. The platform binding specifies the required filter.
 
 ## Segment loading
 
-For each `pmi:load` segment processed in step 6, the VMM reads the referenced PE
-section header and determines how to load it based on `VirtualAddress`,
-`SizeOfRawData`, `VirtualSize`, and `PointerToRawData`.
+For each `pmi:load` segment, the VMM reads the referenced PE section header
+and determines how to load it based on `VirtualAddress`, `SizeOfRawData`,
+`VirtualSize`, and `PointerToRawData`.
 
 The VMM loads pages from the lowest GPA to the highest within each segment.
 This ordering is significant: CC platforms measure pages in submission order, so
@@ -207,7 +210,9 @@ Measurement behavior is determined by the segment's type:
 - **`pmi:dtbo`** is never measured.
 - **Platform-defined types** specify their measurement semantics in the
   platform binding — typically the platform's measurement API binds the GPA
-  and page type without binding content for VMM-populated pages.
+  and page type without binding content for VMM-populated pages, and
+  launch-input types are not measured at all (they feed the platform's
+  init/finalize APIs rather than the per-page measurement chain).
 
 The distinction between on-disk data and zero-fill matters for `pmi:load`
 measurement. On-disk bytes are measured as normal data pages. Zero-filled bytes

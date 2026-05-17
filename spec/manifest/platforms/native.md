@@ -1,20 +1,16 @@
 # Native Platform Binding
 
-## Platform key
+## Platform name
 
-`"native"`
+`"native"` (the key used in the [PMI index](../../index.md)'s `platforms` map).
+
+The convention is to carry the native manifest in a PE section named
+`.pmi.nat`, but the index is authoritative — any name works.
 
 The native platform is used for non-CC virtual machines. Steps 3–5, 7, and 8
-are no-ops. The VMM inspects the base DTB (step 2), loads segments (step 6),
-applies initial register state (see [vcpu](#vcpu)), and starts the guest
-(step 9).
-
-## Policy schema
-
-```cddl
-native-policy = {
-}
-```
+are no-ops. The VMM inspects the base [DTB](../dtb.md) (step 2), loads
+segments (step 6), applies initial register state (see [vcpu](#vcpu)), and
+starts the guest (step 9).
 
 ## Segment types
 

@@ -100,97 +100,109 @@ allowing the image to specify exactly what gets loaded and measured.
 ## Extending PE/UKI for VMMs
 
 UKI uses PE sections to carry data beyond what UEFI firmware needs. PMI extends
-this model by adding a single non-loaded PE section: `.pmi`.
+this model by adding a single well-known non-loaded PE section — `.pmi` —
+containing a CBOR-encoded [index](index.md) that names the platforms this image
+supports and points each one at its own per-platform manifest in another PE
+section.
 
-The `.pmi` section contains a CBOR (Concise Binary Object Representation)
-encoded **[manifest](manifest/README.md)**. The manifest references other PE
-sections by name and tells the VMM what to do with them:
-
-- Which PE sections to load into guest memory as segments, and in what order.
-- Which segments are platform-specific (e.g., only needed on AMD SEV).
-- Which segments the VMM should fill with generated data (e.g., a
-  [DTB overlay](manifest/segments.md) carrying host-decided memory and CPU
-  topology).
-- A base [DTB](manifest/dtb.md) the VMM inspects to learn the image's expected
-  platform topology and address-space layout (selected per-platform via the
-  `dtb` array).
-- What platform policy to apply (e.g., SEV launch policy).
+For each supported platform, the image carries a PE section (by convention
+`.pmi.<plat>` — `.pmi.nat`, `.pmi.sev`, `.pmi.tdx`, `.pmi.cca`) containing a
+CBOR-encoded [manifest](manifest/README.md). The manifest is a complete
+launch recipe for that one platform: which PE sections to load as segments,
+in what order, with what types; which base DTB to inspect; which segments
+feed the platform's launch APIs at which step. There is no cross-platform
+filtering inside a manifest — the index has already chosen which platform's
+manifest to read.
 
 PMI does not define the additional PE sections themselves — they can contain
 anything (firmware, service modules, platform-specific pages, etc.) as long as
-they are named in the manifest and follow PMI's
-[alignment rules](pe.md#page-granularity). The image author
-decides what PE sections to include; the manifest tells the VMM how to use them.
+they are named in the active platform's manifest and follow PMI's
+[alignment rules](pe.md#page-granularity). The image author decides what PE
+sections to include; the per-platform manifest tells the VMM how to use them.
 
-A VMM that understands PMI reads the `.pmi` section, parses the manifest, and
-follows its instructions. A VMM that does not understand PMI boots the image as
-a standard UKI. UEFI firmware skips the `.pmi` section entirely.
+A VMM that understands PMI reads `.pmi`, picks the platform it targets, reads
+that platform's manifest, and follows its recipe. A VMM that does not
+understand PMI boots the image as a standard UKI. UEFI firmware skips the
+`.pmi*` sections entirely.
 
-The manifest is not integrity-protected by PMI itself. However, the manifest's
-instructions determine what data is loaded and in what order, which directly
-affects the platform's launch measurement. Any change to the manifest that
-alters what is loaded will produce a different measurement and be visible in the
-attestation report.
+The index and per-platform manifests are not integrity-protected by PMI
+itself. However, the active manifest's instructions determine what data is
+loaded and in what order, which directly affects the platform's launch
+measurement. Any change to the manifest that alters what is loaded will
+produce a different measurement and be visible in the attestation report.
 
 ## Example: What a PMI Image Contains
 
-A PMI image for a serviced confidential VM might contain:
+A PMI image supporting both native and SEV serviced boot might contain:
 
 | Section    | Loaded by UEFI? | Purpose                                    |
 | ---------- | --------------- | ------------------------------------------ |
 | `.linux`   | Yes (via stub)  | Kernel                                     |
 | `.initrd`  | Yes (via stub)  | Initial ramdisk                            |
 | `.cmdline` | Yes (via stub)  | Kernel command line                        |
-| `.dtb`     | No              | Base DTB; image-baked platform topology    |
+| `.dtb.nat` | No              | Base DTB used by the native manifest       |
+| `.dtb.sev` | No              | Base DTB used by the SEV manifest          |
 | `.dtbo`    | No              | Host-filled DTB overlay (memory/cpus/numa) |
-| `.ovmf`    | No              | Guest firmware, loaded by VMM              |
-| `.sev.svm` | No              | SVSM service module, loaded by VMM on SEV  |
-| `.sev.vms` | No              | VMSA register state, loaded by VMM on SEV  |
+| `.ovmf`    | No              | Guest firmware                             |
+| `.sev.svm` | No              | SVSM service module                        |
+| `.sev.vms` | No              | VMSA register state                        |
 | `.sev.sec` | No              | Secrets page, populated by platform        |
 | `.sev.cpu` | No              | CPUID page, populated by VMM on SEV        |
-| `.pmi`     | No              | Manifest (CBOR)                            |
+| `.sev.idb` | No              | SEV ID block                               |
+| `.sev.ida` | No              | SEV ID auth info                           |
+| `.vcpu`    | No              | Boot vCPU register state for native        |
+| `.pmi.nat` | No              | Per-platform manifest for native           |
+| `.pmi.sev` | No              | Per-platform manifest for SEV              |
+| `.pmi`     | No              | PMI index (lists `native` and `sev`)       |
 
-On bare metal, UEFI executes the EFI stub, which boots the kernel from `.linux`.
-The non-loaded PE sections are ignored.
+On bare metal, UEFI executes the EFI stub, which boots the kernel from
+`.linux`. All `.pmi*` and other non-loaded PE sections are ignored.
 
-In a VM, the VMM reads `.pmi`, picks the matching `dtb` entry and parses
-its FDT to learn the image's expected platform topology, validates that it
-can conform to every declaration the image makes, loads the segments the
-manifest specifies, fills the DTB overlay with actual host-decided
-memory/cpus/NUMA values, and starts the guest.
+In a VM targeting native, the VMM reads `.pmi`, looks up `"native"` in the
+`platforms` map, follows the pointer to `.pmi.nat`, parses the native
+manifest, inspects `.dtb.nat`, validates conformance, processes segments,
+sets registers from the `pmi:native:vcpu` segment, and starts the guest.
 
-In a confidential VM running in SEV, the VMM additionally loads
-platform-specific segments (`.sev.svm`, `.sev.vms`, `.sev.sec`, `.sev.cpu`),
-applies the launch policy, and measures everything through the platform's
-hardware APIs.
+In a confidential VM targeting SEV, the VMM looks up `"sev"` instead and
+follows `.pmi.sev`. That manifest's segments drive `SNP_LAUNCH_START` (via
+`pmi:sev:policy` or the policy embedded in the signed `pmi:sev:id-block`),
+`SNP_LAUNCH_UPDATE` (page-load segments), and `SNP_LAUNCH_FINISH` (the ID
+block and auth info), with the launch digest covering everything fed to the
+platform's measurement API.
 
 ## PE Constraints and Page Granularity
 
-PMI requires the manifest in a non-loaded `.pmi` PE section, limits PE section
+PMI requires the index in a non-loaded `.pmi` PE section, limits PE section
 names to 8 bytes, and imposes alignment rules that enable zero-copy loading
 with 2M huge pages. See [PE constraints and page granularity](pe.md) for the
 full requirements.
 
 ## VMM Execution Model
 
-The VMM processes the manifest in nine steps:
+The VMM processes the image in nine steps:
 
-1. **Select platform.** Identify the current CC platform (or `"native"`).
-2. **Inspect DTB.** Select the first entry in the manifest's
-   [`dtb`](manifest/dtb.md) array whose `platforms` filter matches, parse its
-   FDT, and validate that the host can provide every hardware capability the
+1. **Select platform.** Identify the target platform (from configuration or
+   hardware detection) and look it up in the [`.pmi` index](index.md). If the
+   platform is not present in the index's `platforms` map, refuse to launch.
+   Otherwise, read the PE section named by the index and parse it as the
+   per-platform [manifest](manifest/README.md).
+2. **Inspect DTB.** If the manifest specifies a [`dtb`](manifest/dtb.md), parse
+   its FDT and validate that the host can provide every hardware capability the
    DTB declares. Fail the launch if any declaration cannot be satisfied.
-3. **Merge policy.** Merge image and deployer [policy](manifest/policy.md).
-4. **Platform initialize.** Initialize the platform's cryptographic context.
+3. _(reserved)_
+4. **Platform initialize.** Initialize the platform's cryptographic context,
+   consuming any manifest segments whose type binds to this step (e.g.,
+   `pmi:sev:policy` for SEV).
 5. **Platform pre-load.** Execute platform-specific pre-segment actions.
-6. **Process [segments](manifest/segments.md).** Load, fill, or skip each
-   segment in array order. Measure as appropriate.
+6. **Process [segments](manifest/segments.md).** Load page-load segments in
+   array order; measure as appropriate.
 7. **Platform post-load.** Execute platform-specific post-segment actions.
-8. **Platform finalize.** Seal the measurement.
+8. **Platform finalize.** Consume launch-finalize segments (e.g.,
+   `pmi:sev:id-block` and `pmi:sev:id-auth` for SEV) and seal the measurement.
 9. **Start the guest.**
 
 Segment order is security-critical: on CC platforms, the measurement is an
 ordered hash chain, so reordering segments produces a different digest. See
 [segments](manifest/segments.md) for the full loading and measurement rules,
-and each [platform binding](manifest/platforms/) for the platform-specific API
-mapping.
+and each [platform binding](manifest/platforms/) for the platform-specific
+execution-model mapping.

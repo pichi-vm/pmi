@@ -1,41 +1,24 @@
-# Manifest
+# Per-Platform Manifest
 
 The key words "MUST", "MUST NOT", "SHOULD", "SHOULD NOT", and "MAY" in this
 specification are to be interpreted as described in
 [RFC 2119](https://www.rfc-editor.org/rfc/rfc2119).
 
-The `.pmi` PE section contains a CBOR-encoded manifest — the complete
-instructions for how a VMM should launch a guest from this image.
+Each platform the image supports has its own CBOR-encoded **manifest** carried
+in its own PE section. The [PMI index](../index.md) in `.pmi` maps platform
+names to the PE sections containing these manifests.
 
-The manifest serves four purposes:
-
-1. **Segment loading.** It tells the VMM which PE sections to load into guest
-   memory, in what order, and how each segment should be treated — loaded from
-   disk, filled with VMM-generated data, or handled by a platform-specific API.
-
-2. **DTB inspection.** It points the VMM at the base [DTB](dtb.md) describing
-   the image's expected platform topology and address-space layout. The VMM
-   reads the DTB to learn what hardware it must provide; it MUST refuse to
-   launch if it cannot match every declaration. The DTB is consumed by the VMM
-   but not loaded into guest memory by this reference.
-
-3. **Platform targeting.** It allows a single image to contain segments for
-   multiple platforms (e.g., SEV, TDX, native). The VMM selects the relevant
-   platform and skips segments that do not apply.
-
-4. **Policy.** It carries platform launch policy that the VMM merges with any
-   deployer-supplied policy before initializing the confidential computing
-   platform. The image author sets the security floor; the deployer fills in the
-   rest.
+A manifest is a complete recipe for launching the image on one specific
+platform. There is no cross-platform filtering or selection within a manifest —
+the index has already chosen the platform by selecting which manifest to read.
 
 ## Schema
 
 ```cddl
 manifest = {
-  "version"   => uint,                 ; schema version, currently 1
-  ? "dtb"     => [+ dtb-ref],         ; see dtb.md
-  "segments"  => [+ segment],          ; see segments.md
-  ? "policy"  => policy,               ; see policy.md
+  "version"  => uint,                  ; schema version, currently 1
+  ? "dtb"    => tstr,                  ; PE section containing the base DTB
+  "segments" => [+ segment],           ; ordered launch recipe
   * tstr => any,                       ; extension point
 }
 ```
@@ -43,33 +26,32 @@ manifest = {
 - **`version`** — the manifest schema version. Currently `1`. VMMs MUST reject
   manifests with an unrecognized version.
 
-- **`dtb`** — an optional ordered array of base DTB references. The VMM picks
-  the first entry whose `platforms` filter matches and reads the referenced
-  FDT before processing segments. See [dtb.md](dtb.md) for the schema,
-  selection rule, format, and host-conformance contract.
+- **`dtb`** — optional. Name of the PE section containing the base
+  [DTB](dtb.md) describing the image's expected platform topology and
+  address-space layout. The VMM reads this before processing segments and
+  refuses to launch if it cannot conform to every declaration.
 
-- **`segments`** — an ordered array of segment entries. See
-  [segments.md](segments.md) for the segment schema, loading rules, defined
-  segment types, and platforms filter.
-
-- **`policy`** — an optional map of platform launch policies. See
-  [policy.md](policy.md) for the policy schema, merge algorithm, and
-  per-platform definitions.
+- **`segments`** — an ordered array of segment entries describing what the VMM
+  should do at each step of the platform's launch procedure. See
+  [segments.md](segments.md) for the segment schema and defined types.
 
 All PMI-defined maps accept additional keys beyond those defined here.
-Well-known keys are short, unnamespaced strings (e.g., `"section"`, `"type"`,
-`"platforms"`). Extension keys MUST use a collision-resistant namespaced form:
-`"namespace:key"` (e.g., `"vendor:feature"`). Type values defined by this
-specification use the `"pmi:"` prefix (e.g., `"pmi:load"`, `"pmi:dtb"`,
-`"pmi:dtbo"`, `"pmi:sev:vmsa"`); extension types use a non-`"pmi:"` namespaced
-prefix. Consumers MUST ignore unknown keys but MUST reject unknown type values.
+Well-known keys are short, unnamespaced strings (e.g., `"section"`, `"type"`).
+Extension keys MUST use a collision-resistant namespaced form
+(`"namespace:key"`). Type values defined by this specification use the
+`"pmi:"` prefix (e.g., `"pmi:load"`, `"pmi:dtbo"`, `"pmi:sev:vmsa"`);
+extension types use a non-`"pmi:"` namespaced prefix. Consumers MUST ignore
+unknown keys but MUST reject unknown type values.
 
 ## Platform Bindings
 
-Each CC platform defines its own policy schema and segment types. These are
-specified in separate binding documents:
+Each platform binding owns the set of segment types its manifest may use and
+specifies how each type maps to the platform's launch API. Bindings are free
+to define types for any launch step — initialization inputs, page loads,
+finalization inputs.
 
-- [AMD SEV 3.0](platforms/sev.md) — Policy, segment types, API mapping
+- [Native](platforms/native.md) — non-CC virtual machines
+- [AMD SEV 3.0](platforms/sev.md) — typed launch inputs, page loads,
+  ID-block-based attestation
 - [Intel TDX](platforms/tdx.md) — TODO
 - [Arm CCA](platforms/cca.md) — TODO
-- [Native](platforms/native.md) — No CC

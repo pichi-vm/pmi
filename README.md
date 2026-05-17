@@ -17,11 +17,14 @@ loading, EFI stubs, firmware passthrough, service modules — across bare metal,
 VMs, and confidential VMs. No single image format covers all of these contexts.
 Each requires its own build pipeline and tooling.
 
-PMI solves this by extending the PE format with a CBOR-encoded manifest — the
-complete recipe for launching a guest. Systems that already boot from PE (UEFI,
-PXE, HTTP Boot, systemd-boot) ignore the manifest and boot as normal. VMMs that
-understand PMI read the manifest and execute its instructions. The same artifact
-boots on bare metal, in a VM, and in a confidential VM on multiple platforms.
+PMI solves this by extending the PE format with two CBOR layers: a small
+**index** in `.pmi` that names the platforms the image supports, and a
+**per-platform manifest** in another PE section (by convention `.pmi.<plat>`)
+that carries the complete launch recipe for that one platform. Systems that
+already boot from PE (UEFI, PXE, HTTP Boot, systemd-boot) ignore both and boot
+as normal. VMMs that understand PMI read the index, pick the platform they
+target, and execute that manifest's recipe. The same artifact boots on bare
+metal, in a VM, and in a confidential VM on multiple platforms.
 
 ## Design Principles
 
@@ -29,54 +32,52 @@ boots on bare metal, in a VM, and in a confidential VM on multiple platforms.
    already consume PE. No new container format is needed. Standard PE tooling
    (mkosi, systemd-ukify, sbsign, objcopy) works on PMI images unmodified.
 
-2. **The manifest is declarative.** The VMM reads the manifest and executes it.
-   It does not introspect firmware binaries, rely on hardcoded conventions, or
-   make assumptions about image contents. Everything the VMM needs to know is in
-   the manifest.
+2. **The manifest is declarative.** The VMM reads the active per-platform
+   manifest and executes it. It does not introspect firmware binaries, rely
+   on hardcoded conventions, or make assumptions about image contents.
+   Everything the VMM needs to know is in the manifest.
 
-3. **Everything is a PE section.** Data loaded from the PE, VMM-generated
-   runtime data, platform-specific pages, and VMM-inspectable image data are
-   all expressed as PE sections, declared in the manifest's `segments` and
-   `dtb` arrays. Each entry carries a type that selects its behavior and a
-   platforms filter that selects where it applies. The manifest expresses
-   regions, not pages; the host decides page granularity.
+3. **One manifest per platform.** Each supported platform has its own complete
+   recipe in its own PE section. No cross-platform filtering, no merging.
+   The `.pmi` index resolves the target platform to its manifest section, and
+   the rest is platform-local.
 
-4. **Policy is separate and mergeable.** The image may embed required platform
-   policy. A deployer may supply external policy that is deep-merged with the
-   image policy, with the image taking precedence on conflicts. Policy is not
-   measured — it appears in the attestation report for remote verification.
+4. **Everything is a PE section.** Data loaded into guest memory,
+   VMM-generated runtime data, platform-specific pages, launch-procedure
+   inputs (policy, ID block, etc.), and the base DTB are all expressed as PE
+   sections that the active manifest references. The manifest expresses
+   regions and types, not pages; the host decides page granularity.
 
-5. **Confidential Computing is additive.** A PMI without a manifest can be a
-   traditional UKI. A PMI with a manifest boots identically on non-CC VMMs that
-   ignore the manifest. CC semantics are layered on top, never required.
+5. **Confidential Computing is additive.** A PMI image without an index is
+   still a valid UKI that boots on bare metal and via standard direct/stubbed
+   VM paths — UEFI ignores `.pmi*`. CC semantics layer on top via per-platform
+   manifests, never required.
 
-6. **Extensible everywhere.** Every structure accepts unknown keys. New
-   platforms, segment types, and policy fields require no schema changes. This
-   implies that VMMs can provide VMM-specific extensions without breaking
-   compatibility with other VMMs.
+6. **Extensible everywhere.** Every structure accepts unknown keys, and every
+   platform binding owns its own segment types. Adding a platform means
+   adding a manifest section and an index entry; no schema changes to other
+   bindings.
 
 ## Documentation
 
 - [Why PMI?](spec/why.md) — Boot modes, format comparison, and why not IGVM
 - [Overview](spec/overview.md) — Format overview, execution model, measurement
 - [PE Constraints](spec/pe.md) — Alignment rules and page granularity
-- [Examples](spec/examples.md) — Walkthroughs: direct boot, SVSM+OVMF,
-  per-platform DTBs
+- [PMI Index](spec/index.md) — The `.pmi` section: platform discovery
+- [Examples](spec/examples.md) — Walkthroughs: native + SEV, serviced SVSM+OVMF
 
-### Manifest
+### Per-Platform Manifest
 
 - [Manifest](spec/manifest/README.md) — Top-level schema, extensibility,
   versioning
-- [Segments](spec/manifest/segments.md) — Segment schema, loading, segment
-  types, platforms filter
-- [DTB](spec/manifest/dtb.md) — Base DTB array, per-platform selection,
-  host-conformance contract
-- [Policy](spec/manifest/policy.md) — Policy schema and merge algorithm
+- [Segments](spec/manifest/segments.md) — Segment schema, defined types,
+  loading rules, measurement
+- [DTB](spec/manifest/dtb.md) — Base DTB and host-conformance contract
 
 ### Platform Bindings
 
-- [AMD SEV 3.0](spec/manifest/platforms/sev.md) — Policy, segment types, API
-  mapping
+- [Native](spec/manifest/platforms/native.md) — `pmi:native:vcpu`
+- [AMD SEV 3.0](spec/manifest/platforms/sev.md) — Launch-input and page-load
+  segment types, ID-block-based attestation
 - [Intel TDX](spec/manifest/platforms/tdx.md) — TODO
 - [Arm CCA](spec/manifest/platforms/cca.md) — TODO
-- [Native](spec/manifest/platforms/native.md) — No CC
