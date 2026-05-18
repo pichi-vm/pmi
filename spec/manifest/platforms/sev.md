@@ -4,14 +4,15 @@
 
 `"sev"` (the key used in the [PMI index](../../index.md)'s `platforms` map).
 
-The convention is to carry the SEV manifest in a PE section named `.pmi.sev`,
-but the index is authoritative — any name works.
+The PE section containing this platform's manifest may use any name; only the
+index is authoritative. By convention images use `.pmi.sev`.
 
 ## PE section naming convention
 
-PE sections specific to SEV 3.0 use the `.sev.` prefix (e.g., `.sev.vms`,
-`.sev.sec`, `.sev.cpu`, `.sev.svm`, `.sev.pol`, `.sev.idb`, `.sev.ida`). This
-is a convention, not a requirement; segments reference PE sections by name.
+The SEV-specific PE sections shown in examples (`.sev.vms`, `.sev.sec`,
+`.sev.cpu`, `.sev.svm`, `.sev.pol`, `.sev.idb`, `.sev.ida`) follow a `.sev.`
+prefix convention. The convention has no normative force: segments reference
+PE sections by name, and any PE section name fits.
 
 ## Segment types
 

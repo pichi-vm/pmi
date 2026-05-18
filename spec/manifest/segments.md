@@ -22,15 +22,18 @@ declared by the manifest's [`dtb`](dtb.md) field, not here.
 
 ```cddl
 segment = {
-  "section"  => tstr,                  ; PE section name (e.g., ".ovmf", ".sev.svm")
+  "section"  => tstr,                  ; any PE section name (e.g., ".ovmf", ".sev.svm")
   ? "type"   => tstr,                  ; segment kind; default "pmi:load"
   * tstr => any,                       ; type-specific parameters
 }
 ```
 
-- **`section`** — the PE section this segment references. The VMM reads
-  `VirtualAddress`, `SizeOfRawData`, `VirtualSize`, and `PointerToRawData` from
-  this PE section's header.
+- **`section`** — the PE section this segment references. The value is the
+  exact name of a PE section in the image; section names are free-form
+  (subject only to PE's 8-byte limit). Conventional prefixes such as `.sev.`
+  appear in examples but are not required. The VMM reads `VirtualAddress`,
+  `SizeOfRawData`, `VirtualSize`, and `PointerToRawData` from this PE
+  section's header.
 
 - **`type`** — identifies the segment kind. Defaults to `"pmi:load"` when
   absent. See [Defined types](#defined-types) for the types this specification
@@ -168,7 +171,7 @@ launch APIs and at which launch step they are consumed:
 - [AMD SEV 3.0](platforms/sev.md) — page-load types (`pmi:sev:vmsa`,
   `pmi:sev:secrets`, `pmi:sev:cpuid`) plus launch-input types
   (`pmi:sev:policy`, `pmi:sev:id-block`, `pmi:sev:id-auth`)
-- [Native](platforms/native.md) — `pmi:native:vcpu`
+- [VM](platforms/vm.md) — `pmi:vm:vcpu`
 
 ## Segment loading
 

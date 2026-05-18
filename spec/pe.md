@@ -5,9 +5,16 @@
 PMI imposes the following constraints on the PE:
 
 - **The [index](index.md) MUST be stored in a `.pmi` PE section.** The section
-  MUST be non-loaded (`IMAGE_SCN_MEM_DISCARDABLE`). Each per-platform
-  [manifest](manifest/README.md) MUST be stored in its own non-loaded PE
-  section (by convention `.pmi.<plat>`); the index names them.
+  MUST be non-loaded (`IMAGE_SCN_MEM_DISCARDABLE`). `.pmi` is the only PE
+  section name with normative meaning in PMI. Every other PE section in the
+  image — per-platform [manifests](manifest/README.md), kernels, firmware,
+  DTBs, platform-specific pages — uses a free-form name; the index and the
+  active manifest resolve names to purposes. Convention uses `.pmi.<plat>`
+  for per-platform manifests (`.pmi.vm`, `.pmi.sev`, `.pmi.tdx`, `.pmi.cca`),
+  but the convention has no normative force.
+
+  Per-platform manifest sections MUST also be non-loaded
+  (`IMAGE_SCN_MEM_DISCARDABLE`).
 
 - **Section names MUST fit in 8 bytes.** The PE `IMAGE_SECTION_HEADER.Name`
   field is a fixed 8-byte array. PMI does not use the COFF string table

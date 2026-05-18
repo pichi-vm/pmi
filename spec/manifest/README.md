@@ -6,7 +6,9 @@ specification are to be interpreted as described in
 
 Each platform the image supports has its own CBOR-encoded **manifest** carried
 in its own PE section. The [PMI index](../index.md) in `.pmi` maps platform
-names to the PE sections containing these manifests.
+names to the PE sections containing these manifests. The names of those PE
+sections — and of every PE section a manifest references — are free-form;
+only `.pmi` itself is a normatively-required name.
 
 A manifest is a complete recipe for launching the image on one specific
 platform. There is no cross-platform filtering or selection within a manifest —
@@ -50,7 +52,7 @@ specifies how each type maps to the platform's launch API. Bindings are free
 to define types for any launch step — initialization inputs, page loads,
 finalization inputs.
 
-- [Native](platforms/native.md) — non-CC virtual machines
+- [VM](platforms/vm.md) — non-CC virtual machines
 - [AMD SEV 3.0](platforms/sev.md) — typed launch inputs, page loads,
   ID-block-based attestation
 - [Intel TDX](platforms/tdx.md) — TODO

@@ -25,10 +25,11 @@ index = {
 - **`version`** — the index schema version. Currently `1`. VMMs MUST reject
   indexes with an unrecognized version.
 
-- **`platforms`** — a map from platform name (e.g., `"native"`, `"sev"`,
-  `"tdx"`, `"cca"`) to the name of the PE section containing that platform's
-  [manifest](manifest/README.md). VMMs MUST reject an index whose `platforms`
-  map is empty.
+- **`platforms`** — a map from platform name (e.g., `"vm"`, `"sev"`, `"tdx"`,
+  `"cca"`) to the name of the PE section containing that platform's
+  [manifest](manifest/README.md). The PE section names are free-form (subject
+  to PE's 8-byte limit) — only the value of this map is authoritative. VMMs
+  MUST reject an index whose `platforms` map is empty.
 
 ## Selection
 
@@ -48,16 +49,20 @@ platform, the VMM does not attempt to launch on it.
 
 ## PE section naming convention
 
-Per-platform manifest sections SHOULD follow the convention `.pmi.<plat>`
-where `<plat>` is the platform name truncated to fit the 8-byte PE section
-name limit:
+`.pmi` is the only PE section name with normative meaning in PMI — the VMM
+finds the index there. Every other PE section name in the image is free-form
+(subject to PE's 8-byte limit), including the per-platform manifest sections
+and every PE section those manifests reference.
 
-- `.pmi.nat` — native
+By convention, images carry each per-platform manifest in `.pmi.<plat>`:
+
+- `.pmi.vm` — non-CC VM
 - `.pmi.sev` — AMD SEV 3.0
 - `.pmi.tdx` — Intel TDX
 - `.pmi.cca` — Arm CCA
 
-Image authors MAY use any other names; the index is authoritative.
+This is a convention only. Image authors MAY use any names; the index is
+authoritative.
 
 ## Extensibility
 

@@ -106,13 +106,18 @@ supports and points each one at its own per-platform manifest in another PE
 section.
 
 For each supported platform, the image carries a PE section (by convention
-`.pmi.<plat>` — `.pmi.nat`, `.pmi.sev`, `.pmi.tdx`, `.pmi.cca`) containing a
-CBOR-encoded [manifest](manifest/README.md). The manifest is a complete
-launch recipe for that one platform: which PE sections to load as segments,
-in what order, with what types; which base DTB to inspect; which segments
-feed the platform's launch APIs at which step. There is no cross-platform
-filtering inside a manifest — the index has already chosen which platform's
-manifest to read.
+`.pmi.<plat>` — `.pmi.vm`, `.pmi.sev`, `.pmi.tdx`, `.pmi.cca`) containing a
+CBOR-encoded [manifest](manifest/README.md). The manifest is a complete launch
+recipe for that one platform: which PE sections to load as segments, in what
+order, with what types; which base DTB to inspect; which segments feed the
+platform's launch APIs at which step. There is no cross-platform filtering
+inside a manifest — the index has already chosen which platform's manifest to
+read.
+
+`.pmi` is the only PE section name PMI requires. Every other PE section name
+in the image is free-form (subject only to PE's 8-byte limit); the index
+resolves names to per-platform manifests, and each manifest resolves names to
+segments and the base DTB.
 
 PMI does not define the additional PE sections themselves — they can contain
 anything (firmware, service modules, platform-specific pages, etc.) as long as
@@ -133,14 +138,16 @@ produce a different measurement and be visible in the attestation report.
 
 ## Example: What a PMI Image Contains
 
-A PMI image supporting both native and SEV serviced boot might contain:
+A PMI image supporting both `vm` and SEV serviced boot might contain the
+following PE sections (only `.pmi` is required by name — all other names
+shown are illustrative):
 
 | Section    | Loaded by UEFI? | Purpose                                    |
 | ---------- | --------------- | ------------------------------------------ |
 | `.linux`   | Yes (via stub)  | Kernel                                     |
 | `.initrd`  | Yes (via stub)  | Initial ramdisk                            |
 | `.cmdline` | Yes (via stub)  | Kernel command line                        |
-| `.dtb.nat` | No              | Base DTB used by the native manifest       |
+| `.dtb.vm`  | No              | Base DTB used by the `vm` manifest         |
 | `.dtb.sev` | No              | Base DTB used by the SEV manifest          |
 | `.dtbo`    | No              | Host-filled DTB overlay (memory/cpus/numa) |
 | `.ovmf`    | No              | Guest firmware                             |
@@ -150,21 +157,23 @@ A PMI image supporting both native and SEV serviced boot might contain:
 | `.sev.cpu` | No              | CPUID page, populated by VMM on SEV        |
 | `.sev.idb` | No              | SEV ID block                               |
 | `.sev.ida` | No              | SEV ID auth info                           |
-| `.vcpu`    | No              | Boot vCPU register state for native        |
-| `.pmi.nat` | No              | Per-platform manifest for native           |
+| `.vcpu`    | No              | Boot vCPU register state for `vm`          |
+| `.pmi.vm`  | No              | Per-platform manifest for `vm`             |
 | `.pmi.sev` | No              | Per-platform manifest for SEV              |
-| `.pmi`     | No              | PMI index (lists `native` and `sev`)       |
+| `.pmi`     | No              | PMI index (lists `vm` and `sev`)           |
 
 On bare metal, UEFI executes the EFI stub, which boots the kernel from
 `.linux`. All `.pmi*` and other non-loaded PE sections are ignored.
 
-In a VM targeting native, the VMM reads `.pmi`, looks up `"native"` in the
-`platforms` map, follows the pointer to `.pmi.nat`, parses the native
-manifest, inspects `.dtb.nat`, validates conformance, processes segments,
-sets registers from the `pmi:native:vcpu` segment, and starts the guest.
+In a non-CC VM, the VMM reads `.pmi`, looks up `"vm"` in the `platforms`
+map, follows the pointer to whatever PE section is named there (here,
+`.pmi.vm`), parses the manifest, inspects the base DTB the manifest names,
+validates conformance, processes segments, sets registers from the
+`pmi:vm:vcpu` segment, and starts the guest.
 
 In a confidential VM targeting SEV, the VMM looks up `"sev"` instead and
-follows `.pmi.sev`. That manifest's segments drive `SNP_LAUNCH_START` (via
+follows the section named there. That manifest's segments drive
+`SNP_LAUNCH_START` (via
 `pmi:sev:policy` or the policy embedded in the signed `pmi:sev:id-block`),
 `SNP_LAUNCH_UPDATE` (page-load segments), and `SNP_LAUNCH_FINISH` (the ID
 block and auth info), with the launch digest covering everything fed to the

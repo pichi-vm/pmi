@@ -1,28 +1,29 @@
-# Native Platform Binding
+# VM Platform Binding
 
 ## Platform name
 
-`"native"` (the key used in the [PMI index](../../index.md)'s `platforms` map).
+`"vm"` (the key used in the [PMI index](../../index.md)'s `platforms` map).
 
-The convention is to carry the native manifest in a PE section named
-`.pmi.nat`, but the index is authoritative — any name works.
+The PE section containing this platform's manifest may use any name; only the
+index is authoritative. By convention images use `.pmi.vm`.
 
-The native platform is used for non-CC virtual machines. Steps 3–5, 7, and 8
-are no-ops. The VMM inspects the base [DTB](../dtb.md) (step 2), loads
-segments (step 6), applies initial register state (see [vcpu](#vcpu)), and
-starts the guest (step 9).
+The VM platform is used for non-CC virtual machines. Steps 3–5, 7, and 8 are
+no-ops. The VMM inspects the base [DTB](../dtb.md) (step 2), loads segments
+(step 6), applies initial register state (see [vcpu](#vcpu)), and starts the
+guest (step 9).
 
 ## Segment types
 
-| Type                | Behavior                                                          |
-| ------------------- | ----------------------------------------------------------------- |
-| `"pmi:native:vcpu"` | CBOR-encoded register state for the boot vCPU. See [vcpu](#vcpu). |
+| Type            | Behavior                                                          |
+| --------------- | ----------------------------------------------------------------- |
+| `"pmi:vm:vcpu"` | CBOR-encoded register state for the boot vCPU. See [vcpu](#vcpu). |
 
-Ordinary data segments use the default `"pmi:load"` type.
+Ordinary data segments use the default `"pmi:load"` type. Segments reference
+PE sections by name; the names are free-form.
 
 ## vcpu
 
-A `"pmi:native:vcpu"` segment carries a CBOR-encoded map of register values for
+A `"pmi:vm:vcpu"` segment carries a CBOR-encoded map of register values for
 the boot vCPU. The VMM decodes the referenced PE section's on-disk bytes as
 CBOR, looks up each key in the architecture-specific schema selected by the PE
 header's `FileHeader.Machine` field, and applies the corresponding values to the
@@ -36,9 +37,9 @@ written to guest memory. The PE section MUST be non-loaded
 section's `VirtualAddress` field has no semantic meaning for vcpu; its content
 is the CBOR blob occupying `SizeOfRawData` bytes at `PointerToRawData`.
 
-On native, the manifest MUST contain at least one `"pmi:native:vcpu"` segment.
-If multiple are present, the VMM MUST use the last one in segment array order;
-earlier vcpu segments are ignored.
+A `vm` manifest MUST contain at least one `"pmi:vm:vcpu"` segment. If multiple
+are present, the VMM MUST use the last one in segment array order; earlier
+vcpu segments are ignored.
 
 Per PMI's general extensibility rule, missing keys default to zero (with the
 per-architecture exceptions noted below). Unknown keys MUST be ignored. Vendor

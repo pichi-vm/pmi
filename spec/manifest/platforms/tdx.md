@@ -4,7 +4,8 @@
 
 `"tdx"` (the key used in the [PMI index](../../index.md)'s `platforms` map).
 
-Convention: `.pmi.tdx` PE section for the manifest.
+The PE section containing this platform's manifest may use any name; only the
+index is authoritative. By convention images use `.pmi.tdx`.
 
 ## Segment types
 

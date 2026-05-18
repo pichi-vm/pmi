@@ -64,7 +64,7 @@ metal, in a VM, and in a confidential VM on multiple platforms.
 - [Overview](spec/overview.md) — Format overview, execution model, measurement
 - [PE Constraints](spec/pe.md) — Alignment rules and page granularity
 - [PMI Index](spec/index.md) — The `.pmi` section: platform discovery
-- [Examples](spec/examples.md) — Walkthroughs: native + SEV, serviced SVSM+OVMF
+- [Examples](spec/examples.md) — Walkthroughs: vm + SEV, serviced SVSM+OVMF
 
 ### Per-Platform Manifest
 
@@ -76,7 +76,7 @@ metal, in a VM, and in a confidential VM on multiple platforms.
 
 ### Platform Bindings
 
-- [Native](spec/manifest/platforms/native.md) — `pmi:native:vcpu`
+- [VM](spec/manifest/platforms/vm.md) — `pmi:vm:vcpu` (non-CC VMs)
 - [AMD SEV 3.0](spec/manifest/platforms/sev.md) — Launch-input and page-load
   segment types, ID-block-based attestation
 - [Intel TDX](spec/manifest/platforms/tdx.md) — TODO

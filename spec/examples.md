@@ -9,10 +9,10 @@ A PMI image is a PE binary with three logical layers:
 3. Per-platform manifests reference other PE sections by name (kernel, initrd,
    firmware, DTBs, platform-specific pages, etc.).
 
-The examples below show the index plus the per-platform manifests for one or
-more platforms.
+`.pmi` is the only PE section name PMI requires. Every other PE section name
+in the examples below is illustrative — image authors choose names freely.
 
-## Direct boot on native and SEV
+## Direct boot on `vm` and SEV
 
 ### `.pmi` (index)
 
@@ -20,24 +20,24 @@ more platforms.
 {
   "version": 1,
   "platforms": {
-    "native": ".pmi.nat",
-    "sev":    ".pmi.sev"
+    "vm":  ".pmi.vm",
+    "sev": ".pmi.sev"
   }
 }
 ```
 
-### `.pmi.nat` (native manifest)
+### `.pmi.vm` (vm manifest)
 
 ```cbor-diag
 {
   "version": 1,
-  "dtb": ".dtb.nat",
+  "dtb": ".dtb.vm",
   "segments": [
     {"section": ".linux"},
     {"section": ".initrd"},
     {"section": ".cmdline"},
     {"section": ".dtbo", "type": "pmi:dtbo"},
-    {"section": ".vcpu", "type": "pmi:native:vcpu"}
+    {"section": ".vcpu", "type": "pmi:vm:vcpu"}
   ]
 }
 ```
@@ -59,17 +59,17 @@ more platforms.
 }
 ```
 
-**Native launch (steps 1–9):**
+**vm launch (steps 1–9):**
 
-1. Look up `"native"` in `.pmi` → read `.pmi.nat`.
-2. Parse `.dtb.nat`; validate host conformance.
+1. Look up `"vm"` in `.pmi` → read `.pmi.vm`.
+2. Parse `.dtb.vm`; validate host conformance.
 3. _(reserved)_
-4. (No CC init for native.)
+4. (No CC init for `vm`.)
 5. (No pre-load.)
 6. Process segments in order: load `.linux`, `.initrd`, `.cmdline` (default
    `pmi:load`, measured). Write the host-decided memory/cpus/NUMA overlay into
    `.dtbo` (`pmi:dtbo`, unmeasured). Set boot vCPU registers from the
-   `pmi:native:vcpu` segment.
+   `pmi:vm:vcpu` segment.
 7. (No post-load.)
 8. (No finalize.)
 9. Kernel starts.
@@ -148,8 +148,8 @@ non-loaded PE sections are ignored. Standard UKI boot.
 9. SVSM starts at VMPL0, initializes vTPM, creates VMPL1 VMSA for OVMF,
    transitions OVMF. OVMF boots kernel from disk, measures boot via SVSM vTPM.
 
-**Native:** the image does not include `"native"` in its index; a VMM
-targeting native refuses to launch this image.
+**Non-CC VM:** the image does not include `"vm"` in its index; a VMM
+targeting `vm` refuses to launch this image.
 
 **Bare metal:** UEFI ignores `.pmi*` and all `.sev.*`, `.ovmf`, `.dtb.sev`
 sections. EFI stub in `.linux` executes normally.
