@@ -20,14 +20,14 @@ depends on the deployment context:
   provide runtime data like a memory map or ACPI tables. Unlike bare metal,
   the platform layout is composed at launch — by the host.
 
-- **Confidential VM:** Everything a VM needs, plus platform-specific pages
+- **Confidential VM:** Everything a VM needs, plus target-specific pages
   that the hardware requires: initial register state, secrets pages, CPUID
-  tables. A **service module** — a CC-specific privileged component such
-  as [COCONUT-SVSM](https://github.com/coconut-svsm/svsm) on AMD SEV-SNP —
-  may run at a higher privilege level than the guest firmware, initialize
-  the confidential environment, and provide a vTPM before launching the
+  tables. A **service module** — a CC-specific privileged component such as
+  [COCONUT-SVSM](https://github.com/coconut-svsm/svsm) on AMD SEV-SNP — may
+  run at a higher privilege level than the guest firmware, initialize the
+  confidential environment, and provide a vTPM before launching the
   firmware. The VMM loads all of this into guest memory, in the correct
-  order, and feeds each page to the platform's measurement API. The VMM is
+  order, and feeds each page to the target's measurement API. The VMM is
   untrusted — hardware attestation allows a remote verifier to confirm that
   the VMM loaded exactly what the image specified.
 
@@ -101,33 +101,34 @@ attack surface allowing root compromise of confidential VMs:
 This is precisely the kind of vulnerability PMI aims to eliminate by allowing
 the image to specify exactly what gets loaded and measured.
 
-## Platforms
+## Targets
 
-PMI defines one **platform** per launch path the image supports. A platform
-is a self-contained CBOR spec carried in its own PE section (named by
-convention `.pmi.<plat>`). A VMM targeting a platform reads that platform's
-section, ignores the others, and executes the recipe it finds there.
+PMI defines one **target** per launch path the image supports. A target is
+a self-contained CBOR spec carried in its own PE section (named by
+convention `.pmi.<target>`). A VMM targeting one of them reads that
+target's section, ignores the others, and executes the recipe it finds
+there.
 
-The currently defined platforms are:
+The currently defined targets are:
 
-| Platform        | PE section | Notes                                  |
+| Target          | PE section | Notes                                  |
 | --------------- | ---------- | -------------------------------------- |
 | [`vm`](vm.md)   | `.pmi.vm`  | Non-CC virtual machines                |
 | [`sev`](sev.md) | `.pmi.sev` | AMD SEV 3.0 (SEV-SNP) confidential VMs |
 | [`tdx`](tdx.md) | `.pmi.tdx` | Intel TDX confidential VMs (TODO)      |
 | [`cca`](cca.md) | `.pmi.cca` | Arm CCA confidential VMs (TODO)        |
 
-Platforms are independent — they share conventions (the [`dtb`](dtb.md) field;
+Targets are independent — they share conventions (the [`dtb`](dtb.md) field;
 the [`load`](load.md) and [`dtbo`](dtbo.md) actions) but each one fully
 specifies its own launch recipe. There is no inheritance, no fallback, no
 selection logic beyond "the VMM targeting `sev` reads `.pmi.sev`."
 
-## Shape of a platform spec
+## Shape of a target spec
 
-Every platform spec is a CBOR map with the same outer shape:
+Every target spec is a CBOR map with the same outer shape:
 
 ```cddl
-platform = {
+target = {
   "version" => uint,                ; schema version
   ? "dtb"   => tstr,                ; PE section containing the base DTB
   "actions" => [+ action],          ; ordered launch recipe
@@ -135,48 +136,48 @@ platform = {
 }
 ```
 
-Each platform defines its own set of `action` types. Common action types
-(used by multiple platforms) are:
+Each target defines its own set of `action` types. Common action types
+(used by multiple targets) are:
 
 - [`load`](load.md) — load a PE section's bytes into guest memory.
 - [`dtbo`](dtbo.md) — VMM writes a host-decided devicetree overlay into the
   named section.
 
-Platform-specific action types are defined by each platform binding (e.g.,
+Target-specific action types are defined by each target binding (e.g.,
 `vcpu` on `vm`, `sev:policy` / `sev:id-block` / `sev:vmsa` / ... on `sev`).
 
-Action `type` values use the `<platform>:<name>` convention when scoped
-(e.g., `sev:vmsa`); short, unscoped names (`load`, `dtbo`, `vcpu`) are used
-where collisions are not a concern.
+Action `type` values use the `<target>:<name>` convention when scoped (e.g.,
+`sev:vmsa`); short, unscoped names (`load`, `dtbo`, `vcpu`) are used where
+collisions are not a concern.
 
 ## VMM execution model
 
-1. **Select platform.** Identify the target platform and read its PE section
-   (e.g., `.pmi.sev` for SEV). If the section is absent, refuse to launch.
+1. **Select target.** Identify the target and read its PE section (e.g.,
+   `.pmi.sev` for SEV). If the section is absent, refuse to launch.
 2. **Inspect DTB.** If the spec includes a [`dtb`](dtb.md), parse its FDT and
    validate that the host can satisfy every hardware capability it declares.
    Fail the launch if any declaration cannot be satisfied.
 3. _(reserved)_
-4. **Platform initialize.** Initialize the platform's cryptographic context,
+4. **Target initialize.** Initialize the target's cryptographic context,
    consuming any action whose type binds to this step (e.g., `sev:policy`).
 5. _(reserved)_
 6. **Process actions.** Process each action in array order. Each action's
    `type` selects how the VMM consumes it; common types load PE bytes into
-   guest memory and are measured by the platform's measurement API as
+   guest memory and are measured by the target's measurement API as
    appropriate.
 7. _(reserved)_
-8. **Platform finalize.** Consume launch-finalize actions (e.g.,
+8. **Target finalize.** Consume launch-finalize actions (e.g.,
    `sev:id-block` and `sev:id-auth`) and seal the measurement.
 9. **Start the guest.**
 
-Action order is security-critical on CC platforms: the launch measurement is
+Action order is security-critical on CC targets: the launch measurement is
 an ordered hash chain, so reordering actions produces a different digest.
 
 ## Example: what a PMI image contains
 
 A PMI image supporting both `vm` and SEV serviced boot might contain the
-following PE sections. Only the `.pmi.<plat>` names are used by PMI to
-discover platform specs; all other names shown are illustrative.
+following PE sections. Only the `.pmi.<target>` names are used by PMI to
+discover target specs; all other names shown are illustrative.
 
 | Section    | Loaded by UEFI? | Purpose                                    |
 | ---------- | --------------- | ------------------------------------------ |
@@ -194,8 +195,8 @@ discover platform specs; all other names shown are illustrative.
 | `.sev.idb` | No              | SEV ID block                               |
 | `.sev.ida` | No              | SEV ID auth info                           |
 | `.vcpu`    | No              | Boot vCPU register state for `vm`          |
-| `.pmi.vm`  | No              | `vm` platform spec                         |
-| `.pmi.sev` | No              | `sev` platform spec                        |
+| `.pmi.vm`  | No              | `vm` target spec                           |
+| `.pmi.sev` | No              | `sev` target spec                          |
 
 On bare metal, UEFI executes the EFI stub, which boots the kernel from
 `.linux`. All `.pmi.*` and other non-loaded PE sections are ignored.
@@ -208,10 +209,10 @@ A VMM targeting `sev` reads `.pmi.sev`. Its actions drive `SNP_LAUNCH_START`
 (`sev:policy`, or policy embedded in the signed `sev:id-block`),
 `SNP_LAUNCH_UPDATE` (`load` and `sev:vmsa`/`sev:secrets`/`sev:cpuid`), and
 `SNP_LAUNCH_FINISH` (`sev:id-block` + `sev:id-auth`), with the launch digest
-covering everything fed to the platform's measurement API.
+covering everything fed to the target's measurement API.
 
 ## PE constraints and page granularity
 
 PMI imposes alignment rules on PE sections that allow zero-copy loading with
-2M huge pages, and requires that platform-spec sections be non-loaded. See
+2M huge pages, and requires that target-spec sections be non-loaded. See
 [PE constraints and page granularity](pe.md) for the full rules.

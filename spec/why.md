@@ -67,7 +67,7 @@ the guest firmware down to a lower privilege level. The canonical example
 is [COCONUT-SVSM](https://github.com/coconut-svsm/svsm) on AMD SEV-SNP,
 which runs at VMPL0 and exposes services to OVMF at VMPL1. Service modules
 are absent from bare metal and non-CC VM boot — they exist solely to bridge
-the trust transition that CC platforms introduce.
+the trust transition that CC targets introduce.
 
 Unlike Windows, which assumes a single UEFI boot path, Linux deployers
 routinely use direct kernel loading, firmware passthrough, service modules,
@@ -112,11 +112,11 @@ confidential boot. Producing an image that worked across modes meant
 producing several images.
 
 PMI is a strict superset of PE. The same PE binary boots on bare metal,
-in a non-CC VM, and in a confidential VM on multiple platforms. Per-platform
+in a non-CC VM, and in a confidential VM on multiple CC targets. Per-target
 launch recipes are carried in their own non-loaded PE sections (by
-convention `.pmi.<plat>`) — UEFI ignores them and boots the PE the way it
+convention `.pmi.<target>`) — UEFI ignores them and boots the PE the way it
 already knows how. A VMM that understands PMI reads the section for the
-platform it targets and executes that recipe.
+target it picks and executes that recipe.
 
 | Mode        | PE  | UKI | IGVM | PMI |
 | :---------- | :-: | :-: | :--: | :-: |

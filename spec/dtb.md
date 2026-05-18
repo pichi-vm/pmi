@@ -1,6 +1,6 @@
 # Base DTB
 
-Several PMI platforms accept an optional `dtb` field in their CBOR spec. Its
+Several PMI targets accept an optional `dtb` field in their CBOR spec. Its
 value is the name of a PE section containing a Devicetree Blob (FDT v17) that
 describes the image's expected platform topology and address-space layout. The
 VMM reads the DTB before processing actions and refuses to launch if it cannot
@@ -70,6 +70,6 @@ image build time.
 If the guest needs the DTB content in memory (for example, aarch64 Linux reads
 the DTB via the `x0` register at boot, or an image's stub merges the base DTB
 with the host overlay), the image author MUST also list the same PE section as
-a `load` action in the platform's actions array. The `dtb` field and the
+a `load` action in the target's actions array. The `dtb` field and the
 `load` action are independent: the `dtb` field causes VMM inspection; the
 `load` action causes guest-memory loading.

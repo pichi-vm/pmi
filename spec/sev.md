@@ -1,11 +1,11 @@
-# `sev` Platform
+# `sev` Target
 
-The `sev` platform is the AMD SEV 3.0 (SEV-SNP) launch path. The VMM reads
-the image's base [DTB](dtb.md), processes the actions list to drive the SEV
+The `sev` target is the AMD SEV 3.0 (SEV-SNP) launch path. The VMM reads the
+image's base [DTB](dtb.md), processes the actions list to drive the SEV
 launch APIs (`SNP_LAUNCH_START`, `SNP_LAUNCH_UPDATE`, `SNP_LAUNCH_FINISH`),
 and starts the guest under SEV protection.
 
-The `sev` platform is independent of [`vm`](vm.md): it shares the `dtb` field
+The `sev` target is independent of [`vm`](vm.md): it shares the `dtb` field
 and the [`load`](load.md) and [`dtbo`](dtbo.md) actions, but adds its own
 launch-specific action types and does not use `vcpu` (the SEV equivalent is
 `sev:vmsa`).

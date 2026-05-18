@@ -1,9 +1,9 @@
-# `vm` Platform
+# `vm` Target
 
-The `vm` platform is the non-CC virtual machine launch path. The VMM reads
-the image's base [DTB](dtb.md), processes the actions list to load guest
-memory and apply any host overlay, sets boot-vCPU register state, and starts
-the guest.
+The `vm` target is the non-CC virtual machine launch path. The VMM reads the
+image's base [DTB](dtb.md), processes the actions list to load guest memory
+and apply any host overlay, sets boot-vCPU register state, and starts the
+guest.
 
 ## PE section
 

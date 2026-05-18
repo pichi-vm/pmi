@@ -1,9 +1,9 @@
 # Examples
 
-A PMI image is a PE binary that, for each supported platform, carries a CBOR
-spec in a `.pmi.<plat>` PE section. A VMM targeting a platform reads its
-section and follows the recipe. PE section names other than the platform
-spec sections themselves are free-form.
+A PMI image is a PE binary that, for each supported target, carries a CBOR
+spec in a `.pmi.<target>` PE section. A VMM targeting one of them reads its
+section and follows the recipe. PE section names other than the target spec
+sections themselves are free-form.
 
 ## Direct boot on `vm` and `sev`
 
@@ -122,5 +122,5 @@ targeting `vm` refuses to launch this image.
 **Bare metal:** UEFI ignores `.pmi.*` and all `.sev.*`, `.ovmf`, `.dtb.sev`
 sections. EFI stub in `.linux` executes normally.
 
-One artifact. One spec per supported platform. The image carries exactly
+One artifact. One spec per supported target. The image carries exactly
 the launch paths it advertises and nothing more.
