@@ -1,9 +1,7 @@
 # `vm` Target
 
-The `vm` target is the non-CC virtual machine launch path. It defines the
-**base launch model** for PMI; confidential targets ([`sev`](sev.md),
-[`tdx`](tdx.md), [`cca`](cca.md)) inherit this model and layer their
-cryptographic steps on top, describing only the deltas.
+The `vm` target is the non-CC virtual machine launch path. It defines
+the **base launch model** that other PMI targets inherit.
 
 ## PE section
 
@@ -36,8 +34,7 @@ A VMM executes the launch in six ordered steps:
 2. **Inspect DTB.** Parse the FDT named by the spec's [`dtb`](dtb.md)
    field and validate that the host can satisfy every hardware capability
    it declares. Fail the launch if any declaration cannot be satisfied.
-3. **Target initialize.** No-op for `vm`. CC targets use this step to
-   establish a cryptographic launch context; see each target binding.
+3. **Target initialize.** No-op.
 4. **Process actions.** Process each entry in the `actions` array in
    order. Each action's `type` field selects how the VMM consumes it:
    - [`load`](load.md) — load the named PE section's bytes into guest
@@ -45,12 +42,8 @@ A VMM executes the launch in six ordered steps:
    - [`dtbo`](dtbo.md) — fill the named zero PE section with the runtime
      devicetree overlay (see [Runtime overlay](#runtime-overlay) below).
 5. **Target finalize.** Apply the spec's [`vcpu`](#vcpu) register map to
-   the boot vCPU. CC targets additionally use this step to seal the
-   launch measurement; see each target binding.
+   the boot vCPU.
 6. **Start the guest.**
-
-On CC targets, the launch-measurement API is fed in step-4 order, so
-reordering actions produces a different digest.
 
 ## Runtime overlay
 
