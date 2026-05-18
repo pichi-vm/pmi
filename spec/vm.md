@@ -17,10 +17,11 @@ does not support `vm` and the VMM MUST refuse to launch.
 vm = {
   "version"  => uint,                  ; schema version, currently 1
   "dtb"      => tstr,                  ; PE section name; see dtb.md
-  "actions"  => [+ vm-action],         ; ordered launch recipe
+  "vcpu"     => vcpu-x64 / vcpu-aarch64, ; arch selected by PE.FileHeader.Machine; see vcpu below
+  "actions"  => [+ vm-action],         ; ordered launch recipe (step 4)
 }
 
-vm-action = load / dtbo / vcpu
+vm-action = load / dtbo
 ```
 
 VMMs MUST reject sections with an unrecognized `version`, an unknown
@@ -43,14 +44,10 @@ A VMM executes the launch in six ordered steps:
      memory at the section's `VirtualAddress`.
    - [`dtbo`](dtbo.md) — fill the named zero PE section with the runtime
      devicetree overlay (see [Runtime overlay](#runtime-overlay) below).
-   - [`vcpu`](#vcpu-action) — set boot-vCPU register state.
-5. **Target finalize.** No-op for `vm`. CC targets use this step to seal
-   the launch measurement; see each target binding.
+5. **Target finalize.** Apply the spec's [`vcpu`](#vcpu) register map to
+   the boot vCPU. CC targets additionally use this step to seal the
+   launch measurement; see each target binding.
 6. **Start the guest.**
-
-The `actions` array MUST contain at least one `vcpu` action. If multiple
-are present, the VMM MUST use the last one in array order; earlier
-`vcpu` actions are ignored.
 
 On CC targets, the launch-measurement API is fed in step-4 order, so
 reordering actions produces a different digest.
@@ -68,36 +65,23 @@ it into the reserved range. The overlay is generated fresh per launch
 and is not measured; the guest is responsible for merging it onto the
 base DTB before booting.
 
-## `vcpu` action
+## `vcpu`
 
-The `vcpu` action carries a CBOR-encoded map of register values for the boot
-vCPU. The VMM decodes the referenced PE section's on-disk bytes as CBOR, looks
-up each key in the architecture-specific schema selected by the PE header's
-`FileHeader.Machine` field, and applies the corresponding values to the boot
-vCPU before starting the guest. Other vCPUs start in their architecture-defined
-reset state; the boot vCPU is responsible for bringing them up.
+The `vcpu` field carries a CBOR-encoded map of register values for the
+boot vCPU, inline in the target spec. The VMM looks up each key in the
+architecture-specific schema selected by the PE header's
+`FileHeader.Machine` field, and applies the corresponding values to the
+boot vCPU at step 5 (finalize) before starting the guest. Other vCPUs
+start in their architecture-defined reset state; the boot vCPU is
+responsible for bringing them up.
 
-### Schema
+Missing keys in the register map default to zero (with the
+per-architecture exceptions noted below). The VMM MUST reject unknown
+keys.
 
-```cddl
-vcpu = {
-  "type"    => "vcpu",
-  "section" => tstr,                ; PE section containing the CBOR register map
-}
-```
-
-The referenced PE section's contents are consumed only by the VMM; the bytes
-MUST NOT be written to guest memory. The PE section MUST be non-loaded
-(`IMAGE_SCN_MEM_DISCARDABLE`) so that UEFI loaders also skip it. The PE
-section's `VirtualAddress` field has no semantic meaning for `vcpu`; its
-content is the CBOR blob occupying `SizeOfRawData` bytes at `PointerToRawData`.
-
-Missing keys in the register map default to zero (with the per-architecture
-exceptions noted below). The VMM MUST reject unknown keys.
-
-The VMM MUST reject a `vcpu` register map where any value exceeds the field
-width defined by the architecture schema (e.g., a `selector` value greater
-than `0xFFFF`).
+The VMM MUST reject a `vcpu` register map where any value exceeds the
+field width defined by the architecture schema (e.g., a `selector` value
+greater than `0xFFFF`).
 
 ### x86-64 (`PE.FileHeader.Machine == 0x8664`)
 

@@ -13,12 +13,12 @@ sections themselves are free-form.
 {
   "version": 1,
   "dtb": ".dtb.vm",
+  "vcpu": {"rip": 0x100000, "rsp": 0x80000, "rflags": 0x2, "cs": {...}, ...},
   "actions": [
     {"type": "load", "section": ".linux"},
     {"type": "load", "section": ".initrd"},
     {"type": "load", "section": ".cmdline"},
-    {"type": "dtbo", "section": ".dtbo"},
-    {"type": "vcpu", "section": ".vcpu"}
+    {"type": "dtbo", "section": ".dtbo"}
   ]
 }
 ```
@@ -46,8 +46,8 @@ sections themselves are free-form.
 3. (No CC init for `vm`.)
 4. Process actions in order: `load` `.linux`, `.initrd`, `.cmdline`
    (measured by default). Write the host-decided memory/cpus/NUMA overlay
-   into `.dtbo` (unmeasured). Set boot vCPU registers from `.vcpu`.
-5. (No finalize.)
+   into `.dtbo` (unmeasured).
+5. Apply the spec's `vcpu` register map to the boot vCPU.
 6. Kernel starts.
 
 **`sev` launch (steps 1–6):**
@@ -133,7 +133,6 @@ discover target specs; all other names shown are illustrative.
 | `.sev.cpu` | No              | SEV CPUID page                             |
 | `.sev.idb` | No              | SEV ID block                               |
 | `.sev.ida` | No              | SEV ID auth info                           |
-| `.vcpu`    | No              | Boot vCPU register state for `vm`          |
 | `.pmi.vm`  | No              | `vm` target spec                           |
 | `.pmi.sev` | No              | `sev` target spec                          |
 
