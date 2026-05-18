@@ -1,9 +1,5 @@
 # Base DTB
 
-The key words "MUST", "MUST NOT", "SHOULD", "SHOULD NOT", and "MAY" in this
-specification are to be interpreted as described in
-[RFC 2119](https://www.rfc-editor.org/rfc/rfc2119).
-
 The per-platform manifest's `dtb` field names a PE section containing a
 Devicetree Blob (FDT v17) that describes the image's expected platform
 topology and address-space layout for this platform. The VMM reads the DTB

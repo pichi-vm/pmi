@@ -1,5 +1,9 @@
 # Overview
 
+The key words "MUST", "MUST NOT", "SHOULD", "SHOULD NOT", and "MAY" in this
+specification are to be interpreted as described in
+[RFC 2119](https://www.rfc-editor.org/rfc/rfc2119).
+
 ## What Needs to Be Loaded
 
 Booting a machine requires loading software into memory. What gets loaded

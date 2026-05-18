@@ -1,9 +1,5 @@
 # PMI Index
 
-The key words "MUST", "MUST NOT", "SHOULD", "SHOULD NOT", and "MAY" in this
-specification are to be interpreted as described in
-[RFC 2119](https://www.rfc-editor.org/rfc/rfc2119).
-
 The `.pmi` PE section contains a CBOR-encoded **index** that names the
 platforms this image supports and points each one at the PE section containing
 its per-platform [manifest](manifest/README.md).

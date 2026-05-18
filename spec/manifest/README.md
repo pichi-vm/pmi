@@ -1,9 +1,5 @@
 # Per-Platform Manifest
 
-The key words "MUST", "MUST NOT", "SHOULD", "SHOULD NOT", and "MAY" in this
-specification are to be interpreted as described in
-[RFC 2119](https://www.rfc-editor.org/rfc/rfc2119).
-
 Each platform the image supports has its own CBOR-encoded **manifest** carried
 in its own PE section. The [PMI index](../index.md) in `.pmi` maps platform
 names to the PE sections containing these manifests. The names of those PE
