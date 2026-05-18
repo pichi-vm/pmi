@@ -53,11 +53,13 @@ loaded from disk, or extracted by the hypervisor.
 
 ![Boot pipelines: bare metal versus modern VM](images/boot-modes.excalidraw.svg)
 
-A **service module** is a CC-specific privileged component (e.g.,
-[COCONUT-SVSM](https://github.com/coconut-svsm/svsm) on AMD SEV-SNP) that
-initializes the confidential environment and exposes a vTPM before dropping
-the guest firmware to a lower privilege level. Service modules are absent
-from bare metal and non-CC VM boot.
+A **service module** is a CC-specific privileged component that initializes
+the confidential environment and exposes services such as a vTPM before
+dropping the guest firmware to a lower privilege level.
+[COCONUT-SVSM](https://github.com/coconut-svsm/svsm) on AMD SEV-SNP is one
+example; a Hyper-V–style **paravisor** loaded at the highest guest
+privilege level fits the same architectural slot. Service modules are
+absent from bare metal and non-CC VM boot.
 
 Concrete examples of where real deployments land in this pipeline:
 
@@ -78,9 +80,10 @@ Concrete examples of where real deployments land in this pipeline:
   remotely; the EFI stub boots the kernel.
 
 Historically each of these shapes required its own image format and build
-pipeline — PE for UEFI boot, UKI for VMs that direct-boot, IGVM for
-paravisor-style confidential boot. An image needing to serve more than one
-shape became more than one image, with parallel build paths to maintain.
+pipeline — PE for UEFI boot, UKI for VMs that direct-boot, IGVM (PMI's
+primary prior art) for paravisor-style confidential boot. An image needing
+to serve more than one shape became more than one image, with parallel
+build paths to maintain.
 
 ## Goals
 
@@ -104,5 +107,3 @@ shape became more than one image, with parallel build paths to maintain.
   namespace is closed; the spec evolves through versioned revisions.
 - PMI does not specify deployer-supplied launch inputs (`host_data`,
   policy overrides, etc.). Those are VMM CLI concerns, out of scope here.
-- PMI does not replace IGVM for the narrower paravisor-loading problem it
-  was designed for.
