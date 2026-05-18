@@ -69,8 +69,6 @@ shape became more than one image, with parallel build paths to maintain.
   PMI images unmodified.
 - Confidential-computing launch produces a deterministic, ordered
   measurement a remote verifier can bind to.
-- Schemas are exhaustive: a reference parser can decide a target spec is
-  valid or invalid with no third answer.
 - On-disk alignment supports zero-copy loading with huge pages.
 
 ## Non-goals
