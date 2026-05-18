@@ -124,25 +124,32 @@ The VMM executes the launch in the following ordered steps:
 2. **Inspect DTB.** Parse the FDT named by the spec's [`dtb`](dtb.md)
    field and validate that the host can satisfy every hardware capability
    it declares. Fail the launch if any declaration cannot be satisfied.
-3. _(reserved)_
-4. **Target initialize.** Initialize the target's cryptographic context,
+3. **Target initialize.** Initialize the target's cryptographic context,
    consuming any action whose type binds to this step.
-5. _(reserved)_
-6. **Process actions.** Process each action in array order. Each action's
+4. **Process actions.** Process each action in array order. Each action's
    `type` selects how the VMM consumes it; the target's measurement API
    (where applicable) is fed in the same order.
-7. _(reserved)_
-8. **Target finalize.** Consume launch-finalize actions and seal the
+5. **Target finalize.** Consume launch-finalize actions and seal the
    measurement.
-9. **Start the guest.**
+6. **Start the guest.**
 
 Action order is security-critical on confidential targets: the launch
 measurement is an ordered hash chain, so reordering actions produces a
 different digest.
 
-The reserved step slots (3, 5, 7) are placeholders for future launch-phase
-operations the spec has not yet defined; targets MUST NOT bind actions to
-them.
+The runtime overlay described under
+[platform-definition inversion](#solving-the-platform-definition-inversion)
+reaches the guest through a [`dtbo`](dtbo.md) action processed during
+step 4. A `dtbo` action names a zero PE section — a section that
+reserves a GPA range but carries no on-disk data. The VMM generates the
+overlay for this launch (the `/cpus`, `/memory@*`, and `/distance-map`
+subtrees, plus any `numa-node-id` annotations on image-declared nodes)
+and writes it into the reserved range. The overlay is generated fresh
+per launch and is not measured; the guest is responsible for merging it
+onto the base DTB before booting.
+
+The other action types each target accepts are defined in the target's
+binding.
 
 ## Example: what a PMI image contains
 

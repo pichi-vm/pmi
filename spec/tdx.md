@@ -16,8 +16,8 @@ specified here. The current sketch of the underlying TDX API calls:
 
 | Step          | API                                  |
 | ------------- | ------------------------------------ |
-| 4. Initialize | `KVM_TDX_INIT_VM` (attributes, xfam) |
-| 4. Initialize | `KVM_TDX_INIT_VCPU`                  |
-| 6. Update     | `KVM_TDX_INIT_MEM_REGION` per action |
-| 6. Update     | TD HOBs                              |
-| 8. Finalize   | `KVM_TDX_FINALIZE_VM`                |
+| 3. Initialize | `KVM_TDX_INIT_VM` (attributes, xfam) |
+| 3. Initialize | `KVM_TDX_INIT_VCPU`                  |
+| 4. Update     | `KVM_TDX_INIT_MEM_REGION` per action |
+| 4. Update     | TD HOBs                              |
+| 5. Finalize   | `KVM_TDX_FINALIZE_VM`                |

@@ -16,8 +16,8 @@ specified here. The current sketch of the underlying CCA API calls:
 
 | Step          | API                               |
 | ------------- | --------------------------------- |
-| 4. Initialize | `RMI_REALM_CREATE` (realm params) |
-| 4. Initialize | `RMI_RTT_CREATE`                  |
-| 6. Update     | `RMI_DATA_CREATE` per action      |
-| 6. Update     | `RMI_REC_CREATE`                  |
-| 8. Finalize   | `RMI_REALM_ACTIVATE`              |
+| 3. Initialize | `RMI_REALM_CREATE` (realm params) |
+| 3. Initialize | `RMI_RTT_CREATE`                  |
+| 4. Update     | `RMI_DATA_CREATE` per action      |
+| 4. Update     | `RMI_REC_CREATE`                  |
+| 5. Finalize   | `RMI_REALM_ACTIVATE`              |

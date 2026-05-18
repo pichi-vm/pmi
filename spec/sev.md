@@ -39,14 +39,14 @@ schema and the launch step that consumes it:
 
 | Type           | Step | Consumed by                                              |
 | -------------- | ---- | -------------------------------------------------------- |
-| `load`         | 6    | `SNP_LAUNCH_UPDATE` (normal page)                        |
-| `dtbo`         | 6    | VMM writes overlay into the section; not measured        |
-| `sev:policy`   | 4    | `SNP_LAUNCH_START` (policy, gosvw)                       |
-| `sev:vmsa`     | 6    | `SNP_LAUNCH_UPDATE` with `page_type=vmsa`                |
-| `sev:secrets`  | 6    | `SNP_LAUNCH_UPDATE` with `page_type=secrets` (PSP fills) |
-| `sev:cpuid`    | 6    | `SNP_LAUNCH_UPDATE` with `page_type=cpuid` (VMM fills)   |
-| `sev:id-block` | 8    | `SNP_LAUNCH_FINISH` (id_block)                           |
-| `sev:id-auth`  | 8    | `SNP_LAUNCH_FINISH` (id_auth)                            |
+| `load`         | 4    | `SNP_LAUNCH_UPDATE` (normal page)                        |
+| `dtbo`         | 4    | VMM writes overlay into the section; not measured        |
+| `sev:policy`   | 3    | `SNP_LAUNCH_START` (policy, gosvw)                       |
+| `sev:vmsa`     | 4    | `SNP_LAUNCH_UPDATE` with `page_type=vmsa`                |
+| `sev:secrets`  | 4    | `SNP_LAUNCH_UPDATE` with `page_type=secrets` (PSP fills) |
+| `sev:cpuid`    | 4    | `SNP_LAUNCH_UPDATE` with `page_type=cpuid` (VMM fills)   |
+| `sev:id-block` | 5    | `SNP_LAUNCH_FINISH` (id_block)                           |
+| `sev:id-auth`  | 5    | `SNP_LAUNCH_FINISH` (id_auth)                            |
 
 Consumers MUST ignore unknown keys but MUST reject unknown action `type`
 values.
@@ -55,9 +55,9 @@ values.
 
 | Step          | API                                                                 | Inputs                                                                                             |
 | ------------- | ------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| 4. Initialize | `SNP_LAUNCH_START`                                                  | `sev:policy` action, OR policy fields extracted from `sev:id-block`                                |
-| 6. Update     | `SNP_LAUNCH_UPDATE` per `load`/`sev:vmsa`/`sev:secrets`/`sev:cpuid` | actions processed in array order; page type determined by action type                              |
-| 8. Finalize   | `SNP_LAUNCH_FINISH`                                                 | `sev:id-block` + `sev:id-auth` from the image; `host_data` is deployer-supplied (not in the image) |
+| 3. Initialize | `SNP_LAUNCH_START`                                                  | `sev:policy` action, OR policy fields extracted from `sev:id-block`                                |
+| 4. Update     | `SNP_LAUNCH_UPDATE` per `load`/`sev:vmsa`/`sev:secrets`/`sev:cpuid` | actions processed in array order; page type determined by action type                              |
+| 5. Finalize   | `SNP_LAUNCH_FINISH`                                                 | `sev:id-block` + `sev:id-auth` from the image; `host_data` is deployer-supplied (not in the image) |
 
 If `sev:id-block` is present, `sev:id-auth` MUST also be present. The VMM
 extracts the policy word from the signed ID block and uses it for
