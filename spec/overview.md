@@ -11,23 +11,27 @@ depends on the deployment context:
 
 - **Bare metal:** A kernel, initial ramdisk (initrd), and command line are
   loaded into memory and executed. On UEFI systems, a bootloader or EFI
-  application handles this.
+  application handles this. Platform layout is fixed by hardware and
+  enumerated by firmware.
 
-- **Virtual machine:** A Virtual Machine Monitor (VMM) loads a kernel into guest
-  memory, or loads guest firmware such as OVMF (Open Virtual Machine Firmware)
-  which then loads the kernel from disk. The VMM may also need to provide
-  runtime data like a memory map or ACPI tables.
+- **Virtual machine:** A Virtual Machine Monitor (VMM) loads a kernel into
+  guest memory, or loads guest firmware such as OVMF (Open Virtual Machine
+  Firmware) which then loads the kernel from disk. The VMM may also need to
+  provide runtime data like a memory map or ACPI tables. Unlike bare metal,
+  the platform layout is composed at launch — by the host.
 
-- **Confidential VM:** Everything a VM needs, plus platform-specific pages that
-  the hardware requires: initial register state, secrets pages, CPUID tables. A
-  service module may run at a higher privilege level than the guest firmware.
-  The VMM loads all of this into guest memory, in the correct order, and feeds
-  each page to the platform's measurement API. The VMM is untrusted — hardware
-  attestation allows a remote verifier to confirm that the VMM loaded exactly
-  what the image specified.
+- **Confidential VM:** Everything a VM needs, plus platform-specific pages
+  that the hardware requires: initial register state, secrets pages, CPUID
+  tables. A service module may run at a higher privilege level than the
+  guest firmware. The VMM loads all of this into guest memory, in the
+  correct order, and feeds each page to the platform's measurement API. The
+  VMM is untrusted — hardware attestation allows a remote verifier to
+  confirm that the VMM loaded exactly what the image specified.
 
-Today, each context uses a different image format with different tooling. PMI
-(Portable Machine Image) uses a single PE binary to address all three contexts.
+Today, each context uses a different image format with different tooling.
+PMI (Portable Machine Image) uses a single PE binary to address all three,
+and shifts platform-layout definition from the host to the image — see
+[Why PMI?](why.md) for the motivation.
 
 ## How PE Works
 

@@ -1,30 +1,44 @@
 # PMI: Portable Machine Image
 
-Traditionally, VMMs made all the decisions about how a guest boots: which
-firmware to use, how memory is laid out, what CPUID values to expose. Guests
-accept whatever the VMM provides. This works when the host is trusted.
+PMI is a standard interface for low-level virtual machine images. It solves
+two specific problems.
 
-Confidential Computing inverts this model. The tenant — not the host — decides
-what software runs in the guest and how it is configured. The VMM becomes an
-untrusted executor that must provide exactly what the guest image specifies,
-nothing more. Hardware attestation verifies that it did.
+**1. The platform-definition inversion.** Booting a machine has historically
+followed a pattern where the firmware defines the platform layout — what
+devices exist, where memory lives, what CPU configuration the guest sees — and
+the guest software adapts to whatever the firmware presents. That made sense
+on bare metal: the firmware ran first, had direct knowledge of the underlying
+hardware, and the guest had limited capability to express what it required
+(or to verify what it received) at early boot.
 
-IGVM was designed to address this for a specific case: loading paravisor
-images into confidential VMs. Its design is elegant and well-suited for that
-purpose.
+Virtual machines flip the capability asymmetry. A hypervisor has near-arbitrary
+flexibility to compose any platform the guest will see, while the guest —
+especially in early boot — still has very little ability to verify what the
+platform actually is. Confidential Computing extends this into a security
+boundary: the hypervisor is untrusted, and a platform definition the guest
+cannot verify becomes a direct injection vector.
 
-However, the Linux ecosystem boots machines in many ways — direct kernel
-loading, EFI stubs, firmware passthrough, service modules — across bare metal,
-VMs, and confidential VMs. No single image format covers all of these
-contexts. Each requires its own build pipeline and tooling.
+PMI inverts the model. The image declares the platform layout it requires
+(via a base DTB describing devices, memory map, MMIO regions, interrupt
+controllers, etc.); the VMM is obligated to provide exactly what is declared
+or refuse to launch. Platform definition moves from the host to the image.
 
-PMI solves this by extending the PE format with one CBOR spec per platform
-the image supports. Each spec lives in its own non-loaded PE section (by
-convention `.pmi.<plat>` — e.g., `.pmi.vm`, `.pmi.sev`) and is a complete
-launch recipe: an optional base DTB plus an ordered list of actions the VMM
-performs. Systems that already boot from PE (UEFI, PXE, HTTP Boot,
-systemd-boot) ignore the `.pmi.*` sections and boot as normal. VMMs targeting
-a platform read that platform's section and execute its recipe.
+**2. The single-artifact problem.** Linux boot mechanisms vary widely: direct
+kernel loading via the Linux boot protocol, EFI stub bundled with the kernel,
+traditional firmware loading the kernel from disk, serviced confidential
+computing with a privileged service module. Each historically requires its
+own build pipeline and image format. PMI lets one PE binary cover all of
+these — bare metal, virtual machine, confidential VM on multiple platforms —
+via per-platform CBOR specs the image carries alongside its
+kernel/firmware/etc.
+
+A PMI image is a PE binary. For each launch path the image supports, it
+carries a CBOR spec in its own non-loaded `.pmi.<plat>` PE section (e.g.,
+`.pmi.vm`, `.pmi.sev`). Each spec is a complete launch recipe: an optional
+base DTB plus an ordered list of actions the VMM performs. Systems that
+already boot from PE (UEFI, PXE, HTTP Boot, systemd-boot) ignore the
+`.pmi.*` sections and boot as normal. VMMs targeting a platform read that
+platform's section and execute its recipe.
 
 ## Design Principles
 

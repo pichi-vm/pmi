@@ -1,13 +1,63 @@
 # Why PMI?
 
-## Boot Modes
+PMI exists to solve two problems with the way virtual machine images are
+defined and consumed today: the platform-definition inversion and the
+single-artifact problem.
 
-The Linux ecosystem boots machines in a variety of ways. Unlike Windows, which
-assumes a single UEFI boot path, Linux deployers routinely use direct kernel
-loading, firmware passthrough, service modules, and combinations of all three. A
+## The platform-definition inversion
+
+The historical pattern for booting a machine is: firmware defines the
+platform layout, guest software adapts to it. The firmware enumerates
+devices, decides where memory lives, exposes a CPU configuration, and hands
+that picture to the kernel through a well-known interface (a Devicetree, an
+ACPI table set, an `e820` map, etc.). The guest reads the interface and
+configures itself accordingly.
+
+On bare metal this asymmetry made sense. The firmware ran first, had direct
+knowledge of the underlying hardware, and was structurally positioned to
+discover the platform. The guest had limited capability to express what it
+required in early boot, and bare-metal hardware was largely fixed regardless
+of what the guest might have wanted.
+
+Virtual machines flip the capability asymmetry.
+
+A hypervisor has near-arbitrary flexibility to compose any platform the
+guest will see — any set of virtual devices, any memory map, any CPUID
+exposure, any interrupt controller version. The guest, meanwhile, has
+essentially the same early-boot constraints it had on bare metal: it cannot
+re-verify the platform after the fact, cannot defend itself against subtle
+configuration discrepancies, and is at the mercy of whatever the hypervisor
+chose to present. The party with the most flexibility is the one whose
+choices the other party cannot effectively check.
+
+Confidential Computing extends this into a security boundary. The
+hypervisor is no longer trusted, but the guest still consumes the platform
+definition the hypervisor produces. A maliciously-crafted DSDT, an
+unexpected MMIO region, a missing or substituted device — the guest has no
+practical way to defend against these in early boot. Concrete
+demonstrations of this attack surface exist:
+
+- [AMD-SB-3012](https://www.amd.com/en/resources/product-security/bulletin/amd-sb-3012.html)
+  — ACPI/AML injection in SEV guests via QEMU.
+- [BadAML](https://dl.acm.org/doi/10.1145/3719027.3765123) (ACM CCS 2025,
+  Distinguished Paper) — universal AML injection across SEV and TDX guests.
+
+PMI inverts the model. The image declares the platform layout it requires
+— devices, memory map, MMIO regions, PCIe topology, interrupt controllers
+— via a base [DTB](dtb.md) it carries. The VMM is obligated to provide
+exactly what the image declares, or refuse to launch. The party with the
+flexibility loses the ability to use it unilaterally; the guest no longer
+needs to verify after the fact because the contract is established before
+launch and bound to the attestation.
+
+## The single-artifact problem
+
+Linux boots machines in many ways. Unlike Windows, which assumes a single
+UEFI boot path, Linux deployers routinely use direct kernel loading,
+firmware passthrough, service modules, and combinations of all three. A
 machine boots by combining three components, each of which may be absent,
-provided by the host, provided by the tenant (bundled in the image), or loaded
-from disk:
+provided by the host, provided by the tenant (bundled in the image), or
+loaded from disk:
 
 | Mode        | Service |    Firmware     |  Kernel   | BM  | VM  | CVM |
 | :---------- | :-----: | :-------------: | :-------: | --- | --- | --- |
@@ -16,102 +66,68 @@ from disk:
 | Traditional |         |       yes       |  on disk  |     | ✓   | ✓   |
 | Serviced    |   yes   |       yes       |  on disk  |     |     | ✓   |
 
-1. **Extracted** This mode applies only to virtual machines. In this mode, the
-   VMM takes the role of guest firmware. It extracts the kernel from the PE,
-   loads it into guest memory according to the Linux boot protocol, and starts
-   the guest at the kernel entry point. No firmware is involved. An example of
-   this mode is `qemu -kernel image.efi`.
+1. **Extracted** — VM only. The VMM takes the role of guest firmware. It
+   extracts the kernel from the PE, loads it into guest memory according to
+   the Linux boot protocol, and starts the guest at the kernel entry point.
+   No firmware is involved. Example: `qemu -kernel image.efi`.
 
-2. **Stubbed** This mode applies to both bare metal and virtual machines. UEFI
-   is required for this model. UEFI executes the PE. In the case of a UKI, the
-   PE contains an EFI stub and a kernel. The EFI stub loads the kernel into
-   memory and starts it. This works on bare metal via PXE, and via UEFI HTTP
-   Boot. In a VM environment, this method can be used but requires a guest UEFI
-   implementation (e.g., OVMF). An example of this method is
-   `qemu -bios OVMF.fd -kernel image.efi` which boots the guest with just OVMF
-   and then passes the UKI to the guest over the `fw_cfg` interface.
+2. **Stubbed** — bare metal or VM. UEFI executes the PE. The PE contains an
+   EFI stub and a kernel (UKI shape); the stub loads the kernel into memory
+   and starts it. Works on bare metal via PXE and UEFI HTTP Boot. In a VM,
+   requires a guest UEFI implementation (e.g., OVMF). Example:
+   `qemu -bios OVMF.fd -kernel image.efi` boots OVMF and passes the UKI
+   over `fw_cfg`.
 
-3. **Traditional** This mode applies to both bare metal and virtual machines.
-   UEFI is required for this model. UEFI executes the PE, but the PE contains
-   no kernel — only firmware (if any) and the boot configuration. The
-   firmware loads the kernel from disk and starts it. This works on bare
-   metal via PXE, and via UEFI HTTP Boot. In a VM environment, this method
-   can be used but requires a guest UEFI implementation (e.g., OVMF). An
-   example of this method is `qemu -bios OVMF.fd -kernel image.efi` which
-   boots the guest with just OVMF and then passes the boot configuration to
-   the guest over the `fw_cfg` interface. The configuration tells OVMF where
-   to find the kernel on disk and how to boot it.
+3. **Traditional** — bare metal or VM. UEFI executes the PE, but the PE
+   carries no kernel — only firmware and boot configuration. The firmware
+   loads the kernel from disk. Works on bare metal via PXE and UEFI HTTP
+   Boot. In a VM, requires a guest UEFI implementation.
 
-4. **Serviced** This mode applies only to confidential virtual machines. The
-   tenant provides a service module and firmware bundled in the image. The
-   host's VMM launches the service module as the privileged layer, which
-   initializes the confidential environment and then launches the tenant's
-   firmware. The tenant's firmware boots the kernel, usually from disk, and
-   measures it using a vTPM provided by the service layer. An example of this
-   mode is COCONUT-SVSM + OVMF, where the SVSM service module initializes SEV
-   3.0 and then launches OVMF, which boots the kernel from disk.
+4. **Serviced** — CVM only. The tenant provides a service module and
+   firmware bundled in the image. The host's VMM launches the service
+   module as the privileged layer, which initializes the confidential
+   environment and then launches the tenant's firmware. The tenant's
+   firmware boots the kernel, usually from disk, and measures it using a
+   vTPM provided by the service layer. Example: COCONUT-SVSM + OVMF.
 
-## Format Comparison
+Historically each mode required its own build pipeline and image format —
+PE for UEFI boot, UKI for VMs that direct-boot, IGVM for paravisor-style
+confidential boot. Producing an image that worked across modes meant
+producing several images.
 
-No existing format covers all of these modes:
-
-- **PE** is the universal UEFI boot image, but has no virtualization or
-  confidential computing semantics on its own.
-
-- **UKI** (PE + kernel + EFI stub) adds VMM direct boot support via the Linux
-  boot protocol, but cannot carry firmware, service modules, or CC metadata.
-
-- **IGVM** provides full CC semantics and can carry firmware and service
-  modules, but is not a PE — it cannot boot on bare metal, via PXE, or via UEFI
-  HTTP boot.
+PMI is a strict superset of PE. The same PE binary boots on bare metal,
+in a non-CC VM, and in a confidential VM on multiple platforms. Per-platform
+launch recipes are carried in their own non-loaded PE sections (by
+convention `.pmi.<plat>`) — UEFI ignores them and boots the PE the way it
+already knows how. A VMM that understands PMI reads the section for the
+platform it targets and executes that recipe.
 
 | Mode        | PE  | UKI | IGVM | PMI |
 | :---------- | :-: | :-: | :--: | :-: |
-| Direct      |     |  ✓  |  ✓   |  ✓  |
-| Bundled     |  ✓  |  ✓  |      |  ✓  |
+| Extracted   |     |  ✓  |  ✓   |  ✓  |
+| Stubbed     |  ✓  |  ✓  |      |  ✓  |
 | Traditional |     |     |  ✓   |  ✓  |
 | Serviced    |     |     |  ✓   |  ✓  |
 
-Like UKI, PMI is a strict superset of PE. It inherits bare metal and direct boot
-from PE, adds every capability IGVM provides, and remains a valid PE throughout.
-A single build pipeline produces one artifact for all deployment targets.
+## Relation to IGVM
 
-## Why Not IGVM?
+PMI is inspired by IGVM, which addresses the same family of problems for a
+narrower scope (loading paravisor-style confidential guest images for
+specific VMMs). PMI's broader scope drove several design choices that
+differ from IGVM's:
 
-PMI is inspired by IGVM. IGVM is a well-designed format for its original
-purpose: describing confidential guest paravisor images for VMMs. However, PMI
-exists because that purpose is too narrow.
+- PMI is a PE, so the same artifact boots through UEFI, PXE, and HTTP Boot
+  paths in addition to VM and CVM paths.
+- PMI describes regions rather than per-page load commands, allowing
+  zero-copy `mmap()` loading and trivial use of huge pages.
+- PMI reuses standard interfaces (Devicetree for platform topology) rather
+  than defining VMM-specific structures for the same information.
+- PMI separates the image's launch recipe from the deployer's policy inputs
+  (e.g., SEV `host_data`), so the same image can be deployed with different
+  external configuration without rebuilding.
+- PMI images are inspectable and modifiable with standard PE tooling
+  (`objcopy`, `sbsign`, `systemd-ukify`).
 
-1. **IGVM is not bootable on UEFI.** IGVM can carry a kernel, but the resulting
-   image cannot boot on UEFI. UEFI firmware cannot load it. PXE cannot chainload
-   it. HTTP Boot cannot fetch and execute it. Any deployment that touches bare
-   metal or UEFI needs a separate image and a separate build pipeline. PMI is a
-   PE — the same artifact boots on bare metal, in a VM, and in a confidential
-   VM.
-
-2. **IGVM encodes page-level load commands.** An IGVM file breaks contiguous
-   memory regions into 4K page directives that are not aligned on disk. This
-   makes `mmap()` impossible and huge pages require a copy. In testing, this
-   added ~100ms of boot latency for a bundled linux kernel. PMI expresses
-   regions, not pages. Sections are aligned on disk (4K or 2M), so the VMM can
-   `mmap()` the file and pass sections directly to platform APIs using huge
-   pages with zero copy.
-
-3. **IGVM defines proprietary VMM interfaces.** Specifically, it creates an
-   IGVM-specific memory map instead of reusing standard formats (Devicetree,
-   EFI memory map) already understood by VMMs and guests.
-
-4. **IGVM couples data and policy.** IGVM directives mix guest memory contents,
-   page types, measurement boundaries, and platform policy into a single ordered
-   stream. Changing the SEV policy means re-serializing the directive stream.
-   Adding a new section means inserting directives at the correct position among
-   platform-specific pages. There is no way to supply policy externally — it is
-   baked into the directive stream at build time.
-
-5. **IGVM requires format-aware tooling.** You cannot inspect or modify an IGVM
-   file with standard PE tools. objcopy, readelf, sbsign, and systemd-ukify do
-   not apply. PMI images are PE files — the existing toolchain continues to
-   work.
-
-PMI addresses these limitations while retaining everything IGVM gets right:
-explicit VMM instructions, CC platform support, and deterministic measurement.
+For the narrower problem IGVM was designed for, IGVM remains the
+better-fitting tool. PMI exists to cover the broader set of deployment
+shapes Linux ecosystems actually use.
