@@ -7,7 +7,12 @@ properties: vCPU enumeration, memory layout, and NUMA topology. See
 conceptual role of the overlay.
 
 This document is the normative reference for the overlay schema, content
-constraints, and consumer-side validation rules.
+constraints, and consumer-side validation rules. `dtbo` is a baseline
+action type reused across multiple PMI targets; each target binding that
+references `dtbo` is normative for how the action interacts with that
+target's launch flow (measurement, page typing, ordering against other
+actions). Where a target binding and this document conflict, the target
+binding wins.
 
 ## Schema
 

@@ -5,10 +5,11 @@ image's base [DTB](dtb.md), processes the actions list to drive the SEV
 launch APIs (`SNP_LAUNCH_START`, `SNP_LAUNCH_UPDATE`, `SNP_LAUNCH_FINISH`),
 and starts the guest under SEV protection.
 
-The `sev` target is independent of [`vm`](vm.md): it shares the `dtb` field
-and the [`load`](load.md) and [`dtbo`](dtbo.md) actions, but adds its own
-launch-specific action types and does not use `vcpu` (the SEV equivalent is
-`sev:vmsa`).
+The `sev` target is independent of [`vm`](vm.md). It reuses the
+[`load`](load.md) and [`dtbo`](dtbo.md) action type names — with semantics
+specified in this document, not inherited from `vm` — and adds its own
+launch-specific action types. It does not use `vcpu` (the SEV equivalent
+is `sev:vmsa`).
 
 ## PE section
 

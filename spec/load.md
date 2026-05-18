@@ -1,7 +1,13 @@
 # `load` action
 
-The `load` action loads a PE section's bytes into guest memory. It is the
-basic data-loading action used by every PMI target.
+The `load` action loads a PE section's bytes into guest memory. It is a
+baseline action type reused across multiple PMI targets.
+
+This document specifies the baseline schema and the default semantics.
+Each target binding that references `load` is normative for how the action
+behaves in that target — including the page-loading API used, the
+measurement rules, and any additional or omitted schema fields. Where a
+target binding and this document conflict, the target binding wins.
 
 ## Schema
 

@@ -92,11 +92,9 @@ The currently defined targets are:
 | [`tdx`](tdx.md) | `.pmi.tdx` | Intel TDX confidential VMs (TODO)      |
 | [`cca`](cca.md) | `.pmi.cca` | Arm CCA confidential VMs (TODO)        |
 
-Targets are independent — they share conventions (the [`dtb`](dtb.md)
-field; the [`load`](load.md) and [`dtbo`](dtbo.md) actions) but each one
-fully specifies its own launch recipe. There is no inheritance, no
-fallback, no selection logic beyond "the VMM targeting `sev` reads
-`.pmi.sev`."
+Targets are independent — they share conventions but each one fully
+specifies its own launch recipe. There is no inheritance, no fallback, no
+selection logic beyond "the VMM targeting `sev` reads `.pmi.sev`."
 
 ### Shape of a target spec
 
@@ -111,15 +109,13 @@ target = {
 }
 ```
 
-Each target defines its own set of `action` types. Common action types
-(used by multiple targets) are:
-
-- [`load`](load.md) — load a PE section's bytes into guest memory.
-- [`dtbo`](dtbo.md) — VMM writes a host-decided devicetree overlay into the
-  named section.
-
-Target-specific action types are defined by each target binding (e.g.,
-`vcpu` on `vm`, `sev:policy` / `sev:id-block` / `sev:vmsa` / ... on `sev`).
+Each target defines its own set of `action` types. The reference docs
+[`load`](load.md) and [`dtbo`](dtbo.md) describe action types that recur
+across multiple targets — they specify a baseline schema and a default
+semantic, but the target binding (e.g., [`vm`](vm.md), [`sev`](sev.md)) is
+normative for what the action does within that target. Other action types
+are defined by a single target (e.g., `vcpu` on `vm`, `sev:policy` /
+`sev:id-block` / `sev:vmsa` / ... on `sev`).
 
 Action `type` values use the `<target>:<name>` convention when scoped
 (e.g., `sev:vmsa`); short, unscoped names (`load`, `dtbo`, `vcpu`) are used
