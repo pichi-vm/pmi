@@ -22,11 +22,14 @@ depends on the deployment context:
 
 - **Confidential VM:** Everything a VM needs, plus platform-specific pages
   that the hardware requires: initial register state, secrets pages, CPUID
-  tables. A service module may run at a higher privilege level than the
-  guest firmware. The VMM loads all of this into guest memory, in the
-  correct order, and feeds each page to the platform's measurement API. The
-  VMM is untrusted — hardware attestation allows a remote verifier to
-  confirm that the VMM loaded exactly what the image specified.
+  tables. A **service module** — a CC-specific privileged component such
+  as [COCONUT-SVSM](https://github.com/coconut-svsm/svsm) on AMD SEV-SNP —
+  may run at a higher privilege level than the guest firmware, initialize
+  the confidential environment, and provide a vTPM before launching the
+  firmware. The VMM loads all of this into guest memory, in the correct
+  order, and feeds each page to the platform's measurement API. The VMM is
+  untrusted — hardware attestation allows a remote verifier to confirm that
+  the VMM loaded exactly what the image specified.
 
 Today, each context uses a different image format with different tooling.
 PMI (Portable Machine Image) uses a single PE binary to address all three,

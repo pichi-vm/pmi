@@ -60,6 +60,15 @@ image, loaded from disk, or extracted by the hypervisor.
 
 ![Boot pipelines: bare metal versus modern VM](images/boot-modes.excalidraw.svg)
 
+A **service module** is a Confidential Computing construct: a privileged
+component the host's VMM launches before the guest firmware, which
+initializes the confidential environment, provides a vTPM, and then drops
+the guest firmware down to a lower privilege level. The canonical example
+is [COCONUT-SVSM](https://github.com/coconut-svsm/svsm) on AMD SEV-SNP,
+which runs at VMPL0 and exposes services to OVMF at VMPL1. Service modules
+are absent from bare metal and non-CC VM boot — they exist solely to bridge
+the trust transition that CC platforms introduce.
+
 Unlike Windows, which assumes a single UEFI boot path, Linux deployers
 routinely use direct kernel loading, firmware passthrough, service modules,
 and combinations of all three. A machine boots by combining three
