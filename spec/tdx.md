@@ -5,9 +5,9 @@ the `.pmi.tdx` PE section (non-loaded; `IMAGE_SCN_MEM_DISCARDABLE`). If the
 section is absent, the image does not support `tdx`.
 
 The `tdx` target is independent of [`vm`](vm.md) and [`sev`](sev.md). It
-is expected to reuse the [`load`](load.md) and [`dtbo`](dtbo.md) action
-type names with TDX-specific semantics, plus a set of TDX-specific actions
-(`tdx:*`) for launch-time inputs.
+is expected to reuse the [`load`](vm.md#load-action) and
+[`dtbo`](dtbo.md) action type names with TDX-specific semantics, plus a
+set of TDX-specific actions (`tdx:*`) for launch-time inputs.
 
 ## Launch model
 

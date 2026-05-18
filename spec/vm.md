@@ -37,13 +37,46 @@ A VMM executes the launch in six ordered steps:
 3. **Target initialize.** No-op.
 4. **Process actions.** Process each entry in the `actions` array in
    order. Each action's `type` field selects how the VMM consumes it:
-   - [`load`](load.md) — load the named PE section's bytes into guest
-     memory at the section's `VirtualAddress`.
+   - [`load`](#load-action) — load the named PE section's bytes into
+     guest memory at the section's `VirtualAddress`.
    - [`dtbo`](dtbo.md) — fill the named zero PE section with the runtime
      devicetree overlay (see [Runtime overlay](#runtime-overlay) below).
 5. **Target finalize.** Apply the spec's [`vcpu`](#vcpu) register map to
    the boot vCPU.
 6. **Start the guest.**
+
+## `load` action
+
+The `load` action loads a PE section's bytes into guest memory at the
+section's `VirtualAddress`. The VMM reads `VirtualAddress`,
+`SizeOfRawData`, `VirtualSize`, and `PointerToRawData` from the PE
+section header.
+
+### Schema
+
+```cddl
+load = {
+  "type"    => "load",
+  "section" => tstr,                ; PE section name to load
+}
+```
+
+### Section shapes
+
+There are three PE-section shapes:
+
+1. **Data** (`SizeOfRawData > 0`, `VirtualSize == SizeOfRawData`). Load
+   the on-disk data at `VirtualAddress`. The VMM chooses page granularity
+   based on alignment — see [page granularity](pe.md#page-granularity).
+2. **Padded** (`SizeOfRawData > 0`, `VirtualSize > SizeOfRawData`). Load
+   the on-disk data at `VirtualAddress` as in case 1. Then zero-fill from
+   `VirtualAddress + SizeOfRawData` to `VirtualAddress + VirtualSize`.
+   This is standard PE `.bss`-tail behavior — firmware or service modules
+   that need reserved memory beyond their code use this to express it
+   without file backing.
+3. **Zero** (`SizeOfRawData == 0`, `VirtualSize > 0`). The entire region
+   is zero-filled. No disk data is loaded. This is how reserved memory
+   regions are expressed.
 
 ## Runtime overlay
 

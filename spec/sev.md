@@ -5,11 +5,12 @@ image's base [DTB](dtb.md), processes the actions list to drive the SEV
 launch APIs (`SNP_LAUNCH_START`, `SNP_LAUNCH_UPDATE`, `SNP_LAUNCH_FINISH`),
 and starts the guest under SEV protection.
 
-The `sev` target is independent of [`vm`](vm.md). It reuses the
-[`load`](load.md) and [`dtbo`](dtbo.md) action type names — with semantics
-specified in this document, not inherited from `vm` — and adds its own
-launch-specific action types. It does not use `vcpu` (the SEV equivalent
-is `sev:vmsa`).
+The `sev` target is built on [`vm`](vm.md). It inherits `vm`'s base
+launch model and `vm`'s [`dtbo`](dtbo.md) action, extends `vm`'s
+[`load`](vm.md#load-action) action with SEV-SNP measurement semantics
+(see [`load` below](#load)), and adds its own launch-specific action
+types. It does not use `vm`'s [`vcpu`](vm.md#vcpu) field; the SEV
+equivalent is [`sev:vmsa`](#sevvmsa).
 
 ## PE section
 
@@ -26,9 +27,15 @@ sev = {
   "actions"  => [+ sev-action],        ; ordered launch recipe
 }
 
-sev-action = load / dtbo
+sev-action = sev-load / dtbo
            / sev-id-block / sev-id-auth
            / sev-vmsa / sev-secrets / sev-cpuid
+
+sev-load = {
+  "type"        => "load",
+  "section"     => tstr,                ; PE section name to load
+  ? "measured"  => bool,                ; default true
+}
 ```
 
 VMMs MUST reject sections with an unrecognized `version`, an unknown
@@ -79,6 +86,35 @@ the attestation report — the launch digest alone does not establish
 policy properties.
 
 ## Action definitions
+
+### `load`
+
+`sev` extends the [base `load` action](vm.md#load-action) with one
+optional field:
+
+```cddl
+sev-load = {
+  "type"        => "load",
+  "section"     => tstr,
+  ? "measured"  => bool,            ; default true
+}
+```
+
+When `measured` is `true` (the default), the loaded bytes are fed to
+`SNP_LAUNCH_UPDATE` and contribute to the launch digest. The distinction
+between on-disk data and zero-fill matters: on-disk bytes are measured
+as normal data pages; zero-filled bytes are measured via
+`SNP_LAUNCH_UPDATE` with `page_type=zero`, which validates pages as
+zero without transferring data and produces a different measurement
+than loading actual zeros as data pages. VMM implementations MUST NOT
+substitute data-page loads for zero-page operations or vice versa.
+
+When `measured` is `false`, the bytes are still loaded into guest
+memory but are not fed to the measurement API — used for VMM-supplied
+data that the verifier does not need to bind to.
+
+The VMM loads pages from the lowest GPA to the highest within each
+section, so measurement is deterministic for a given action ordering.
 
 ### `sev:id-block`
 

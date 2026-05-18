@@ -5,9 +5,9 @@ The `cca` target is the Arm CCA launch path. A VMM targeting `cca` reads the
 section is absent, the image does not support `cca`.
 
 The `cca` target is independent of [`vm`](vm.md) and [`sev`](sev.md). It
-is expected to reuse the [`load`](load.md) and [`dtbo`](dtbo.md) action
-type names with CCA-specific semantics, plus a set of CCA-specific actions
-(`cca:*`) for realm creation and activation.
+is expected to reuse the [`load`](vm.md#load-action) and
+[`dtbo`](dtbo.md) action type names with CCA-specific semantics, plus a
+set of CCA-specific actions (`cca:*`) for realm creation and activation.
 
 ## Launch model
 
