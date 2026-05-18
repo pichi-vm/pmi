@@ -53,9 +53,33 @@ loaded from disk, or extracted by the hypervisor.
 
 ![Boot pipelines: bare metal versus modern VM](images/boot-modes.excalidraw.svg)
 
-Historically each shape required its own image format and build pipeline —
-PE for UEFI boot, UKI for VMs that direct-boot, IGVM for paravisor-style
-confidential boot. An image that needed to serve more than one deployment
+A **service module** is a CC-specific privileged component (e.g.,
+[COCONUT-SVSM](https://github.com/coconut-svsm/svsm) on AMD SEV-SNP) that
+initializes the confidential environment and exposes a vTPM before dropping
+the guest firmware to a lower privilege level. Service modules are absent
+from bare metal and non-CC VM boot.
+
+Concrete examples of where real deployments land in this pipeline:
+
+- `qemu -kernel image.efi` — the VMM extracts the kernel directly from the
+  PE and starts the guest via the Linux boot protocol; no firmware
+  involved.
+- `qemu -bios OVMF.fd -kernel image.efi` — OVMF runs as guest UEFI,
+  receives the PE over `fw_cfg`, executes its EFI stub, and boots the
+  kernel from the PE.
+- `qemu -bios OVMF.fd -drive file=disk.img,...` — OVMF runs as guest UEFI
+  and loads the kernel from a virtual disk; the PE itself need not carry a
+  kernel.
+- COCONUT-SVSM + OVMF under SEV-SNP — the VMM launches the SVSM at VMPL0,
+  which initializes the confidential environment, exposes a vTPM, and
+  transitions OVMF to VMPL1; OVMF then boots the kernel from a virtual
+  disk.
+- UEFI on bare metal via PXE or HTTP Boot — firmware fetches the PE
+  remotely; the EFI stub boots the kernel.
+
+Historically each of these shapes required its own image format and build
+pipeline — PE for UEFI boot, UKI for VMs that direct-boot, IGVM for
+paravisor-style confidential boot. An image needing to serve more than one
 shape became more than one image, with parallel build paths to maintain.
 
 ## Goals
@@ -80,78 +104,5 @@ shape became more than one image, with parallel build paths to maintain.
   namespace is closed; the spec evolves through versioned revisions.
 - PMI does not specify deployer-supplied launch inputs (`host_data`,
   policy overrides, etc.). Those are VMM CLI concerns, out of scope here.
-- PMI does not replace IGVM in the narrower problem IGVM solves well.
-
-## Context
-
-### Boot modes Linux supports
-
-A machine boots by combining three components, each of which may be absent,
-provided by the host, provided by the tenant (bundled in the image), or
-loaded from disk:
-
-| Mode        | Service |    Firmware     |  Kernel   | BM  | VM  | CVM |
-| :---------- | :-----: | :-------------: | :-------: | --- | --- | --- |
-| Extracted   |         |                 | extracted |     | ✓   | ✓   |
-| Stubbed     |         | vm: yes, bm: no |  stubbed  | ✓   | ✓   | ✓   |
-| Traditional |         |       yes       |  on disk  |     | ✓   | ✓   |
-| Serviced    |   yes   |       yes       |  on disk  |     |     | ✓   |
-
-1. **Extracted** — VM only. The VMM takes the role of guest firmware,
-   extracts the kernel from the PE, and starts the guest via the Linux
-   boot protocol. Example: `qemu -kernel image.efi`.
-
-2. **Stubbed** — bare metal or VM. UEFI executes the PE. The PE contains
-   an EFI stub and a kernel (UKI shape); the stub loads the kernel into
-   memory. Works on bare metal via PXE / HTTP Boot. In a VM, requires a
-   guest UEFI implementation (e.g., OVMF).
-
-3. **Traditional** — bare metal or VM. UEFI executes the PE, but the PE
-   carries no kernel — only firmware and boot configuration. The firmware
-   loads the kernel from disk.
-
-4. **Serviced** — CVM only. The tenant bundles a service module and
-   firmware. The VMM launches the service module at the privileged layer;
-   it initializes the confidential environment and launches the tenant's
-   firmware, which boots the kernel and measures it via a vTPM the service
-   layer exposes. Example: COCONUT-SVSM + OVMF.
-
-A **service module** is a CC-specific privileged component (e.g.,
-[COCONUT-SVSM](https://github.com/coconut-svsm/svsm) on AMD SEV-SNP) that
-initializes the confidential environment and exposes a vTPM before dropping
-the guest firmware to a lower privilege level. Service modules are absent
-from bare metal and non-CC VM boot.
-
-### Existing formats
-
-| Mode        | PE  | UKI | IGVM | PMI |
-| :---------- | :-: | :-: | :--: | :-: |
-| Extracted   |     |  ✓  |  ✓   |  ✓  |
-| Stubbed     |  ✓  |  ✓  |      |  ✓  |
-| Traditional |     |     |  ✓   |  ✓  |
-| Serviced    |     |     |  ✓   |  ✓  |
-
-PMI is a strict superset of PE. A PMI image MAY also be UKI-shaped — that's
-a content choice, not a requirement of PMI.
-
-### Relation to IGVM
-
-PMI is inspired by IGVM, which addresses the same family of problems for a
-narrower scope (loading paravisor-style confidential guest images for
-specific VMMs). PMI's broader scope drove several design choices that
-differ from IGVM's:
-
-- PMI is a PE, so the same artifact boots through UEFI, PXE, and HTTP Boot
-  paths in addition to VM and CVM paths.
-- PMI describes regions rather than per-page load commands, allowing
-  zero-copy `mmap()` loading and trivial use of huge pages.
-- PMI reuses standard interfaces (Devicetree for platform topology) rather
-  than defining VMM-specific structures for the same information.
-- PMI separates the image's launch recipe from the deployer's policy
-  inputs, so the same image can be deployed with different external
-  configuration without rebuilding.
-- PMI images are inspectable and modifiable with standard PE tooling.
-
-For the narrower problem IGVM was designed for, IGVM remains the
-better-fitting tool. PMI exists to cover the broader set of deployment
-shapes Linux ecosystems actually use.
+- PMI does not replace IGVM for the narrower paravisor-loading problem it
+  was designed for.
