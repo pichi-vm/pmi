@@ -61,10 +61,14 @@ target's section and execute its recipe.
    inputs (policy, ID block), and the base DTB are all expressed as PE
    sections that the active target spec references.
 
-5. **Confidential Computing is additive.** A PMI image is a valid UKI that
-   boots on bare metal and via standard direct/stubbed VM paths — UEFI
-   ignores the `.pmi.*` sections. CC launch semantics layer on top via each
-   CC target's spec, never required.
+5. **PMI is compatible with UKI, not a flavor of it.** A PMI image is a PE.
+   It MAY also be structured as a UKI (kernel + EFI stub + cmdline + initrd
+   in the standard PE sections), in which case bare-metal and stubbed VM
+   paths work without any PMI awareness — UEFI ignores the `.pmi.*`
+   sections. But a PMI image is not required to contain UKI-shaped content;
+   a PMI carrying only firmware (no kernel) or only confidential-VM content
+   is equally valid. CC launch semantics layer on top via each CC target's
+   spec, never required.
 
 6. **Strict, verifiable schemas.** Every action type, every key, every value
    the spec defines is exhaustive. A reference parser can decide a target

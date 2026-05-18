@@ -111,12 +111,21 @@ PE for UEFI boot, UKI for VMs that direct-boot, IGVM for paravisor-style
 confidential boot. Producing an image that worked across modes meant
 producing several images.
 
-PMI is a strict superset of PE. The same PE binary boots on bare metal,
-in a non-CC VM, and in a confidential VM on multiple CC targets. Per-target
-launch recipes are carried in their own non-loaded PE sections (by
-convention `.pmi.<target>`) — UEFI ignores them and boots the PE the way it
-already knows how. A VMM that understands PMI reads the section for the
-target it picks and executes that recipe.
+PMI is a strict superset of PE. A single PMI image carries the content for
+whichever modes the image author wants to support: UKI-shaped sections
+(`.linux`, `.initrd`, `.cmdline`, EFI stub) for bare-metal and stubbed VM
+paths; a per-target CBOR spec in `.pmi.<target>` for each PMI-aware launch
+target. The modes are independent — an image that supports bare metal and
+SEV but not non-CC VM is just as valid as one that supports all three.
+
+UEFI ignores the `.pmi.*` sections; if the image is also UKI-shaped, UEFI
+boots it the way it already knows how. A VMM that understands PMI reads the
+section for the target it picks and executes that recipe.
+
+A PMI image is _compatible with_ UKI, not a flavor of it. An image that
+contains only firmware (for OVMF-loads-kernel-from-disk modes) or only
+confidential-VM content is a valid PMI; the UKI shape is one possible
+content arrangement, not a requirement.
 
 | Mode        | PE  | UKI | IGVM | PMI |
 | :---------- | :-: | :-: | :--: | :-: |

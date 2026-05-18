@@ -101,6 +101,18 @@ attack surface allowing root compromise of confidential VMs:
 This is precisely the kind of vulnerability PMI aims to eliminate by allowing
 the image to specify exactly what gets loaded and measured.
 
+## PMI as a PE extension
+
+A PMI image is a PE binary. It MAY also be structured as a UKI (carrying
+`.linux`, `.initrd`, `.cmdline`, and an EFI stub) for the bare-metal and
+stubbed VM paths; UEFI ignores the PMI-specific sections. A PMI image is
+not _required_ to be UKI-shaped — an image that contains only firmware (for
+OVMF-loads-kernel-from-disk modes), or only confidential-VM content, is
+equally valid. PMI is compatible with UKI, not a flavor of it.
+
+PMI's extension to PE is a set of non-loaded sections whose names begin
+with `.pmi.` — one per launch target the image supports.
+
 ## Targets
 
 PMI defines one **target** per launch path the image supports. A target is
