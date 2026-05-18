@@ -52,12 +52,19 @@ launch and bound to the attestation.
 
 ## The single-artifact problem
 
-Linux boots machines in many ways. Unlike Windows, which assumes a single
-UEFI boot path, Linux deployers routinely use direct kernel loading,
-firmware passthrough, service modules, and combinations of all three. A
-machine boots by combining three components, each of which may be absent,
-provided by the host, provided by the tenant (bundled in the image), or
-loaded from disk:
+Linux boots through more shapes than bare metal does. On bare metal the
+pipeline is roughly _firmware → kernel_. In a virtual machine the pipeline
+grows to _firmware (UEFI) → hypervisor → (optional service module) →
+(optional firmware) → kernel_, and the kernel itself may be embedded in the
+image, loaded from disk, or extracted by the hypervisor.
+
+![Boot pipelines: bare metal versus modern VM](images/boot-modes.excalidraw.svg)
+
+Unlike Windows, which assumes a single UEFI boot path, Linux deployers
+routinely use direct kernel loading, firmware passthrough, service modules,
+and combinations of all three. A machine boots by combining three
+components, each of which may be absent, provided by the host, provided by
+the tenant (bundled in the image), or loaded from disk:
 
 | Mode        | Service |    Firmware     |  Kernel   | BM  | VM  | CVM |
 | :---------- | :-----: | :-------------: | :-------: | --- | --- | --- |
