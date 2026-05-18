@@ -4,57 +4,66 @@ The key words "MUST", "MUST NOT", "SHOULD", "SHOULD NOT", and "MAY" in this
 specification are to be interpreted as described in
 [RFC 2119](https://www.rfc-editor.org/rfc/rfc2119).
 
-A PMI image is a PE binary that carries, for each launch target it
-supports, a self-contained CBOR spec naming the actions a VMM must perform
-to launch the guest. This document is the entry point to the normative
-spec: it introduces the format's mental model and points at the per-topic
-reference docs. For the motivation behind PMI's existence, see
-[Motivation](motivation.md).
+This document explains how PMI addresses the two problems framed in
+[Motivation](motivation.md), then introduces the file structure that
+expresses the solution.
 
-## How PE works
+## Solving the platform-definition inversion
+
+PMI inverts the host-defines-platform pattern by making the image
+declarative about what hardware platform it expects.
+
+The image carries a base **Devicetree Blob (DTB)** describing its expected
+platform: virtual devices and their MMIO ranges, the interrupt controller,
+the PCIe topology, the console, reserved-memory regions, the `/chosen`
+parameters — everything outside the runtime-decided subtrees (`/cpus`,
+`/memory@*`, `/distance-map`). The VMM reads this DTB before launching the
+guest and is obligated to provide exactly what the DTB declares — every
+device at the declared GPA, every interrupt controller version, every PCIe
+layout. Anything the host cannot match is grounds for refusing to launch.
+The host has effectively infinite flexibility (it is software) to configure
+itself to match; the responsibility for matching is on the host.
+
+The host's runtime decisions — how much memory this particular guest gets,
+how many vCPUs, how those vCPUs and memory are arranged across NUMA nodes —
+cannot be known to the image author in advance. The VMM supplies these
+through a **Devicetree Blob Overlay (DTBO)** it writes into a known segment
+at launch. The overlay is restricted by a content whitelist to exactly the
+three subtrees `/cpus`, `/memory@*`, and `/distance-map`, plus a single
+property (`numa-node-id`) that may be added to image-declared nodes.
+Anything outside the whitelist is rejected by the guest before the overlay
+is applied.
+
+The result: the platform the guest boots against is the platform the image
+declared, plus a sharply bounded runtime delta that the guest validates
+against an explicit rule set. The validation surface is small enough to
+reason about, and the bulk of the platform (the base DTB) is bound into the
+launch measurement.
+
+See [dtb.md](dtb.md) for the base DTB format, conformance contract, and
+image-side responsibilities; see [dtbo.md](dtbo.md) for the overlay schema,
+content whitelist, and consumer validation rules.
+
+## Solving the single-artifact problem
+
+PMI inherits PE so a single binary can serve every shape of Linux boot,
+from bare metal to confidential VM, without per-shape image variants.
+
+### PE and UKI as background
 
 PE (Portable Executable) is the binary format that UEFI firmware loads and
-executes. A PE file contains executable code (the entry point that UEFI
-calls) and is divided into **sections**, each with a name and a set of
-attributes defined in the section header:
+executes. A PE file is divided into named **sections**, each with a header
+describing where its bytes live in the file and where they should be mapped
+into memory. Sections marked `IMAGE_SCN_MEM_DISCARDABLE` are not mapped —
+they carry data the loader does not need at runtime. See
+[PE constraints and page granularity](pe.md) for the fields PMI reads.
 
-| Field              | Description                                        |
-| ------------------ | -------------------------------------------------- |
-| `Name`             | Up to 8 bytes (e.g., `.text`, `.data`, `.reloc`)   |
-| `VirtualAddress`   | Guest physical address where the section is loaded |
-| `VirtualSize`      | How much memory the section occupies               |
-| `SizeOfRawData`    | How much data is stored on disk                    |
-| `PointerToRawData` | Offset of the on-disk data within the file         |
-| `Characteristics`  | Flags that control how the section is treated      |
+A Unified Kernel Image (UKI) is a PE file that bundles a kernel (`.linux`),
+an initial ramdisk (`.initrd`), a command line (`.cmdline`), and an EFI stub
+into named PE sections. UEFI executes the stub; the stub loads the kernel
+and boots it. PMI builds on this same PE-with-named-sections idiom.
 
-When UEFI firmware loads a PE, it reads each section header and copies the
-on-disk data into memory at the section's `VirtualAddress`. If `VirtualSize`
-is larger than `SizeOfRawData`, the remainder is zero-filled (this is how
-`.bss` regions work — reserved memory with no file backing).
-
-Not all sections are loaded. Sections can be marked with flags like
-`IMAGE_SCN_MEM_DISCARDABLE` that tell the loader to skip them. These
-sections exist in the file but are not mapped into memory — they carry data
-that the loader does not need at runtime.
-
-## How UKI uses PE sections
-
-A Unified Kernel Image (UKI) is a PE file that bundles everything needed to
-boot Linux into named sections:
-
-| Section    | Contents                |
-| ---------- | ----------------------- |
-| `.linux`   | The kernel (bzImage)    |
-| `.initrd`  | The initial ramdisk     |
-| `.cmdline` | The kernel command line |
-| `.osrel`   | OS release metadata     |
-
-The PE also contains an **EFI stub** — a small program that serves as the
-PE's entry point. When UEFI firmware loads the PE, it calls the stub. The
-stub reads the other sections, loads the kernel into memory, and boots it.
-PMI builds on this same PE-with-named-sections idiom.
-
-## PMI as a PE extension
+### PMI as a PE extension
 
 A PMI image is a PE binary. It MAY also be structured as a UKI (carrying
 `.linux`, `.initrd`, `.cmdline`, and an EFI stub) for bare-metal and
@@ -66,7 +75,7 @@ is equally valid. PMI is compatible with UKI, not a flavor of it.
 PMI's extension to PE is a set of non-loaded sections whose names begin
 with `.pmi.` — one per launch target the image supports.
 
-## Targets
+### Targets
 
 PMI defines one **target** per launch path the image supports. A target is
 a self-contained CBOR spec carried in its own PE section (named by
@@ -89,7 +98,7 @@ fully specifies its own launch recipe. There is no inheritance, no
 fallback, no selection logic beyond "the VMM targeting `sev` reads
 `.pmi.sev`."
 
-## Shape of a target spec
+### Shape of a target spec
 
 Every target spec is a CBOR map with the same outer shape:
 
@@ -106,8 +115,8 @@ Each target defines its own set of `action` types. Common action types
 (used by multiple targets) are:
 
 - [`load`](load.md) — load a PE section's bytes into guest memory.
-- [`dtbo`](dtbo.md) — VMM writes a host-decided devicetree overlay into
-  the named section.
+- [`dtbo`](dtbo.md) — VMM writes a host-decided devicetree overlay into the
+  named section.
 
 Target-specific action types are defined by each target binding (e.g.,
 `vcpu` on `vm`, `sev:policy` / `sev:id-block` / `sev:vmsa` / ... on `sev`).
@@ -116,7 +125,7 @@ Action `type` values use the `<target>:<name>` convention when scoped
 (e.g., `sev:vmsa`); short, unscoped names (`load`, `dtbo`, `vcpu`) are used
 where collisions are not a concern.
 
-## VMM execution model
+### VMM execution model
 
 1. **Select target.** Identify the target and read its PE section (e.g.,
    `.pmi.sev` for SEV). If the section is absent, refuse to launch.
@@ -139,7 +148,7 @@ where collisions are not a concern.
 Action order is security-critical on CC targets: the launch measurement is
 an ordered hash chain, so reordering actions produces a different digest.
 
-## Example: what a PMI image contains
+### Example: what a PMI image contains
 
 A PMI image supporting both `vm` and SEV serviced boot might contain the
 following PE sections. Only the `.pmi.<target>` names are used by PMI to
