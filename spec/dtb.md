@@ -1,9 +1,10 @@
 # Base DTB
 
-The per-platform manifest's `dtb` field names a PE section containing a
-Devicetree Blob (FDT v17) that describes the image's expected platform
-topology and address-space layout for this platform. The VMM reads the DTB
-before processing segments and refuses to launch if it cannot conform.
+Several PMI platforms accept an optional `dtb` field in their CBOR spec. Its
+value is the name of a PE section containing a Devicetree Blob (FDT v17) that
+describes the image's expected platform topology and address-space layout. The
+VMM reads the DTB before processing actions and refuses to launch if it cannot
+conform.
 
 The VMM reads this DTB during launch to learn:
 
@@ -12,12 +13,6 @@ The VMM reads this DTB during launch to learn:
 - PCIe ECAM and BAR window addresses
 - Reserved-memory regions to exclude from RAM allocation
 - The platform topology the image was built against
-
-Because the manifest is platform-specific (selected via the
-[PMI index](../index.md)), there is no per-platform selection within the `dtb`
-field — it names a single PE section. Different platforms with different
-topologies can use different DTBs by having different manifests that name
-different PE sections.
 
 ## Format
 
@@ -53,8 +48,8 @@ declared.
 
 The image bakes the DTB describing its platform topology. The DTB SHOULD omit
 `/memory`, `/cpus`, and `/distance-map` nodes; the host fills these through a
-separate [`pmi:dtbo`](segments.md) overlay, since memory size, vCPU count, and
-NUMA topology are host-decided.
+separate [`dtbo`](dtbo.md) overlay, since memory size, vCPU count, and NUMA
+topology are host-decided.
 
 The DTB MAY include any other nodes the image needs to declare: interrupt
 controller, timer, console, virtio devices, PCIe controller, `/chosen` (cmdline,
@@ -64,17 +59,17 @@ the VMM must place its emulated devices at the image-declared addresses or
 refuse to launch.
 
 Nodes the image declares MAY be annotated with `numa-node-id` by the host's
-overlay (see [`pmi:dtbo`](segments.md)). This is the only property the host may
-add to non-`/cpus` / non-`/memory@*` / non-`/distance-map` nodes. The image does
-NOT pre-populate `numa-node-id` on its own declared nodes; the host supplies
-these at launch since the NUMA topology of the deployment host is not knowable
-at image build time.
+overlay (see [`dtbo`](dtbo.md)). This is the only property the host may add to
+non-`/cpus` / non-`/memory@*` / non-`/distance-map` nodes. The image does NOT
+pre-populate `numa-node-id` on its own declared nodes; the host supplies these
+at launch since the NUMA topology of the deployment host is not knowable at
+image build time.
 
 ## Loading the DTB into guest memory
 
 If the guest needs the DTB content in memory (for example, aarch64 Linux reads
 the DTB via the `x0` register at boot, or an image's stub merges the base DTB
-with the host overlay), the image author MUST also list the same PE section in
-the `segments` array as a normal data segment. The `dtb` field and the
-segment reference are independent: the `dtb` field causes VMM inspection; the
-segment entry causes guest-memory loading.
+with the host overlay), the image author MUST also list the same PE section as
+a `load` action in the platform's actions array. The `dtb` field and the
+`load` action are independent: the `dtb` field causes VMM inspection; the
+`load` action causes guest-memory loading.

@@ -32,14 +32,15 @@ from disk:
    and then passes the UKI to the guest over the `fw_cfg` interface.
 
 3. **Traditional** This mode applies to both bare metal and virtual machines.
-   UEFI is required for this model. UEFI executes the PE, but the PE contains no
-   kernel — only firmware (if any) and the manifest. The firmware loads the
-   kernel from disk and starts it. This works on bare metal via PXE, and via
-   UEFI HTTP Boot. In a VM environment, this method can be used but requires a
-   guest UEFI implementation (e.g., OVMF). An example of this method is
-   `qemu -bios OVMF.fd -kernel image.efi` which boots the guest with just OVMF
-   and then passes the manifest to the guest over the `fw_cfg` interface. The
-   manifest tells OVMF where to find the kernel on disk and how to boot it.
+   UEFI is required for this model. UEFI executes the PE, but the PE contains
+   no kernel — only firmware (if any) and the boot configuration. The
+   firmware loads the kernel from disk and starts it. This works on bare
+   metal via PXE, and via UEFI HTTP Boot. In a VM environment, this method
+   can be used but requires a guest UEFI implementation (e.g., OVMF). An
+   example of this method is `qemu -bios OVMF.fd -kernel image.efi` which
+   boots the guest with just OVMF and then passes the boot configuration to
+   the guest over the `fw_cfg` interface. The configuration tells OVMF where
+   to find the kernel on disk and how to boot it.
 
 4. **Serviced** This mode applies only to confidential virtual machines. The
    tenant provides a service module and firmware bundled in the image. The
