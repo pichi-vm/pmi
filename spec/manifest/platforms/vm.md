@@ -41,9 +41,8 @@ A `vm` manifest MUST contain at least one `"pmi:vm:vcpu"` segment. If multiple
 are present, the VMM MUST use the last one in segment array order; earlier
 vcpu segments are ignored.
 
-Per PMI's general extensibility rule, missing keys default to zero (with the
-per-architecture exceptions noted below). Unknown keys MUST be ignored. Vendor
-extensions MUST use the namespaced form `"vendor:key"`.
+Missing keys default to zero (with the per-architecture exceptions noted
+below). Unknown keys MUST be ignored.
 
 The VMM MUST reject a vcpu where any value exceeds the field width defined by
 the architecture schema (e.g., a `selector` value greater than `0xFFFF`).

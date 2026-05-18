@@ -53,10 +53,9 @@ metal, in a VM, and in a confidential VM on multiple platforms.
    VM paths — UEFI ignores `.pmi*`. CC semantics layer on top via per-platform
    manifests, never required.
 
-6. **Extensible everywhere.** Every structure accepts unknown keys, and every
-   platform binding owns its own segment types. Adding a platform means
-   adding a manifest section and an index entry; no schema changes to other
-   bindings.
+6. **Strict, verifiable schemas.** Every type, every key, every value the
+   spec defines is exhaustive. A reference parser can decide a manifest is
+   valid or invalid with no third answer.
 
 ## Documentation
 
@@ -68,8 +67,7 @@ metal, in a VM, and in a confidential VM on multiple platforms.
 
 ### Per-Platform Manifest
 
-- [Manifest](spec/manifest/README.md) — Top-level schema, extensibility,
-  versioning
+- [Manifest](spec/manifest/README.md) — Top-level schema and versioning
 - [Segments](spec/manifest/segments.md) — Segment schema, defined types,
   loading rules, measurement
 - [DTB](spec/manifest/dtb.md) — Base DTB and host-conformance contract

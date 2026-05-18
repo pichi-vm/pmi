@@ -37,21 +37,8 @@ segment = {
 
 - **`type`** — identifies the segment kind. Defaults to `"pmi:load"` when
   absent. See [Defined types](#defined-types) for the types this specification
-  defines and [Extensibility](#extensibility) for the namespacing rules.
-
-## Extensibility
-
-Every PMI-defined map accepts additional keys beyond those defined here.
-Well-known keys are short, unnamespaced strings (e.g., `"section"`, `"type"`).
-Extension keys MUST use a collision-resistant namespaced form:
-`"namespace:key"` (e.g., `"vendor:feature"`).
-
-Type values defined by this specification use the `"pmi:"` prefix (e.g.,
-`"pmi:load"`, `"pmi:dtbo"`, `"pmi:sev:vmsa"`). Extension type values MUST use
-a namespaced form with a non-`"pmi:"` prefix (e.g., `"vendor:custom"`). VMMs
-MUST reject type values they do not recognize.
-
-Consumers MUST ignore keys and type-specific parameters they do not recognize.
+  defines. Consumers MUST reject unknown type values; consumers MUST ignore
+  unknown keys (including unknown type-specific parameters).
 
 ## Processing order
 

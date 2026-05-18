@@ -14,7 +14,7 @@ manifest, not here.
 index = {
   "version"   => uint,                 ; schema version, currently 1
   "platforms" => { + tstr => tstr },   ; platform name => PE section name
-  * tstr => any,                       ; extension point
+  * tstr => any,                       ; unknown keys ignored
 }
 ```
 
@@ -60,15 +60,4 @@ By convention, images carry each per-platform manifest in `.pmi.<plat>`:
 This is a convention only. Image authors MAY use any names; the index is
 authoritative.
 
-## Extensibility
-
-The index map accepts additional keys beyond `version` and `platforms`.
-Extension keys MUST use a collision-resistant namespaced form
-(`"namespace:key"`). VMMs MUST ignore unknown index-level keys.
-
-Adding a new platform requires only:
-
-1. A new PE section containing the platform's manifest.
-2. A new entry in the index's `platforms` map.
-
-No changes to existing per-platform manifests are needed.
+VMMs MUST ignore unknown keys in the index map.

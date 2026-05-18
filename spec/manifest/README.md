@@ -17,7 +17,7 @@ manifest = {
   "version"  => uint,                  ; schema version, currently 1
   ? "dtb"    => tstr,                  ; PE section containing the base DTB
   "segments" => [+ segment],           ; ordered launch recipe
-  * tstr => any,                       ; extension point
+  * tstr => any,                       ; unknown keys ignored
 }
 ```
 
@@ -33,13 +33,9 @@ manifest = {
   should do at each step of the platform's launch procedure. See
   [segments.md](segments.md) for the segment schema and defined types.
 
-All PMI-defined maps accept additional keys beyond those defined here.
-Well-known keys are short, unnamespaced strings (e.g., `"section"`, `"type"`).
-Extension keys MUST use a collision-resistant namespaced form
-(`"namespace:key"`). Type values defined by this specification use the
-`"pmi:"` prefix (e.g., `"pmi:load"`, `"pmi:dtbo"`, `"pmi:sev:vmsa"`);
-extension types use a non-`"pmi:"` namespaced prefix. Consumers MUST ignore
-unknown keys but MUST reject unknown type values.
+Consumers MUST ignore unknown keys. Type values use the `"pmi:"` prefix and
+are defined by this specification (e.g., `"pmi:load"`, `"pmi:dtbo"`,
+`"pmi:sev:vmsa"`). Consumers MUST reject unknown type values.
 
 ## Platform Bindings
 
