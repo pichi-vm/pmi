@@ -101,21 +101,10 @@ selection logic beyond "the VMM targeting `sev` reads `.pmi.sev`."
 ## Launching a VM with PMI
 
 A VMM consumes exactly one target spec per launch: the CBOR map in the
-image's `.pmi.<target>` section for the target it is launching. Every
-target spec has the same outer shape:
-
-```cddl
-target = {
-  "version" => uint,                ; schema version
-  "dtb"     => tstr,                ; PE section containing the base DTB
-  "actions" => [+ action],          ; ordered launch recipe
-  * tstr => any,                    ; unknown keys ignored
-}
-```
-
-The `actions` array is the launch recipe. Each entry is a CBOR map whose
-`type` field selects how the VMM consumes it; the set of valid types, and
-the launch step each binds to, is defined by the target binding.
+image's `.pmi.<target>` section for the target it is launching. Target
+specs share a similar outer shape — a schema version, a reference to a
+base DTB, and an ordered `actions` array — but each target binding is
+normative for its own schema.
 
 The VMM executes the launch in the following ordered steps:
 
@@ -124,13 +113,16 @@ The VMM executes the launch in the following ordered steps:
 2. **Inspect DTB.** Parse the FDT named by the spec's [`dtb`](dtb.md)
    field and validate that the host can satisfy every hardware capability
    it declares. Fail the launch if any declaration cannot be satisfied.
-3. **Target initialize.** Initialize the target's cryptographic context,
-   consuming any action whose type binds to this step.
-4. **Process actions.** Process each action in array order. Each action's
-   `type` selects how the VMM consumes it; the target's measurement API
-   (where applicable) is fed in the same order.
-5. **Target finalize.** Consume launch-finalize actions and seal the
-   measurement.
+3. **Target initialize.** Perform target-defined initialization (for
+   example, establishing a cryptographic launch context). The inputs and
+   criteria for this phase are defined by the target binding.
+4. **Process actions.** Process each entry in the `actions` array in
+   order. Each action's `type` field selects how the VMM consumes it;
+   the target's measurement API (where applicable) is fed in the same
+   order.
+5. **Target finalize.** Perform target-defined finalization (for example,
+   sealing the launch measurement). The inputs and criteria for this
+   phase are defined by the target binding.
 6. **Start the guest.**
 
 Action order is security-critical on confidential targets: the launch
