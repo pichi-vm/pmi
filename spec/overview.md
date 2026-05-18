@@ -103,7 +103,7 @@ Every target spec is a CBOR map with the same outer shape:
 ```cddl
 target = {
   "version" => uint,                ; schema version
-  ? "dtb"   => tstr,                ; PE section containing the base DTB
+  "dtb"     => tstr,                ; PE section containing the base DTB
   "actions" => [+ action],          ; ordered launch recipe
   * tstr => any,                    ; unknown keys ignored
 }
@@ -125,9 +125,9 @@ where collisions are not a concern.
 
 1. **Select target.** Identify the target and read its PE section (e.g.,
    `.pmi.sev` for SEV). If the section is absent, refuse to launch.
-2. **Inspect DTB.** If the spec includes a [`dtb`](dtb.md), parse its FDT
-   and validate that the host can satisfy every hardware capability it
-   declares. Fail the launch if any declaration cannot be satisfied.
+2. **Inspect DTB.** Parse the FDT named by the spec's [`dtb`](dtb.md)
+   field and validate that the host can satisfy every hardware capability
+   it declares. Fail the launch if any declaration cannot be satisfied.
 3. _(reserved)_
 4. **Target initialize.** Initialize the target's cryptographic context,
    consuming any action whose type binds to this step (e.g., `sev:policy`).

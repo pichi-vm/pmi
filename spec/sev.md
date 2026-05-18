@@ -22,7 +22,7 @@ does not support `sev` and the VMM MUST refuse to launch.
 ```cddl
 sev = {
   "version"  => uint,                  ; schema version, currently 1
-  ? "dtb"    => tstr,                  ; PE section name; see dtb.md
+  "dtb"      => tstr,                  ; PE section name; see dtb.md
   "actions"  => [+ sev-action],        ; ordered launch recipe
   * tstr => any,                       ; unknown keys ignored
 }

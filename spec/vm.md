@@ -16,7 +16,7 @@ does not support `vm` and the VMM MUST refuse to launch.
 ```cddl
 vm = {
   "version"  => uint,                  ; schema version, currently 1
-  ? "dtb"    => tstr,                  ; PE section name; see dtb.md
+  "dtb"      => tstr,                  ; PE section name; see dtb.md
   "actions"  => [+ vm-action],         ; ordered launch recipe
   * tstr => any,                       ; unknown keys ignored
 }
