@@ -13,15 +13,15 @@ PMI is a working draft. Schemas and semantics may change.
 - [Overview](spec/overview.md) — Architecture and reading guide
 - [Examples](spec/examples.md) — Concrete CBOR walkthroughs
 
+### Targets
+
+- [`vm`](spec/vm.md) — non-CC VMs
+- [`sev`](spec/sev.md) — AMD SEV-SNP
+- [`tdx`](spec/tdx.md), [`cca`](spec/cca.md) — TODO
+
 ### Reference
 
 - [PE constraints](spec/pe.md)
 - [Base DTB](spec/dtb.md)
 - [`load` action](spec/load.md)
 - [`dtbo` action](spec/dtbo.md)
-
-### Targets
-
-- [`vm`](spec/vm.md) — non-CC VMs
-- [`sev`](spec/sev.md) — AMD SEV-SNP
-- [`tdx`](spec/tdx.md), [`cca`](spec/cca.md) — TODO
