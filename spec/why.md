@@ -97,13 +97,3 @@ build paths to maintain.
 - Confidential-computing launch produces a deterministic, ordered
   measurement a remote verifier can bind to.
 - On-disk alignment supports zero-copy loading with huge pages.
-
-## Non-goals
-
-- PMI does not define a new container. PMI is PE.
-- PMI does not define cross-target inheritance, fallback, or filtering.
-  Each target's spec is self-contained.
-- PMI does not provide an out-of-band vendor extension mechanism. The type
-  namespace is closed; the spec evolves through versioned revisions.
-- PMI does not specify deployer-supplied launch inputs (`host_data`,
-  policy overrides, etc.). Those are VMM CLI concerns, out of scope here.
