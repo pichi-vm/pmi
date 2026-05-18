@@ -9,10 +9,16 @@ is expected to reuse the [`load`](load.md) and [`dtbo`](dtbo.md) action
 type names with CCA-specific semantics, plus a set of CCA-specific actions
 (`cca:*`) for realm creation and activation.
 
+## Launch model
+
+The `cca` target follows the [base launch model](vm.md#launch-model)
+defined by `vm`, with CCA behavior layered on at the cryptographic steps.
+
 ## Status
 
-TODO. The action types, schema, and execution-model mapping for `cca` will be
-specified here. The current sketch of the underlying CCA API calls:
+TODO. The action types, schema, and CCA-specific behavior at each launch
+step will be specified here. The current sketch of the underlying CCA
+API calls:
 
 | Step          | API                               |
 | ------------- | --------------------------------- |

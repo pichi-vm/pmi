@@ -5,9 +5,9 @@ specification are to be interpreted as described in
 [RFC 2119](https://www.rfc-editor.org/rfc/rfc2119).
 
 This document explains how PMI addresses the two problems framed in
-[Motivation](motivation.md) and introduces the file structure and launch
-model that express the solution. See [Examples](examples.md) for concrete
-walkthroughs.
+[Motivation](motivation.md) and introduces the file structure that
+expresses the solution. See [`vm`](vm.md) for the base launch model and
+[Examples](examples.md) for concrete walkthroughs.
 
 ## Solving the platform-definition inversion
 
@@ -95,52 +95,9 @@ The currently defined targets are:
 | [`tdx`](tdx.md) | `.pmi.tdx` | Intel TDX confidential VMs (TODO)      |
 | [`cca`](cca.md) | `.pmi.cca` | Arm CCA confidential VMs (TODO)        |
 
-Targets are independent — they share conventions but each one fully
-specifies its own launch recipe. There is no inheritance, no fallback, no
-selection logic beyond "the VMM targeting `sev` reads `.pmi.sev`."
-
-## Launching a VM with PMI
-
-A VMM consumes exactly one target spec per launch: the CBOR map in the
-image's `.pmi.<target>` section for the target it is launching. Target
-specs share a similar outer shape — a schema version, a reference to a
-base DTB, and an ordered `actions` array — but each target binding is
-normative for its own schema.
-
-The VMM executes the launch in the following ordered steps:
-
-1. **Select target.** Read the `.pmi.<target>` PE section. Refuse to
-   launch if it is absent.
-2. **Inspect DTB.** Parse the FDT named by the spec's [`dtb`](dtb.md)
-   field and validate that the host can satisfy every hardware capability
-   it declares. Fail the launch if any declaration cannot be satisfied.
-3. **Target initialize.** Perform target-defined initialization (for
-   example, establishing a cryptographic launch context). The inputs and
-   criteria for this phase are defined by the target binding.
-4. **Process actions.** Process each entry in the `actions` array in
-   order. Each action's `type` field selects how the VMM consumes it;
-   the target's measurement API (where applicable) is fed in the same
-   order.
-5. **Target finalize.** Perform target-defined finalization (for example,
-   sealing the launch measurement). The inputs and criteria for this
-   phase are defined by the target binding.
-6. **Start the guest.**
-
-Action order is security-critical on confidential targets: the launch
-measurement is an ordered hash chain, so reordering actions produces a
-different digest.
-
-The runtime overlay described under
-[platform-definition inversion](#solving-the-platform-definition-inversion)
-reaches the guest through a [`dtbo`](dtbo.md) action processed during
-step 4. A `dtbo` action names a zero PE section — a section that
-reserves a GPA range but carries no on-disk data. The VMM generates the
-overlay for this launch (the `/cpus`, `/memory@*`, and `/distance-map`
-subtrees, plus any `numa-node-id` annotations on image-declared nodes)
-and writes it into the reserved range. The overlay is generated fresh
-per launch and is not measured; the guest is responsible for merging it
-onto the base DTB before booting.
-
-The other action types each target accepts are defined in the target's
-binding.
+Each target is described in its own binding. [`vm`](vm.md) defines the
+[base launch model](vm.md#launch-model); CC targets inherit it and
+describe only their cryptographic deltas. A VMM targeting one of them
+reads the corresponding `.pmi.<target>` section — there is no fallback
+or selection logic beyond that.
 

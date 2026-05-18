@@ -50,7 +50,10 @@ schema and the launch step that consumes it:
 Consumers MUST ignore unknown keys but MUST reject unknown action `type`
 values.
 
-## Execution model
+## Launch model
+
+The `sev` target follows the [base launch model](vm.md#launch-model)
+defined by `vm`, with the following SEV-SNP behavior layered on:
 
 | Step          | API                                                                 | Inputs                                                                                             |
 | ------------- | ------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |

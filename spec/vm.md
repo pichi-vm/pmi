@@ -1,9 +1,9 @@
 # `vm` Target
 
-The `vm` target is the non-CC virtual machine launch path. The VMM reads the
-image's base [DTB](dtb.md), processes the actions list to load guest memory
-and apply any host overlay, sets boot-vCPU register state, and starts the
-guest.
+The `vm` target is the non-CC virtual machine launch path. It defines the
+**base launch model** for PMI; confidential targets ([`sev`](sev.md),
+[`tdx`](tdx.md), [`cca`](cca.md)) inherit this model and layer their
+cryptographic steps on top, describing only the deltas.
 
 ## PE section
 
@@ -24,21 +24,50 @@ vm = {
 vm-action = load / dtbo / vcpu
 ```
 
-VMMs MUST reject sections with an unrecognized `version`.
+VMMs MUST reject sections with an unrecognized `version`. Consumers MUST
+ignore unknown keys but MUST reject unknown action `type` values.
 
-The `actions` array is processed in order. Each action's `type` selects its
-schema:
+## Launch model
 
-- [`load`](load.md) — load a PE section's bytes into guest memory
-- [`dtbo`](dtbo.md) — write the host-decided devicetree overlay
-- [`vcpu`](#vcpu-action) — set boot-vCPU register state (defined below)
+A VMM executes the launch in six ordered steps:
 
-The `vm` `actions` array MUST contain at least one `vcpu` action. If multiple
-are present, the VMM MUST use the last one in array order; earlier `vcpu`
-actions are ignored.
+1. **Select target.** Read the `.pmi.<target>` PE section. Refuse to
+   launch if it is absent.
+2. **Inspect DTB.** Parse the FDT named by the spec's [`dtb`](dtb.md)
+   field and validate that the host can satisfy every hardware capability
+   it declares. Fail the launch if any declaration cannot be satisfied.
+3. **Target initialize.** No-op for `vm`. CC targets use this step to
+   establish a cryptographic launch context; see each target binding.
+4. **Process actions.** Process each entry in the `actions` array in
+   order. Each action's `type` field selects how the VMM consumes it:
+   - [`load`](load.md) — load the named PE section's bytes into guest
+     memory at the section's `VirtualAddress`.
+   - [`dtbo`](dtbo.md) — fill the named zero PE section with the runtime
+     devicetree overlay (see [Runtime overlay](#runtime-overlay) below).
+   - [`vcpu`](#vcpu-action) — set boot-vCPU register state.
+5. **Target finalize.** No-op for `vm`. CC targets use this step to seal
+   the launch measurement; see each target binding.
+6. **Start the guest.**
 
-Consumers MUST ignore unknown keys but MUST reject unknown action `type`
-values.
+The `actions` array MUST contain at least one `vcpu` action. If multiple
+are present, the VMM MUST use the last one in array order; earlier
+`vcpu` actions are ignored.
+
+On CC targets, the launch-measurement API is fed in step-4 order, so
+reordering actions produces a different digest.
+
+## Runtime overlay
+
+The runtime overlay described under [platform-definition
+inversion](overview.md#solving-the-platform-definition-inversion) reaches
+the guest through a [`dtbo`](dtbo.md) action processed at step 4. A
+`dtbo` action names a zero PE section — a section that reserves a GPA
+range but carries no on-disk data. The VMM generates the overlay for
+this launch (the `/cpus`, `/memory@*`, and `/distance-map` subtrees,
+plus any `numa-node-id` annotations on image-declared nodes) and writes
+it into the reserved range. The overlay is generated fresh per launch
+and is not measured; the guest is responsible for merging it onto the
+base DTB before booting.
 
 ## `vcpu` action
 

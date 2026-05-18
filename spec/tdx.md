@@ -9,10 +9,16 @@ is expected to reuse the [`load`](load.md) and [`dtbo`](dtbo.md) action
 type names with TDX-specific semantics, plus a set of TDX-specific actions
 (`tdx:*`) for launch-time inputs.
 
+## Launch model
+
+The `tdx` target follows the [base launch model](vm.md#launch-model)
+defined by `vm`, with TDX behavior layered on at the cryptographic steps.
+
 ## Status
 
-TODO. The action types, schema, and execution-model mapping for `tdx` will be
-specified here. The current sketch of the underlying TDX API calls:
+TODO. The action types, schema, and TDX-specific behavior at each launch
+step will be specified here. The current sketch of the underlying TDX
+API calls:
 
 | Step          | API                                  |
 | ------------- | ------------------------------------ |
