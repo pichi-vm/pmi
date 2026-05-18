@@ -30,7 +30,6 @@ sections themselves are free-form.
   "version": 1,
   "dtb": ".dtb.sev",
   "actions": [
-    {"type": "sev:policy", "section": ".sev.pol"},
     {"type": "load",       "section": ".linux"},
     {"type": "load",       "section": ".initrd"},
     {"type": "load",       "section": ".cmdline"},
@@ -40,33 +39,27 @@ sections themselves are free-form.
 }
 ```
 
-**`vm` launch (steps 1–9):**
+**`vm` launch (steps 1–6):**
 
 1. Read `.pmi.vm`.
 2. Parse `.dtb.vm`; validate host conformance.
-3. _(reserved)_
-4. (No CC init for `vm`.)
-5. _(reserved)_
-6. Process actions in order: `load` `.linux`, `.initrd`, `.cmdline`
+3. (No CC init for `vm`.)
+4. Process actions in order: `load` `.linux`, `.initrd`, `.cmdline`
    (measured by default). Write the host-decided memory/cpus/NUMA overlay
    into `.dtbo` (unmeasured). Set boot vCPU registers from `.vcpu`.
-7. _(reserved)_
-8. (No finalize.)
-9. Kernel starts.
+5. (No finalize.)
+6. Kernel starts.
 
-**`sev` launch (steps 1–9):**
+**`sev` launch (steps 1–6):**
 
 1. Read `.pmi.sev`.
 2. Parse `.dtb.sev`; validate host conformance.
-3. _(reserved)_
-4. `SNP_LAUNCH_START` with the policy from `.sev.pol`.
-5. _(reserved)_
-6. `SNP_LAUNCH_UPDATE` for `.linux`, `.initrd`, `.cmdline` (measured).
+3. `SNP_LAUNCH_START` with the host-supplied launch policy.
+4. `SNP_LAUNCH_UPDATE` for `.linux`, `.initrd`, `.cmdline` (measured).
    Write the host overlay into `.dtbo` (unmeasured). `SNP_LAUNCH_UPDATE`
    with `page_type=vmsa` for `.sev.vms`.
-7. _(reserved)_
-8. `SNP_LAUNCH_FINISH` (no id_block in this example).
-9. Kernel starts.
+5. `SNP_LAUNCH_FINISH` (no id_block in this example).
+6. Kernel starts.
 
 **Bare metal:** UEFI executes the EFI stub in `.linux`. All `.pmi.*` and
 other non-loaded PE sections are ignored. Standard UKI boot.
@@ -100,19 +93,16 @@ other non-loaded PE sections are ignored. Standard UKI boot.
 
 1. Read `.pmi.sev`.
 2. Parse `.dtb.sev`; validate host conformance.
-3. _(reserved)_
-4. Extract policy from the signed `.sev.idb`. `SNP_LAUNCH_START` with that
-   policy.
-5. _(reserved)_
-6. `SNP_LAUNCH_UPDATE` for `.sev.svm`, `.ovmf` (measured). Skip
+3. `SNP_LAUNCH_START` with the host-supplied launch policy, verified
+   compatible with the policy embedded in the signed `.sev.idb`.
+4. `SNP_LAUNCH_UPDATE` for `.sev.svm`, `.ovmf` (measured). Skip
    `.linux`/`.initrd`/`.cmdline`/`.osrel` if doing indirect boot (OVMF
    boots kernel from disk). Write the host overlay into `.dtbo`
    (unmeasured). `SNP_LAUNCH_UPDATE` with the appropriate page types for
    `.sev.sec`, `.sev.cpu`, `.sev.vms`.
-7. _(reserved)_
-8. `SNP_LAUNCH_FINISH` with `id_block` from `.sev.idb` and `id_auth` from
+5. `SNP_LAUNCH_FINISH` with `id_block` from `.sev.idb` and `id_auth` from
    `.sev.ida`.
-9. SVSM starts at VMPL0, initializes vTPM, creates VMPL1 VMSA for OVMF,
+6. SVSM starts at VMPL0, initializes vTPM, creates VMPL1 VMSA for OVMF,
    transitions OVMF. OVMF boots kernel from disk, measures boot via SVSM
    vTPM.
 
