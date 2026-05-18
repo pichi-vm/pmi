@@ -1,4 +1,4 @@
-# Why PMI?
+# Motivation
 
 PMI exists to solve two problems with the way low-level virtual machine
 images are defined and launched today.

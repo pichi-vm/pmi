@@ -9,7 +9,7 @@ PMI is a working draft. Schemas and semantics may change.
 
 ## Read the spec
 
-- [Why PMI?](spec/why.md) — Problem, goals, non-goals, context
+- [Motivation](spec/motivation.md) — Problem and goals
 - [Overview](spec/overview.md) — Architecture and reading guide
 - [Examples](spec/examples.md) — Concrete CBOR walkthroughs
 

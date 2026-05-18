@@ -9,7 +9,7 @@ supports, a self-contained CBOR spec naming the actions a VMM must perform
 to launch the guest. This document is the entry point to the normative
 spec: it introduces the format's mental model and points at the per-topic
 reference docs. For the motivation behind PMI's existence, see
-[Why PMI?](why.md).
+[Motivation](motivation.md).
 
 ## How PE works
 
