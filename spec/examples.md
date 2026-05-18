@@ -112,5 +112,41 @@ targeting `vm` refuses to launch this image.
 **Bare metal:** UEFI ignores `.pmi.*` and all `.sev.*`, `.ovmf`, `.dtb.sev`
 sections. EFI stub in `.linux` executes normally.
 
+## Both `vm` and SEV serviced boot in one image
+
+A PMI image supporting both `vm` and SEV serviced boot might contain the
+following PE sections. Only the `.pmi.<target>` names are used by PMI to
+discover target specs; all other names shown are illustrative.
+
+| Section    | Loaded by UEFI? | Purpose                                    |
+| ---------- | --------------- | ------------------------------------------ |
+| `.linux`   | Yes (via stub)  | Kernel                                     |
+| `.initrd`  | Yes (via stub)  | Initial ramdisk                            |
+| `.cmdline` | Yes (via stub)  | Kernel command line                        |
+| `.dtb.vm`  | No              | Base DTB used by the `vm` spec             |
+| `.dtb.sev` | No              | Base DTB used by the `sev` spec            |
+| `.dtbo`    | No              | Host-filled DTB overlay (memory/cpus/numa) |
+| `.ovmf`    | No              | Guest firmware                             |
+| `.sev.svm` | No              | SVSM service module                        |
+| `.sev.vms` | No              | SEV VMSA register state                    |
+| `.sev.sec` | No              | SEV secrets page                           |
+| `.sev.cpu` | No              | SEV CPUID page                             |
+| `.sev.idb` | No              | SEV ID block                               |
+| `.sev.ida` | No              | SEV ID auth info                           |
+| `.vcpu`    | No              | Boot vCPU register state for `vm`          |
+| `.pmi.vm`  | No              | `vm` target spec                           |
+| `.pmi.sev` | No              | `sev` target spec                          |
+
+On bare metal, UEFI executes the EFI stub, which boots the kernel from
+`.linux`. All `.pmi.*` and other non-loaded PE sections are ignored.
+
+A VMM targeting `vm` reads `.pmi.vm`, inspects its `dtb`, validates
+conformance, processes its actions, and starts the guest.
+
+A VMM targeting `sev` reads `.pmi.sev`. Its actions drive the SEV-SNP
+launch APIs (`SNP_LAUNCH_START`, `SNP_LAUNCH_UPDATE`,
+`SNP_LAUNCH_FINISH`), with the launch digest covering everything fed to
+the target's measurement API.
+
 One artifact. One spec per supported target. The image carries exactly
 the launch paths it advertises and nothing more.

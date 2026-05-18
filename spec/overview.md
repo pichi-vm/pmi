@@ -5,8 +5,9 @@ specification are to be interpreted as described in
 [RFC 2119](https://www.rfc-editor.org/rfc/rfc2119).
 
 This document explains how PMI addresses the two problems framed in
-[Motivation](motivation.md), introduces the file structure and launch
-model that express the solution, and walks through an example image.
+[Motivation](motivation.md) and introduces the file structure and launch
+model that express the solution. See [Examples](examples.md) for concrete
+walkthroughs.
 
 ## Solving the platform-definition inversion
 
@@ -143,38 +144,3 @@ onto the base DTB before booting.
 The other action types each target accepts are defined in the target's
 binding.
 
-## Example: what a PMI image contains
-
-A PMI image supporting both `vm` and SEV serviced boot might contain the
-following PE sections. Only the `.pmi.<target>` names are used by PMI to
-discover target specs; all other names shown are illustrative.
-
-| Section    | Loaded by UEFI? | Purpose                                    |
-| ---------- | --------------- | ------------------------------------------ |
-| `.linux`   | Yes (via stub)  | Kernel                                     |
-| `.initrd`  | Yes (via stub)  | Initial ramdisk                            |
-| `.cmdline` | Yes (via stub)  | Kernel command line                        |
-| `.dtb.vm`  | No              | Base DTB used by the `vm` spec             |
-| `.dtb.sev` | No              | Base DTB used by the `sev` spec            |
-| `.dtbo`    | No              | Host-filled DTB overlay (memory/cpus/numa) |
-| `.ovmf`    | No              | Guest firmware                             |
-| `.sev.svm` | No              | SVSM service module                        |
-| `.sev.vms` | No              | SEV VMSA register state                    |
-| `.sev.sec` | No              | SEV secrets page                           |
-| `.sev.cpu` | No              | SEV CPUID page                             |
-| `.sev.idb` | No              | SEV ID block                               |
-| `.sev.ida` | No              | SEV ID auth info                           |
-| `.vcpu`    | No              | Boot vCPU register state for `vm`          |
-| `.pmi.vm`  | No              | `vm` target spec                           |
-| `.pmi.sev` | No              | `sev` target spec                          |
-
-On bare metal, UEFI executes the EFI stub, which boots the kernel from
-`.linux`. All `.pmi.*` and other non-loaded PE sections are ignored.
-
-A VMM targeting `vm` reads `.pmi.vm`, inspects its `dtb`, validates
-conformance, processes its actions, and starts the guest.
-
-A VMM targeting `sev` reads `.pmi.sev`. Its actions drive the SEV-SNP
-launch APIs (`SNP_LAUNCH_START`, `SNP_LAUNCH_UPDATE`,
-`SNP_LAUNCH_FINISH`), with the launch digest covering everything fed to
-the target's measurement API.
