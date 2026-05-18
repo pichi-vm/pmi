@@ -37,7 +37,7 @@ other than those declared.
 ## Image-side responsibilities
 
 The DTB SHOULD omit `/memory`, `/cpus`, and `/distance-map` nodes; the host
-fills these through a separate [`dtbo`](dtbo.md) overlay, since memory
+fills these through a separate [`dtbo`](vm.md#dtbo-action) overlay, since memory
 size, vCPU count, and NUMA topology are host-decided.
 
 The DTB MAY include any other nodes the image needs to declare: interrupt
@@ -47,7 +47,7 @@ owns the address-space layout for everything outside the three
 host-fillable paths above.
 
 Nodes the image declares MAY be annotated with `numa-node-id` by the
-host's overlay (see [`dtbo`](dtbo.md)). This is the only property the host
+host's overlay (see [`dtbo`](vm.md#dtbo-action)). This is the only property the host
 may add to non-`/cpus` / non-`/memory@*` / non-`/distance-map` nodes. The
 image MUST NOT pre-populate `numa-node-id` on its own declared nodes; the
 host supplies these at launch since the NUMA topology of the deployment

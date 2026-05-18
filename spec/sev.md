@@ -6,7 +6,7 @@ launch APIs (`SNP_LAUNCH_START`, `SNP_LAUNCH_UPDATE`, `SNP_LAUNCH_FINISH`),
 and starts the guest under SEV protection.
 
 The `sev` target is built on [`vm`](vm.md). It inherits `vm`'s base
-launch model and `vm`'s [`dtbo`](dtbo.md) action, extends `vm`'s
+launch model and `vm`'s [`dtbo`](vm.md#dtbo-action) action, extends `vm`'s
 [`load`](vm.md#load-action) action with SEV-SNP measurement semantics
 (see [`load` below](#load)), and adds its own launch-specific action
 types. It does not use `vm`'s [`vcpu`](vm.md#vcpu) field; the SEV

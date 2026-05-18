@@ -23,4 +23,3 @@ PMI is a working draft. Schemas and semantics may change.
 
 - [PE constraints](spec/pe.md)
 - [Base DTB](spec/dtb.md)
-- [`dtbo` action](spec/dtbo.md)
