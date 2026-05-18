@@ -24,7 +24,6 @@ sev = {
   "version"  => uint,                  ; schema version, currently 1
   "dtb"      => tstr,                  ; PE section name; see dtb.md
   "actions"  => [+ sev-action],        ; ordered launch recipe
-  * tstr => any,                       ; unknown keys ignored
 }
 
 sev-action = load / dtbo
@@ -32,7 +31,8 @@ sev-action = load / dtbo
            / sev-vmsa / sev-secrets / sev-cpuid
 ```
 
-VMMs MUST reject sections with an unrecognized `version`.
+VMMs MUST reject sections with an unrecognized `version`, an unknown
+top-level key, or an unknown action `type` value.
 
 The `actions` array is processed in order. Each action's `type` selects its
 schema and the launch step that consumes it:
@@ -46,9 +46,6 @@ schema and the launch step that consumes it:
 | `sev:cpuid`    | 4    | `SNP_LAUNCH_UPDATE` with `page_type=cpuid` (VMM fills)   |
 | `sev:id-block` | 5    | `SNP_LAUNCH_FINISH` (id_block)                           |
 | `sev:id-auth`  | 5    | `SNP_LAUNCH_FINISH` (id_auth)                            |
-
-Consumers MUST ignore unknown keys but MUST reject unknown action `type`
-values.
 
 ## Launch model
 

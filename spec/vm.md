@@ -18,14 +18,13 @@ vm = {
   "version"  => uint,                  ; schema version, currently 1
   "dtb"      => tstr,                  ; PE section name; see dtb.md
   "actions"  => [+ vm-action],         ; ordered launch recipe
-  * tstr => any,                       ; unknown keys ignored
 }
 
 vm-action = load / dtbo / vcpu
 ```
 
-VMMs MUST reject sections with an unrecognized `version`. Consumers MUST
-ignore unknown keys but MUST reject unknown action `type` values.
+VMMs MUST reject sections with an unrecognized `version`, an unknown
+top-level key, or an unknown action `type` value.
 
 ## Launch model
 
@@ -94,7 +93,7 @@ section's `VirtualAddress` field has no semantic meaning for `vcpu`; its
 content is the CBOR blob occupying `SizeOfRawData` bytes at `PointerToRawData`.
 
 Missing keys in the register map default to zero (with the per-architecture
-exceptions noted below). Unknown keys MUST be ignored.
+exceptions noted below). The VMM MUST reject unknown keys.
 
 The VMM MUST reject a `vcpu` register map where any value exceeds the field
 width defined by the architecture schema (e.g., a `selector` value greater
@@ -117,7 +116,6 @@ vcpu-x64 = {
   ? "gs"   => seg-reg, ? "ss" => seg-reg,
   ? "gdtr" => dtr,
   ? "idtr" => dtr,
-  * tstr => any,
 }
 
 seg-reg = {
@@ -125,13 +123,11 @@ seg-reg = {
   ? "attributes" => uint,                 ; u16; encoding below
   ? "limit"      => uint,                 ; u32
   ? "base"       => uint,                 ; u64
-  * tstr => any,
 }
 
 dtr = {
   ? "limit" => uint,                      ; u16
   ? "base"  => uint,                      ; u64
-  * tstr => any,
 }
 ```
 
@@ -182,7 +178,6 @@ vcpu-aarch64 = {
   ? "ttbr0_el1" => uint, ? "ttbr1_el1" => uint,
   ? "mair_el1"  => uint, ? "vbar_el1"  => uint,
   ? "cpacr_el1" => uint,
-  * tstr => any,
 }
 ```
 
