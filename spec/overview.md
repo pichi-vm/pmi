@@ -4,44 +4,19 @@ The key words "MUST", "MUST NOT", "SHOULD", "SHOULD NOT", and "MAY" in this
 specification are to be interpreted as described in
 [RFC 2119](https://www.rfc-editor.org/rfc/rfc2119).
 
-## What Needs to Be Loaded
+A PMI image is a PE binary that carries, for each launch target it
+supports, a self-contained CBOR spec naming the actions a VMM must perform
+to launch the guest. This document is the entry point to the normative
+spec: it introduces the format's mental model and points at the per-topic
+reference docs. For the motivation behind PMI's existence, see
+[Why PMI?](why.md).
 
-Booting a machine requires loading software into memory. What gets loaded
-depends on the deployment context:
-
-- **Bare metal:** A kernel, initial ramdisk (initrd), and command line are
-  loaded into memory and executed. On UEFI systems, a bootloader or EFI
-  application handles this. Platform layout is fixed by hardware and
-  enumerated by firmware.
-
-- **Virtual machine:** A Virtual Machine Monitor (VMM) loads a kernel into
-  guest memory, or loads guest firmware such as OVMF (Open Virtual Machine
-  Firmware) which then loads the kernel from disk. The VMM may also need to
-  provide runtime data like a memory map or ACPI tables. Unlike bare metal,
-  the platform layout is composed at launch — by the host.
-
-- **Confidential VM:** Everything a VM needs, plus target-specific pages
-  that the hardware requires: initial register state, secrets pages, CPUID
-  tables. A **service module** — a CC-specific privileged component such as
-  [COCONUT-SVSM](https://github.com/coconut-svsm/svsm) on AMD SEV-SNP — may
-  run at a higher privilege level than the guest firmware, initialize the
-  confidential environment, and provide a vTPM before launching the
-  firmware. The VMM loads all of this into guest memory, in the correct
-  order, and feeds each page to the target's measurement API. The VMM is
-  untrusted — hardware attestation allows a remote verifier to confirm that
-  the VMM loaded exactly what the image specified.
-
-Today, each context uses a different image format with different tooling.
-PMI (Portable Machine Image) uses a single PE binary to address all three,
-and shifts platform-layout definition from the host to the image — see
-[Why PMI?](why.md) for the motivation.
-
-## How PE Works
+## How PE works
 
 PE (Portable Executable) is the binary format that UEFI firmware loads and
-executes. A PE file contains executable code (the entry point that UEFI calls)
-and is divided into **sections**, each with a name and a set of attributes
-defined in the section header:
+executes. A PE file contains executable code (the entry point that UEFI
+calls) and is divided into **sections**, each with a name and a set of
+attributes defined in the section header:
 
 | Field              | Description                                        |
 | ------------------ | -------------------------------------------------- |
@@ -53,16 +28,16 @@ defined in the section header:
 | `Characteristics`  | Flags that control how the section is treated      |
 
 When UEFI firmware loads a PE, it reads each section header and copies the
-on-disk data into memory at the section's `VirtualAddress`. If `VirtualSize` is
-larger than `SizeOfRawData`, the remainder is zero-filled (this is how `.bss`
-regions work — reserved memory with no file backing).
+on-disk data into memory at the section's `VirtualAddress`. If `VirtualSize`
+is larger than `SizeOfRawData`, the remainder is zero-filled (this is how
+`.bss` regions work — reserved memory with no file backing).
 
 Not all sections are loaded. Sections can be marked with flags like
-`IMAGE_SCN_MEM_DISCARDABLE` that tell the loader to skip them. These sections
-exist in the file but are not mapped into memory — they carry data that the
-loader does not need at runtime.
+`IMAGE_SCN_MEM_DISCARDABLE` that tell the loader to skip them. These
+sections exist in the file but are not mapped into memory — they carry data
+that the loader does not need at runtime.
 
-## How UKI Uses PE Sections
+## How UKI uses PE sections
 
 A Unified Kernel Image (UKI) is a PE file that bundles everything needed to
 boot Linux into named sections:
@@ -74,41 +49,19 @@ boot Linux into named sections:
 | `.cmdline` | The kernel command line |
 | `.osrel`   | OS release metadata     |
 
-The PE also contains an **EFI stub** — a small program that serves as the PE's
-entry point. When UEFI firmware loads the PE, it calls the stub. The stub
-reads the other sections, loads the kernel into memory, and boots it. On bare
-metal, PXE, and UEFI HTTP Boot, no additional configuration is required.
-
-VMMs can also boot a UKI without bare metal hardware. There are two methods:
-
-- **Extracted:** The VMM extracts the kernel from the PE and loads it directly
-  into guest memory using the Linux boot protocol, with no guest firmware
-  involved (e.g., `qemu -kernel image.efi`).
-
-- **Stubbed:** The VMM loads a guest UEFI implementation (e.g., OVMF) and
-  passes the UKI to it via the `fw_cfg` interface. OVMF then boots the UKI
-  through its normal UEFI boot path.
-
-However, in current deployments, VMMs supply full, unmeasured ACPI tables,
-including executable AML bytecode. This has been demonstrated as a practical
-attack surface allowing root compromise of confidential VMs:
-
-- [AMD-SB-3012](https://www.amd.com/en/resources/product-security/bulletin/amd-sb-3012.html)
-  — ACPI/AML injection in SEV guests via QEMU.
-- [BadAML](https://dl.acm.org/doi/10.1145/3719027.3765123) (ACM CCS 2025,
-  Distinguished Paper) — universal AML injection across SEV and TDX guests.
-
-This is precisely the kind of vulnerability PMI aims to eliminate by allowing
-the image to specify exactly what gets loaded and measured.
+The PE also contains an **EFI stub** — a small program that serves as the
+PE's entry point. When UEFI firmware loads the PE, it calls the stub. The
+stub reads the other sections, loads the kernel into memory, and boots it.
+PMI builds on this same PE-with-named-sections idiom.
 
 ## PMI as a PE extension
 
 A PMI image is a PE binary. It MAY also be structured as a UKI (carrying
-`.linux`, `.initrd`, `.cmdline`, and an EFI stub) for the bare-metal and
+`.linux`, `.initrd`, `.cmdline`, and an EFI stub) for bare-metal and
 stubbed VM paths; UEFI ignores the PMI-specific sections. A PMI image is
-not _required_ to be UKI-shaped — an image that contains only firmware (for
-OVMF-loads-kernel-from-disk modes), or only confidential-VM content, is
-equally valid. PMI is compatible with UKI, not a flavor of it.
+not _required_ to be UKI-shaped — an image that contains only firmware
+(for OVMF-loads-kernel-from-disk modes), or only confidential-VM content,
+is equally valid. PMI is compatible with UKI, not a flavor of it.
 
 PMI's extension to PE is a set of non-loaded sections whose names begin
 with `.pmi.` — one per launch target the image supports.
@@ -130,10 +83,11 @@ The currently defined targets are:
 | [`tdx`](tdx.md) | `.pmi.tdx` | Intel TDX confidential VMs (TODO)      |
 | [`cca`](cca.md) | `.pmi.cca` | Arm CCA confidential VMs (TODO)        |
 
-Targets are independent — they share conventions (the [`dtb`](dtb.md) field;
-the [`load`](load.md) and [`dtbo`](dtbo.md) actions) but each one fully
-specifies its own launch recipe. There is no inheritance, no fallback, no
-selection logic beyond "the VMM targeting `sev` reads `.pmi.sev`."
+Targets are independent — they share conventions (the [`dtb`](dtb.md)
+field; the [`load`](load.md) and [`dtbo`](dtbo.md) actions) but each one
+fully specifies its own launch recipe. There is no inheritance, no
+fallback, no selection logic beyond "the VMM targeting `sev` reads
+`.pmi.sev`."
 
 ## Shape of a target spec
 
@@ -152,23 +106,23 @@ Each target defines its own set of `action` types. Common action types
 (used by multiple targets) are:
 
 - [`load`](load.md) — load a PE section's bytes into guest memory.
-- [`dtbo`](dtbo.md) — VMM writes a host-decided devicetree overlay into the
-  named section.
+- [`dtbo`](dtbo.md) — VMM writes a host-decided devicetree overlay into
+  the named section.
 
 Target-specific action types are defined by each target binding (e.g.,
 `vcpu` on `vm`, `sev:policy` / `sev:id-block` / `sev:vmsa` / ... on `sev`).
 
-Action `type` values use the `<target>:<name>` convention when scoped (e.g.,
-`sev:vmsa`); short, unscoped names (`load`, `dtbo`, `vcpu`) are used where
-collisions are not a concern.
+Action `type` values use the `<target>:<name>` convention when scoped
+(e.g., `sev:vmsa`); short, unscoped names (`load`, `dtbo`, `vcpu`) are used
+where collisions are not a concern.
 
 ## VMM execution model
 
 1. **Select target.** Identify the target and read its PE section (e.g.,
    `.pmi.sev` for SEV). If the section is absent, refuse to launch.
-2. **Inspect DTB.** If the spec includes a [`dtb`](dtb.md), parse its FDT and
-   validate that the host can satisfy every hardware capability it declares.
-   Fail the launch if any declaration cannot be satisfied.
+2. **Inspect DTB.** If the spec includes a [`dtb`](dtb.md), parse its FDT
+   and validate that the host can satisfy every hardware capability it
+   declares. Fail the launch if any declaration cannot be satisfied.
 3. _(reserved)_
 4. **Target initialize.** Initialize the target's cryptographic context,
    consuming any action whose type binds to this step (e.g., `sev:policy`).
@@ -217,14 +171,15 @@ A VMM targeting `vm` reads `.pmi.vm`, inspects its `dtb`, validates
 conformance, processes its `actions` (load segments, write the overlay, set
 the boot vCPU), and starts the guest.
 
-A VMM targeting `sev` reads `.pmi.sev`. Its actions drive `SNP_LAUNCH_START`
-(`sev:policy`, or policy embedded in the signed `sev:id-block`),
-`SNP_LAUNCH_UPDATE` (`load` and `sev:vmsa`/`sev:secrets`/`sev:cpuid`), and
-`SNP_LAUNCH_FINISH` (`sev:id-block` + `sev:id-auth`), with the launch digest
-covering everything fed to the target's measurement API.
+A VMM targeting `sev` reads `.pmi.sev`. Its actions drive
+`SNP_LAUNCH_START` (`sev:policy`, or policy embedded in the signed
+`sev:id-block`), `SNP_LAUNCH_UPDATE` (`load` and
+`sev:vmsa`/`sev:secrets`/`sev:cpuid`), and `SNP_LAUNCH_FINISH`
+(`sev:id-block` + `sev:id-auth`), with the launch digest covering
+everything fed to the target's measurement API.
 
 ## PE constraints and page granularity
 
-PMI imposes alignment rules on PE sections that allow zero-copy loading with
-2M huge pages, and requires that target-spec sections be non-loaded. See
-[PE constraints and page granularity](pe.md) for the full rules.
+PMI imposes alignment rules on PE sections that allow zero-copy loading
+with 2M huge pages, and requires that target-spec sections be non-loaded.
+See [PE constraints and page granularity](pe.md) for the full rules.
