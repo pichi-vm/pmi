@@ -128,8 +128,6 @@ and does not contribute to the launch digest.
 
 ## `vmsa` action
 
-Consumed at step 4 via `SNP_LAUNCH_UPDATE` with `page_type=vmsa`.
-
 ```cddl
 vmsa = {
   "type"    => "vmsa",
@@ -139,12 +137,21 @@ vmsa = {
 
 The referenced PE section MUST be non-loaded
 (`IMAGE_SCN_MEM_DISCARDABLE`) and have `VirtualSize == 4096`. Its
-contents are the VMPL0 BSP register state at launch; the page is
-measured with its actual content.
+contents are the VMPL0 BSP register state at launch, in the layout
+defined by the AMD SEV-SNP firmware ABI.
+
+At step 4 the VMM:
+
+1. Reads the PE section's 4 KiB contents from `PointerToRawData`.
+2. Calls `SNP_LAUNCH_UPDATE` with `page_type=vmsa`, supplying those
+   contents and targeting the section's `VirtualAddress` in guest
+   memory.
+
+The PSP installs the VMSA at the named GPA. The page is measured with
+its actual content, so the launch digest binds the BSP's initial
+register state.
 
 ## `secrets` action
-
-Consumed at step 4 via `SNP_LAUNCH_UPDATE` with `page_type=secrets`.
 
 ```cddl
 secrets = {
@@ -153,14 +160,21 @@ secrets = {
 }
 ```
 
-The referenced PE section MUST be a zero section (`SizeOfRawData == 0`,
-`VirtualSize == 4096`). The PSP populates it with platform secrets at
-launch. The page is measured with zero content in the launch digest
-(the GPA is bound, the content is not).
+The referenced PE section MUST be a zero section
+(`SizeOfRawData == 0`, `VirtualSize == 4096`) — it reserves a GPA
+range with no on-disk data for a page the PSP will populate at
+launch.
+
+At step 4 the VMM calls `SNP_LAUNCH_UPDATE` with `page_type=secrets`,
+targeting the section's `VirtualAddress` in guest memory. No content
+is supplied; the PSP populates the page with platform secrets in
+encrypted guest memory.
+
+The page is measured as a zero page in the launch digest — the GPA
+and page type are bound, the content is not (the secrets aren't
+knowable to a verifier ahead of time).
 
 ## `cpuid` action
-
-Consumed at step 4 via `SNP_LAUNCH_UPDATE` with `page_type=cpuid`.
 
 ```cddl
 cpuid = {
@@ -169,7 +183,21 @@ cpuid = {
 }
 ```
 
-The referenced PE section MUST be a zero section (`SizeOfRawData == 0`,
-`VirtualSize == 4096`). The VMM fills the CPUID table with values it
-wants to expose; the PSP validates entries and rejects impossible
-values. The page is measured with zero content in the launch digest.
+The referenced PE section MUST be a zero section
+(`SizeOfRawData == 0`, `VirtualSize == 4096`) — it reserves a GPA
+range with no on-disk data for the CPUID table the VMM will provide
+at launch.
+
+At step 4 the VMM:
+
+1. Constructs the CPUID table it wants to expose to the guest, in
+   the layout defined by the AMD SEV-SNP firmware ABI.
+2. Calls `SNP_LAUNCH_UPDATE` with `page_type=cpuid`, supplying that
+   table and targeting the section's `VirtualAddress` in guest
+   memory.
+
+The PSP validates each CPUID entry against the actual processor's
+capabilities and rejects entries that claim functionality the
+processor does not support. The page is measured as a zero page in
+the launch digest — the GPA and page type are bound, the content is
+not.
