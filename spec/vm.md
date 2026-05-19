@@ -13,9 +13,9 @@ does not support `vm` and the VMM MUST refuse to launch.
 
 ```cddl
 vm = {
-  "version"  => uint,                  ; schema version, currently 1
+  "version"  => uint,                  ; schema version (1)
   "dtb"      => tstr,                  ; PE section name; see dtb.md
-  "vcpu"     => vcpu-x64 / vcpu-aarch64, ; arch selected by PE.FileHeader.Machine; see vcpu below
+  "vcpu"     => vcpu-x64 / vcpu-aarch64, ; selected by PE.FileHeader.Machine
   "actions"  => [+ vm-action],         ; ordered launch recipe (step 4)
 }
 
@@ -41,8 +41,8 @@ A VMM executes the launch in six ordered steps:
      guest memory at the section's `VirtualAddress`.
    - [`dtbo`](#dtbo-action) — fill the named zero PE section with the
      runtime devicetree overlay.
-5. **Target finalize.** Apply the spec's [`vcpu`](#vcpu) register map to
-   the boot vCPU.
+5. **Target finalize.** Apply the spec's [`vcpu`](#vcpu-field) register
+   map to the boot vCPU.
 6. **Start the guest.**
 
 ## `load` action
@@ -69,7 +69,8 @@ There are three PE-section shapes:
    the on-disk data at `VirtualAddress`. The VMM chooses page granularity
    based on alignment — see [page granularity](pe.md#page-granularity).
 2. **Padded** (`SizeOfRawData > 0`, `VirtualSize > SizeOfRawData`). Load
-   the on-disk data at `VirtualAddress` as in case 1. Then zero-fill from
+   the on-disk data at `VirtualAddress` as in the Data shape above. Then
+   zero-fill from
    `VirtualAddress + SizeOfRawData` to `VirtualAddress + VirtualSize`.
    This is standard PE `.bss`-tail behavior — firmware or service modules
    that need reserved memory beyond their code use this to express it
@@ -95,7 +96,7 @@ the overlay fresh for this guest and writes it into that range. The
 in-guest consumer that merges the overlay onto the base DTB is not
 mandated by this spec — a guest stub, an overlay-at-boot kernel, or
 any other trusted component will do. PMI defines the action's on-disk
-format, the overlay's content whitelist, and the validation rules the
+format, the overlay's content allowlist, and the validation rules the
 consumer must apply.
 
 ### Schema
@@ -111,12 +112,11 @@ The referenced PE section MUST be a zero section
 (`SizeOfRawData == 0`, `VirtualSize > 0`) — it reserves an address
 range with no on-disk data.
 
-### Content whitelist
+### Content allowlist
 
 The overlay MUST contribute ONLY content that falls into one of the
-following four categories. Any node or property outside this whitelist
-is non-conformant; the consumer MUST reject the launch on any
-violation.
+following four categories. Any node or property outside this allowlist
+is non-conformant.
 
 1. **Nodes and properties under `/cpus`** (CPU enumeration).
 2. **Nodes and properties under `/memory@*`** (memory layout).
@@ -141,14 +141,13 @@ validations fail.
 referenced strings null-terminated within the strings block, every
 `FDT_BEGIN_NODE` paired with a corresponding `FDT_END_NODE`).
 
-**Whitelist.** Every node and property the overlay touches MUST fall
-into one of the four whitelist categories above.
+**Allowlist.** Every node and property the overlay touches MUST fall
+into one of the four allowlist categories above.
 
-**Architecture relevance.** The overlay MUST contain only nodes,
-properties, and values defined for the guest's target architecture.
-The consumer MUST reject the launch on any violation (for example, a
-DT `enable-method` value not defined on the target architecture, such
-as `spin-table` on x86).
+**Architecture relevance.** Every host-contributed node, property, and
+value MUST be defined for the guest's target architecture. (Example:
+a DT `enable-method` value of `spin-table` on x86 is non-conformant —
+x86 does not define that bring-up method.)
 
 **Address-bearing values.** For every host-contributed address (every
 `/memory@*/reg` and any `/memory@*/linux,usable-memory` entry, plus
@@ -167,11 +166,10 @@ spin-table enable-method):
 - Each `cpu-release-addr` MUST lie inside a `/memory@*/reg` region AND
   MUST NOT overlap any loaded PE section's range.
 
-**Bounded counts.** Implementations MUST enforce upper bounds on the
-overlay byte length and the number of CPU nodes in the merged tree.
-The recommended minimum upper bounds are 64 KiB and 256 CPU nodes
-respectively; implementations MAY enforce smaller bounds where
-resource-constrained.
+**Bounded byte length.** Implementations MUST enforce an upper bound
+on the overlay's byte length to prevent denial-of-service via oversized
+overlays. The recommended minimum is 64 KiB; resource-constrained
+implementations MAY enforce smaller bounds.
 
 **Phandle resolution.** Every phandle referenced by a host-contributed
 property MUST resolve to a node present in the merged DTB.
@@ -183,15 +181,15 @@ The consumer is NOT required to validate:
 - The values of `numa-node-id` properties beyond structural type
   conformance (a kernel will tolerate or reject bad NUMA IDs through
   its own bounds; misassignment is at worst a denial-of-service).
-- The values within `/distance-map/distance-matrix` (pure numeric
-  hints for NUMA scheduling; bad values degrade performance but do
-  not compromise the guest).
+- The values within the `distance-matrix` property under
+  `/distance-map` (pure numeric hints for NUMA scheduling; bad values
+  degrade performance but do not compromise the guest).
 - The `compatible` strings on host-added CPU or device nodes
   (kernel-side driver curation is the appropriate defense against
   driver-specific attacks; this is out of scope for the dtbo
   consumer).
 
-## `vcpu`
+## `vcpu` field
 
 The `vcpu` field carries a CBOR-encoded map of register values for the
 boot vCPU, inline in the target spec. The VMM looks up each key in the

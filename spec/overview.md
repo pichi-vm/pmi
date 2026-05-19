@@ -29,10 +29,10 @@ The host's runtime decisions — how much memory this particular guest gets,
 how many vCPUs, how those vCPUs and memory are arranged across NUMA nodes —
 cannot be known to the image author in advance. The VMM supplies these
 through a **Devicetree Blob Overlay (DTBO)** it writes into a known segment
-at launch. The overlay is restricted by a content whitelist to exactly the
+at launch. The overlay is restricted by a content allowlist to exactly the
 three subtrees `/cpus`, `/memory@*`, and `/distance-map`, plus a single
 property (`numa-node-id`) that may be added to image-declared nodes.
-Anything outside the whitelist is rejected by the guest before the overlay
+Anything outside the allowlist is rejected by the guest before the overlay
 is applied.
 
 The result: the platform the guest boots against is the platform the image
@@ -43,7 +43,7 @@ launch measurement.
 
 See [dtb.md](dtb.md) for the base DTB format, conformance contract, and
 image-side responsibilities; see [`dtbo` action](vm.md#dtbo-action) for
-the overlay schema, content whitelist, and consumer validation rules.
+the overlay schema, content allowlist, and consumer validation rules.
 
 ## Solving the single-artifact problem
 
