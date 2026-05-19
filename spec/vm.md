@@ -144,6 +144,12 @@ referenced strings null-terminated within the strings block, every
 **Whitelist.** Every node and property the overlay touches MUST fall
 into one of the four whitelist categories above.
 
+**Architecture relevance.** The overlay MUST contain only nodes,
+properties, and values defined for the guest's target architecture.
+The consumer MUST reject the launch on any violation (for example, a
+DT `enable-method` value not defined on the target architecture, such
+as `spin-table` on x86).
+
 **Address-bearing values.** For every host-contributed address (every
 `/memory@*/reg` and any `/memory@*/linux,usable-memory` entry, plus
 every `/cpus/cpu@N/cpu-release-addr` on architectures that use the
