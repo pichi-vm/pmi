@@ -72,8 +72,7 @@ other non-loaded PE sections are ignored. Standard UKI boot.
 {
   "version": 1,
   "dtb": ".dtb.sev",
-  "id-block": ".sev.idb",
-  "id-auth": ".sev.ida",
+  "id": {"block": ".sev.idb", "auth": ".sev.ida"},
   "actions": [
     {"type": "load",        "section": ".sev.svm"},
     {"type": "load",        "section": ".ovmf"},

@@ -4,9 +4,8 @@ The `sev` target is built on [`vm`](vm.md). It inherits vm's base
 launch model and `dtbo` action, extends vm's [`load`](vm.md#load-action)
 action with SEV-SNP measurement semantics, and replaces vm's
 [`vcpu`](vm.md#vcpu-field) field with a `sev:vmsa` action for the BSP
-register state. The schema adds optional `id-block`/`id-auth` fields
-for a signed launch and action types for the secrets and CPUID pages
-SEV-SNP requires.
+register state. The schema adds an optional `id` field for signed launches and action
+types for the secrets and CPUID pages SEV-SNP requires.
 
 ## PE section
 
@@ -18,11 +17,15 @@ the image does not support `sev` and the VMM MUST refuse to launch.
 
 ```cddl
 sev = {
-  "version"    => uint,                  ; schema version (1)
-  "dtb"        => tstr,                  ; PE section name; see dtb.md
-  ? "id-block" => tstr,                  ; PE section: 96-byte SEV ID block
-  ? "id-auth"  => tstr,                  ; PE section: SEV ID auth info (~4 KiB)
-  "actions"    => [+ sev-action],        ; ordered launch recipe (step 4)
+  "version" => uint,                     ; schema version (1)
+  "dtb"     => tstr,                     ; PE section name; see dtb.md
+  ? "id"    => sev-id,                   ; signed launch identity; see id below
+  "actions" => [+ sev-action],           ; ordered launch recipe (step 4)
+}
+
+sev-id = {
+  "block" => tstr,                       ; PE section: 96-byte SEV ID block
+  "auth"  => tstr,                       ; PE section: SEV ID auth info (~4 KiB)
 }
 
 sev-action = sev-load / dtbo
@@ -31,8 +34,6 @@ sev-action = sev-load / dtbo
 
 VMMs MUST reject sections with an unrecognized `version`, an unknown
 top-level key, or an unknown action `type` value.
-
-`id-block` and `id-auth` MUST both be present or both absent.
 
 ## Launch model
 
@@ -43,7 +44,7 @@ defined by `vm`, with the following SEV-SNP behavior layered on:
 | ------------- | -------------------- | ------------------------------------------------------------------- |
 | 3. Initialize | `SNP_LAUNCH_START`   | host-supplied launch policy (see [Launch policy](#launch-policy))   |
 | 4. Update     | `SNP_LAUNCH_UPDATE`  | each action in array order; `page_type` determined by action type   |
-| 5. Finalize   | `SNP_LAUNCH_FINISH`  | `id-block` + `id-auth` (if present); `host_data` is deployer-supplied |
+| 5. Finalize   | `SNP_LAUNCH_FINISH`  | `id.block` + `id.auth` (if `id` is present); `host_data` is deployer-supplied |
 
 Within each step-4 action's PE section the VMM loads pages from the
 lowest GPA to the highest, so the launch digest is deterministic for a
@@ -56,34 +57,44 @@ the VMM accepts it via VMM-defined input (CLI flag, config file, etc.),
 which is out of scope for PMI. The format is the 64-bit POLICY field as
 defined in the AMD SEV-SNP firmware ABI.
 
-If `id-block` is present, the host launch policy MUST be compatible
-with the policy field embedded in the signed ID block; the VMM MUST
-verify and refuse to launch on mismatch.
+If `id` is present, the host launch policy MUST be compatible with the
+policy field embedded in the signed ID block; the VMM MUST verify and
+refuse to launch on mismatch.
 
-If `id-block` is absent, the host has unconstrained latitude over the
-launch policy.
+If `id` is absent, the host has unconstrained latitude over the launch
+policy.
 
 The launch policy is not measured; it appears in the attestation report
 for remote verification. A remote verifier MUST check policy fields in
 the attestation report — the launch digest alone does not establish
 policy properties.
 
-## `id-block` and `id-auth`
+## `id`
 
-The `id-block` and `id-auth` top-level fields name PE sections
-containing, respectively, the 96-byte SEV ID block and the ~4 KiB ID
-auth info (ECDSA P-384 signatures over the ID block). The VMM passes
-these to `SNP_LAUNCH_FINISH` as `id_block` and `id_auth` at step 5.
+The optional `id` field carries a signed launch identity — present on
+signed launches, absent on unsigned ones. It names two PE sections:
+
+```cddl
+sev-id = {
+  "block" => tstr,                  ; PE section: 96-byte SEV ID block
+  "auth"  => tstr,                  ; PE section: SEV ID auth info (~4 KiB)
+}
+```
+
+The VMM passes the two sections to `SNP_LAUNCH_FINISH` as `id_block`
+and `id_auth` at step 5.
 
 Both PE sections MUST be non-loaded (`IMAGE_SCN_MEM_DISCARDABLE`):
 
-- The `id-block` PE section MUST have `VirtualSize == 96` and contain
+- The `block` PE section MUST have `VirtualSize == 96` and contain
   exactly the 96 bytes the AMD SEV-SNP ABI defines for the ID block.
-- The `id-auth` PE section MUST have `VirtualSize == 4096` and contain
-  the ID auth info structure defined by the same ABI.
+- The `auth` PE section MUST have `VirtualSize == 4096` and contain
+  the ID auth info structure defined by the same ABI (ECDSA P-384
+  signatures over the ID block, plus the ID key and optional author
+  key).
 
-Both fields are optional but linked: they MUST both be present or both
-absent. An unsigned launch omits both; a signed launch carries both.
+Pairing is structural: when `id` is present, both `block` and `auth`
+keys are required.
 
 ## `load` (extension)
 
