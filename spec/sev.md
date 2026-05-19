@@ -69,7 +69,7 @@ for remote verification. A remote verifier MUST check policy fields in
 the attestation report — the launch digest alone does not establish
 policy properties.
 
-## `id`
+## `id` field
 
 The optional `id` field carries a signed launch identity — present on
 signed launches, absent on unsigned ones. It names two PE sections:
@@ -96,7 +96,7 @@ Both PE sections MUST be non-loaded (`IMAGE_SCN_MEM_DISCARDABLE`):
 Pairing is structural: when `id` is present, both `block` and `auth`
 keys are required.
 
-## `load` (extension)
+## `load` action
 
 `sev` extends the [base `load` action](vm.md#load-action) with one
 optional field:
@@ -120,9 +120,7 @@ When `measured` is `false`, the bytes are still loaded into guest
 memory but are not fed to the measurement API — used for VMM-supplied
 data the verifier does not need to bind to.
 
-## SEV-specific actions
-
-### `vmsa`
+## `vmsa` action
 
 Consumed at step 4 via `SNP_LAUNCH_UPDATE` with `page_type=vmsa`.
 
@@ -138,7 +136,7 @@ The referenced PE section MUST be non-loaded
 contents are the VMPL0 BSP register state at launch; the page is
 measured with its actual content.
 
-### `secrets`
+## `secrets` action
 
 Consumed at step 4 via `SNP_LAUNCH_UPDATE` with `page_type=secrets`.
 
@@ -154,7 +152,7 @@ The referenced PE section MUST be a zero section (`SizeOfRawData == 0`,
 launch. The page is measured with zero content in the launch digest
 (the GPA is bound, the content is not).
 
-### `cpuid`
+## `cpuid` action
 
 Consumed at step 4 via `SNP_LAUNCH_UPDATE` with `page_type=cpuid`.
 
