@@ -19,11 +19,12 @@ vm = {
   "actions"  => [+ vm-action],         ; ordered launch recipe (step 4)
 }
 
-vm-action = load / dtbo
+vm-action = load / fill
 ```
 
 VMMs MUST reject sections with an unrecognized `version`, an unknown
-top-level key, or an unknown action `type` value.
+top-level key, an unknown action `type` value, or an unknown action
+`kind` value.
 
 ## Launch model
 
@@ -36,19 +37,17 @@ A VMM executes the launch in six ordered steps:
    it declares. Fail the launch if any declaration cannot be satisfied.
 3. **Target initialize.** No-op.
 4. **Process actions.** Process each entry in the `actions` array in
-   order. Each action's `type` field selects how the VMM consumes it:
-   - [`load`](#load-action) — load the named PE section's bytes into
-     guest memory at the section's `VirtualAddress`.
-   - [`dtbo`](#dtbo-action) — fill the named zero PE section with the
-     runtime devicetree overlay.
+   order. Each action's `type` selects [`load`](#load-action) or
+   [`fill`](#fill-action); the `kind` field selects the variant within
+   that type.
 5. **Target finalize.** Apply the spec's [`vcpu`](#vcpu-field) register
    map to the boot vCPU.
 6. **Start the guest.**
 
 ## `load` action
 
-The `load` action loads a PE section's bytes into guest memory at the
-section's `VirtualAddress`. The VMM reads `VirtualAddress`,
+The `load` action loads a PE section's on-disk bytes into guest memory
+at the section's `VirtualAddress`. The VMM reads `VirtualAddress`,
 `SizeOfRawData`, `VirtualSize`, and `PointerToRawData` from the PE
 section header.
 
@@ -58,6 +57,7 @@ section header.
 load = {
   "type"    => "load",
   "section" => tstr,                ; PE section name to load
+  ? "kind"  => "unmeasured",        ; vm defines one kind; default "unmeasured"
 }
 ```
 
@@ -70,47 +70,62 @@ There are three PE-section shapes:
    based on alignment — see [page granularity](pe.md#page-granularity).
 2. **Padded** (`SizeOfRawData > 0`, `VirtualSize > SizeOfRawData`). Load
    the on-disk data at `VirtualAddress` as in the Data shape above. Then
-   zero-fill from
-   `VirtualAddress + SizeOfRawData` to `VirtualAddress + VirtualSize`.
-   This is standard PE `.bss`-tail behavior — firmware or service modules
-   that need reserved memory beyond their code use this to express it
-   without file backing.
+   zero-fill from `VirtualAddress + SizeOfRawData` to
+   `VirtualAddress + VirtualSize`. This is standard PE `.bss`-tail
+   behavior — firmware or service modules that need reserved memory
+   beyond their code use this to express it without file backing.
 3. **Zero** (`SizeOfRawData == 0`, `VirtualSize > 0`). The entire region
    is zero-filled. No disk data is loaded. This is how reserved memory
    regions are expressed.
 
-## `dtbo` action
+### kind `unmeasured`
 
-The `dtbo` action delivers a runtime devicetree overlay (FDT v17) —
-the host-decided supplement to the image's declared platform: CPU
-enumeration (`/cpus`), memory layout (`/memory@*`), NUMA topology
-(`/distance-map`), and `numa-node-id` annotations on image-declared
-nodes. These cannot be known at image-build time; see
-[platform-definition
-inversion](overview.md#solving-the-platform-definition-inversion) for
-the conceptual framing.
+The only load kind vm defines. The VMM places the bytes in guest memory
+per the section shape; no measurement happens (vm is non-CC). This is
+the default kind for vm's load and is omitted from the wire format.
 
-The action names a zero PE section — a section that reserves a GPA
-range but carries no on-disk data. At launch step 4 the VMM generates
-the overlay fresh for this guest and writes it into that range. The
-in-guest consumer that merges the overlay onto the base DTB is not
-mandated by this spec — a guest stub, an overlay-at-boot kernel, or
-any other trusted component will do. PMI defines the action's on-disk
-format, the overlay's content allowlist, and the validation rules the
-consumer must apply.
+Confidential targets that inherit vm's `load` action layer on
+additional kinds with their own measurement and firmware-API semantics.
+See those targets' bindings.
+
+## `fill` action
+
+The `fill` action populates a reserved GPA range at launch with
+kind-specific content. The PE section MUST be a zero section
+(`SizeOfRawData == 0`, `VirtualSize > 0`) — it reserves the address
+range but carries no on-disk data.
 
 ### Schema
 
 ```cddl
-dtbo = {
-  "type"    => "dtbo",
-  "section" => tstr,                ; PE section to fill with the overlay
+fill = {
+  "type"    => "fill",
+  "section" => tstr,                ; zero PE section to populate
+  "kind"    => "dtbo",              ; vm defines one kind
 }
 ```
 
-The referenced PE section MUST be a zero section
-(`SizeOfRawData == 0`, `VirtualSize > 0`) — it reserves an address
-range with no on-disk data.
+`kind` is required; there is no default.
+
+### kind `dtbo`
+
+Delivers the runtime devicetree overlay described under
+[platform-definition
+inversion](overview.md#solving-the-platform-definition-inversion). The
+VMM generates the overlay fresh for this guest at step 4 and writes it
+into the section's GPA range. The in-guest consumer that merges the
+overlay onto the base DTB is not mandated by this spec — a guest stub,
+an overlay-at-boot kernel, or any other trusted component will do. PMI
+defines the overlay's content rules and consumer-validation rules in
+[`dtbo` overlay](#dtbo-overlay) below.
+
+## `dtbo` overlay
+
+The runtime devicetree overlay (FDT v17) carries the host-decided
+supplement to the image's declared platform: CPU enumeration
+(`/cpus`), memory layout (`/memory@*`), NUMA topology
+(`/distance-map`), and `numa-node-id` annotations on image-declared
+nodes. These cannot be known at image-build time.
 
 ### Content allowlist
 

@@ -42,8 +42,9 @@ reason about, and the bulk of the platform (the base DTB) is bound into the
 launch measurement.
 
 See [dtb.md](dtb.md) for the base DTB format, conformance contract, and
-image-side responsibilities; see [`dtbo` action](vm.md#dtbo-action) for
-the overlay schema, content allowlist, and consumer validation rules.
+image-side responsibilities; see [`dtbo` overlay](vm.md#dtbo-overlay)
+for the overlay schema, content allowlist, and consumer validation
+rules.
 
 ## Solving the single-artifact problem
 

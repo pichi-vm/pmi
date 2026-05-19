@@ -1,12 +1,11 @@
 # `sev` Target
 
 The `sev` target is built on [`vm`](vm.md). It inherits vm's base
-launch model and `dtbo` action, extends vm's [`load`](vm.md#load-action)
-action with SEV-SNP measurement semantics, and replaces vm's
-[`vcpu`](vm.md#vcpu-field) field with a `vmsa` action for the BSP
-register state. The schema adds an optional `id` field for signed
-launches and `secrets` / `cpuid` actions for the SEV-SNP page-type
-machinery.
+launch model, extends vm's [`load`](vm.md#load-action) and
+[`fill`](vm.md#fill-action) actions with SEV-SNP-specific kinds, and
+replaces vm's [`vcpu`](vm.md#vcpu-field) field with a `vmsa` load
+kind for the BSP register state. The schema adds an optional `id`
+field for signed launches.
 
 ## PE section
 
@@ -29,11 +28,12 @@ id = {
   "auth"  => tstr,                       ; PE section: SEV ID auth info (~4 KiB)
 }
 
-sev-action = load / dtbo / vmsa / secrets / cpuid
+sev-action = load / fill
 ```
 
 VMMs MUST reject sections with an unrecognized `version`, an unknown
-top-level key, or an unknown action `type` value.
+top-level key, an unknown action `type` value, or an unknown action
+`kind` value.
 
 ## Launch model
 
@@ -43,10 +43,10 @@ defined by `vm`, with the following SEV-SNP behavior layered on:
 | Step          | API                  | Inputs                                                              |
 | ------------- | -------------------- | ------------------------------------------------------------------- |
 | 3. Initialize | `SNP_LAUNCH_START`   | host-supplied launch policy (see [Launch policy](#launch-policy))   |
-| 4. Update     | `SNP_LAUNCH_UPDATE`  | each action in array order; `page_type` determined by action type   |
+| 4. Update     | per action kind      | each action in array order; firmware path and `page_type` derive from the action's kind (see per-kind sections below) |
 | 5. Finalize   | `SNP_LAUNCH_FINISH`  | `id.block` + `id.auth` (if `id` is present); `host_data` is deployer-supplied |
 
-Within each step-4 action's PE section the VMM loads pages from the
+Within each step-4 action's PE section the VMM submits pages from the
 lowest GPA to the highest, so the launch digest is deterministic for a
 given action ordering.
 
@@ -98,106 +98,95 @@ keys are required.
 
 ## `load` action
 
-`sev` extends the [base `load` action](vm.md#load-action) with one
-optional field:
+`sev` extends the [base `load` action](vm.md#load-action) with two
+additional kinds; the default kind for sev's load is `measured`.
+
+### Schema
 
 ```cddl
 load = {
-  "type"        => "load",
-  "section"     => tstr,                ; PE section name to load
-  ? "measured"  => bool,                ; default true
+  "type"    => "load",
+  "section" => tstr,                ; PE section name to load
+  ? "kind"  => "measured" / "unmeasured" / "vmsa",  ; default "measured"
 }
 ```
 
-Consumed at step 4 via `SNP_LAUNCH_UPDATE`. When `measured` is `true`
-(the default), the loaded bytes contribute to the launch digest;
-on-disk bytes are measured as normal data pages, and zero-filled bytes
-are measured via `page_type=zero` (which validates pages as zero
-without transferring data and produces a different measurement than
-loading actual zeros as data pages). VMM implementations MUST NOT
-substitute data-page loads for zero-page operations or vice versa.
-When `measured` is `false`, the bytes are still loaded into guest
-memory but are not fed to the measurement API — used for VMM-supplied
-data the verifier does not need to bind to.
+### kind `measured`
 
-## `dtbo` action
+The default kind. The VMM submits the PE section's pages via
+`SNP_LAUNCH_UPDATE`:
 
-Same as the [base `dtbo` action](vm.md#dtbo-action) defined by `vm`,
-without modification. The overlay is not fed to `SNP_LAUNCH_UPDATE`
-and does not contribute to the launch digest.
+- For the data portion of a Data or Padded section, `PAGE_TYPE_NORMAL`
+  (the loaded bytes contribute to the launch digest).
+- For the zero-fill tail of a Padded section or all of a Zero section,
+  `PAGE_TYPE_ZERO` (the page is validated as zero without transferring
+  data and produces a different measurement than loading actual zeros
+  as data pages).
 
-## `vmsa` action
+VMM implementations MUST NOT substitute data-page operations for
+zero-page operations or vice versa.
+
+### kind `unmeasured`
+
+The VMM submits the PE section's pages via `SNP_LAUNCH_UPDATE` with
+`PAGE_TYPE_UNMEASURED`. The bytes land in guest memory but do not
+contribute to the launch digest. Used for VMM-supplied data the
+verifier does not need to bind to.
+
+### kind `vmsa`
+
+The VMM submits the PE section's 4 KiB contents via
+`SNP_LAUNCH_UPDATE` with `PAGE_TYPE_VMSA`. The section's contents are
+the VMPL0 BSP register state at launch, in the layout defined by the
+AMD SEV-SNP firmware ABI. The PSP installs the VMSA at the named GPA.
+The page is measured with its actual content, so the launch digest
+binds the BSP's initial register state.
+
+The referenced PE section MUST have `VirtualSize == 4096`.
+
+## `fill` action
+
+`sev` extends the [base `fill` action](vm.md#fill-action) with two
+additional kinds.
+
+### Schema
 
 ```cddl
-vmsa = {
-  "type"    => "vmsa",
-  "section" => tstr,                ; PE section: 4 KiB VMSA page
+fill = {
+  "type"    => "fill",
+  "section" => tstr,                ; zero PE section to populate
+  "kind"    => "dtbo" / "secrets" / "cpuid",
 }
 ```
 
-The referenced PE section MUST be non-loaded
-(`IMAGE_SCN_MEM_DISCARDABLE`) and have `VirtualSize == 4096`. Its
-contents are the VMPL0 BSP register state at launch, in the layout
-defined by the AMD SEV-SNP firmware ABI.
+### kind `dtbo`
 
-At step 4 the VMM:
+Same as the [base `dtbo` fill kind](vm.md#kind-dtbo). The VMM
+generates the overlay and writes it to the section's GPA range; the
+page bypasses `SNP_LAUNCH_UPDATE` and does not contribute to the
+launch digest. See [`dtbo` overlay](vm.md#dtbo-overlay) for content
+and consumer-validation rules.
 
-1. Reads the PE section's 4 KiB contents from `PointerToRawData`.
-2. Calls `SNP_LAUNCH_UPDATE` with `page_type=vmsa`, supplying those
-   contents and targeting the section's `VirtualAddress` in guest
-   memory.
+### kind `secrets`
 
-The PSP installs the VMSA at the named GPA. The page is measured with
-its actual content, so the launch digest binds the BSP's initial
-register state.
+The VMM submits the page via `SNP_LAUNCH_UPDATE` with
+`PAGE_TYPE_SECRETS`. No content is supplied; the PSP populates the
+page with platform secrets in encrypted guest memory at launch.
 
-## `secrets` action
+The referenced PE section MUST have `VirtualSize == 4096`. The page
+contributes to the launch digest as a typed page — the GPA and page
+type are bound, the content is not (the secrets aren't knowable to a
+verifier ahead of time).
 
-```cddl
-secrets = {
-  "type"    => "secrets",
-  "section" => tstr,                ; PE section reserving the 4 KiB range
-}
-```
+### kind `cpuid`
 
-The referenced PE section MUST be a zero section
-(`SizeOfRawData == 0`, `VirtualSize == 4096`) — it reserves a GPA
-range with no on-disk data for a page the PSP will populate at
-launch.
-
-At step 4 the VMM calls `SNP_LAUNCH_UPDATE` with `page_type=secrets`,
-targeting the section's `VirtualAddress` in guest memory. No content
-is supplied; the PSP populates the page with platform secrets in
-encrypted guest memory.
-
-The page is measured as a zero page in the launch digest — the GPA
-and page type are bound, the content is not (the secrets aren't
-knowable to a verifier ahead of time).
-
-## `cpuid` action
-
-```cddl
-cpuid = {
-  "type"    => "cpuid",
-  "section" => tstr,                ; PE section reserving the 4 KiB range
-}
-```
-
-The referenced PE section MUST be a zero section
-(`SizeOfRawData == 0`, `VirtualSize == 4096`) — it reserves a GPA
-range with no on-disk data for the CPUID table the VMM will provide
-at launch.
-
-At step 4 the VMM:
-
-1. Constructs the CPUID table it wants to expose to the guest, in
-   the layout defined by the AMD SEV-SNP firmware ABI.
-2. Calls `SNP_LAUNCH_UPDATE` with `page_type=cpuid`, supplying that
-   table and targeting the section's `VirtualAddress` in guest
-   memory.
-
-The PSP validates each CPUID entry against the actual processor's
+The VMM constructs the CPUID table it wants to expose to the guest in
+the layout defined by the AMD SEV-SNP firmware ABI, then submits the
+table via `SNP_LAUNCH_UPDATE` with `PAGE_TYPE_CPUID`. The PSP
+validates each CPUID entry against the actual processor's
 capabilities and rejects entries that claim functionality the
-processor does not support. The page is measured as a zero page in
-the launch digest — the GPA and page type are bound, the content is
-not.
+processor does not support.
+
+The referenced PE section MUST have `VirtualSize == 4096`. The page
+contributes to the launch digest as a typed page — the GPA and page
+type are bound, the content is not.

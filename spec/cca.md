@@ -6,9 +6,8 @@ section is absent, the image does not support `cca`.
 
 The `cca` target is independent of [`vm`](vm.md) and [`sev`](sev.md). It
 is expected to reuse the [`load`](vm.md#load-action) and
-[`dtbo`](vm.md#dtbo-action) action type names with CCA-specific
-semantics, plus a set of CCA-specific actions (`cca:*`) for realm
-creation and activation.
+[`fill`](vm.md#fill-action) action types from vm with CCA-specific
+kinds.
 
 ## Launch model
 

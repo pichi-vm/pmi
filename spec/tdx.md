@@ -6,9 +6,8 @@ section is absent, the image does not support `tdx`.
 
 The `tdx` target is independent of [`vm`](vm.md) and [`sev`](sev.md). It
 is expected to reuse the [`load`](vm.md#load-action) and
-[`dtbo`](vm.md#dtbo-action) action type names with TDX-specific
-semantics, plus a set of TDX-specific actions (`tdx:*`) for launch-time
-inputs.
+[`fill`](vm.md#fill-action) action types from vm with TDX-specific
+kinds.
 
 ## Launch model
 

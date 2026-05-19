@@ -18,7 +18,7 @@ sections themselves are free-form.
     {"type": "load", "section": ".linux"},
     {"type": "load", "section": ".initrd"},
     {"type": "load", "section": ".cmdline"},
-    {"type": "dtbo", "section": ".dtbo"}
+    {"type": "fill", "section": ".dtbo",    "kind": "dtbo"}
   ]
 }
 ```
@@ -30,11 +30,11 @@ sections themselves are free-form.
   "version": 1,
   "dtb": ".dtb.sev",
   "actions": [
-    {"type": "load",       "section": ".linux"},
-    {"type": "load",       "section": ".initrd"},
-    {"type": "load",       "section": ".cmdline"},
-    {"type": "dtbo",       "section": ".dtbo"},
-    {"type": "vmsa",       "section": ".sev.vms"}
+    {"type": "load", "section": ".linux"},
+    {"type": "load", "section": ".initrd"},
+    {"type": "load", "section": ".cmdline"},
+    {"type": "fill", "section": ".dtbo",    "kind": "dtbo"},
+    {"type": "load", "section": ".sev.vms", "kind": "vmsa"}
   ]
 }
 ```
@@ -45,8 +45,8 @@ sections themselves are free-form.
 2. Parse `.dtb.vm`; validate host conformance.
 3. (No CC init for `vm`.)
 4. Process actions in order: `load` `.linux`, `.initrd`, `.cmdline`
-   (measured by default). Write the host-decided memory/cpus/NUMA overlay
-   into `.dtbo` (unmeasured).
+   (vm's only load kind is `unmeasured`, the default). `fill` `.dtbo`
+   with the host-decided memory/cpus/NUMA overlay.
 5. Apply the spec's `vcpu` register map to the boot vCPU.
 6. Kernel starts.
 
@@ -55,10 +55,11 @@ sections themselves are free-form.
 1. Read `.pmi.sev`.
 2. Parse `.dtb.sev`; validate host conformance.
 3. `SNP_LAUNCH_START` with the host-supplied launch policy.
-4. `SNP_LAUNCH_UPDATE` for `.linux`, `.initrd`, `.cmdline` (measured).
-   Write the host overlay into `.dtbo` (unmeasured). `SNP_LAUNCH_UPDATE`
-   with `page_type=vmsa` for `.sev.vms`.
-5. `SNP_LAUNCH_FINISH` (no id_block in this example).
+4. Process actions: `SNP_LAUNCH_UPDATE` with `PAGE_TYPE_NORMAL` for
+   `.linux`, `.initrd`, `.cmdline` (default kind `measured`). `fill`
+   `.dtbo` (kind `dtbo`, bypasses firmware). `SNP_LAUNCH_UPDATE` with
+   `PAGE_TYPE_VMSA` for `.sev.vms` (kind `vmsa`).
+5. `SNP_LAUNCH_FINISH` (no `id` in this example).
 6. Kernel starts.
 
 **Bare metal:** UEFI executes the EFI stub in `.linux`. All `.pmi.*` and
@@ -74,16 +75,16 @@ other non-loaded PE sections are ignored. Standard UKI boot.
   "dtb": ".dtb.sev",
   "id": {"block": ".sev.idb", "auth": ".sev.ida"},
   "actions": [
-    {"type": "load",        "section": ".sev.svm"},
-    {"type": "load",        "section": ".ovmf"},
-    {"type": "load",        "section": ".linux"},
-    {"type": "load",        "section": ".initrd"},
-    {"type": "load",        "section": ".cmdline"},
-    {"type": "load",        "section": ".osrel"},
-    {"type": "dtbo",        "section": ".dtbo"},
-    {"type": "secrets",     "section": ".sev.sec"},
-    {"type": "cpuid",       "section": ".sev.cpu"},
-    {"type": "vmsa",        "section": ".sev.vms"}
+    {"type": "load", "section": ".sev.svm"},
+    {"type": "load", "section": ".ovmf"},
+    {"type": "load", "section": ".linux"},
+    {"type": "load", "section": ".initrd"},
+    {"type": "load", "section": ".cmdline"},
+    {"type": "load", "section": ".osrel"},
+    {"type": "fill", "section": ".dtbo",    "kind": "dtbo"},
+    {"type": "fill", "section": ".sev.sec", "kind": "secrets"},
+    {"type": "fill", "section": ".sev.cpu", "kind": "cpuid"},
+    {"type": "load", "section": ".sev.vms", "kind": "vmsa"}
   ]
 }
 ```
@@ -94,11 +95,13 @@ other non-loaded PE sections are ignored. Standard UKI boot.
 2. Parse `.dtb.sev`; validate host conformance.
 3. `SNP_LAUNCH_START` with the host-supplied launch policy, verified
    compatible with the policy embedded in the signed `.sev.idb`.
-4. `SNP_LAUNCH_UPDATE` for `.sev.svm`, `.ovmf` (measured). Skip
+4. Process actions. `SNP_LAUNCH_UPDATE` with `PAGE_TYPE_NORMAL` for
+   `.sev.svm`, `.ovmf` (default load kind `measured`). Skip
    `.linux`/`.initrd`/`.cmdline`/`.osrel` if doing indirect boot (OVMF
-   boots kernel from disk). Write the host overlay into `.dtbo`
-   (unmeasured). `SNP_LAUNCH_UPDATE` with the appropriate page types for
-   `.sev.sec`, `.sev.cpu`, `.sev.vms`.
+   boots kernel from disk). `fill` `.dtbo` (kind `dtbo`, bypasses
+   firmware). `SNP_LAUNCH_UPDATE` with `PAGE_TYPE_SECRETS` /
+   `PAGE_TYPE_CPUID` / `PAGE_TYPE_VMSA` for `.sev.sec` / `.sev.cpu` /
+   `.sev.vms`.
 5. `SNP_LAUNCH_FINISH` with `id_block` from `.sev.idb` and `id_auth` from
    `.sev.ida`.
 6. SVSM starts at VMPL0, initializes vTPM, creates VMPL1 VMSA for OVMF,
