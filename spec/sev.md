@@ -120,6 +120,12 @@ When `measured` is `false`, the bytes are still loaded into guest
 memory but are not fed to the measurement API — used for VMM-supplied
 data the verifier does not need to bind to.
 
+## `dtbo` action
+
+Same as the [base `dtbo` action](vm.md#dtbo-action) defined by `vm`,
+without modification. The overlay is not fed to `SNP_LAUNCH_UPDATE`
+and does not contribute to the launch digest.
+
 ## `vmsa` action
 
 Consumed at step 4 via `SNP_LAUNCH_UPDATE` with `page_type=vmsa`.
