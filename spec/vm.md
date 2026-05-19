@@ -80,21 +80,23 @@ There are three PE-section shapes:
 
 ## `dtbo` action
 
-The `dtbo` action carries a host-decided Devicetree Blob Overlay
-(FDT v17) that extends the image's base [DTB](dtb.md) with
-runtime-decided properties: vCPU enumeration, memory layout, and NUMA
-topology. See [platform-definition
+The `dtbo` action delivers a runtime devicetree overlay (FDT v17) —
+the host-decided supplement to the image's declared platform: CPU
+enumeration (`/cpus`), memory layout (`/memory@*`), NUMA topology
+(`/distance-map`), and `numa-node-id` annotations on image-declared
+nodes. These cannot be known at image-build time; see
+[platform-definition
 inversion](overview.md#solving-the-platform-definition-inversion) for
-the conceptual role of the overlay.
+the conceptual framing.
 
-The VMM generates the overlay fresh per launch (the `/cpus`,
-`/memory@*`, and `/distance-map` subtrees, plus any `numa-node-id`
-annotations on image-declared nodes) and writes it into the reserved
-PE section at step 4. The consumer that applies the overlay to the
-base DTB is not mandated by this specification — a guest stub, the
-kernel itself when it supports overlay-at-boot, or any other trusted
-in-guest agent. PMI defines only the on-disk format of the overlay and
-the constraints on its content.
+The action names a zero PE section — a section that reserves a GPA
+range but carries no on-disk data. At launch step 4 the VMM generates
+the overlay fresh for this guest and writes it into that range. The
+in-guest consumer that merges the overlay onto the base DTB is not
+mandated by this spec — a guest stub, an overlay-at-boot kernel, or
+any other trusted component will do. PMI defines the action's on-disk
+format, the overlay's content whitelist, and the validation rules the
+consumer must apply.
 
 ### Schema
 
