@@ -3,9 +3,10 @@
 The `sev` target is built on [`vm`](vm.md). It inherits vm's base
 launch model and `dtbo` action, extends vm's [`load`](vm.md#load-action)
 action with SEV-SNP measurement semantics, and replaces vm's
-[`vcpu`](vm.md#vcpu-field) field with a `sev:vmsa` action for the BSP
-register state. The schema adds an optional `id` field for signed launches and action
-types for the secrets and CPUID pages SEV-SNP requires.
+[`vcpu`](vm.md#vcpu-field) field with a `vmsa` action for the BSP
+register state. The schema adds an optional `id` field for signed
+launches and `secrets` / `cpuid` actions for the SEV-SNP page-type
+machinery.
 
 ## PE section
 
@@ -28,8 +29,7 @@ sev-id = {
   "auth"  => tstr,                       ; PE section: SEV ID auth info (~4 KiB)
 }
 
-sev-action = sev-load / dtbo
-           / sev-vmsa / sev-secrets / sev-cpuid
+sev-action = sev-load / dtbo / vmsa / secrets / cpuid
 ```
 
 VMMs MUST reject sections with an unrecognized `version`, an unknown
@@ -122,13 +122,13 @@ data the verifier does not need to bind to.
 
 ## SEV-specific actions
 
-### `sev:vmsa`
+### `vmsa`
 
 Consumed at step 4 via `SNP_LAUNCH_UPDATE` with `page_type=vmsa`.
 
 ```cddl
-sev-vmsa = {
-  "type"    => "sev:vmsa",
+vmsa = {
+  "type"    => "vmsa",
   "section" => tstr,                ; PE section: 4 KiB VMSA page
 }
 ```
@@ -138,13 +138,13 @@ The referenced PE section MUST be non-loaded
 contents are the VMPL0 BSP register state at launch; the page is
 measured with its actual content.
 
-### `sev:secrets`
+### `secrets`
 
 Consumed at step 4 via `SNP_LAUNCH_UPDATE` with `page_type=secrets`.
 
 ```cddl
-sev-secrets = {
-  "type"    => "sev:secrets",
+secrets = {
+  "type"    => "secrets",
   "section" => tstr,                ; PE section reserving the 4 KiB range
 }
 ```
@@ -154,13 +154,13 @@ The referenced PE section MUST be a zero section (`SizeOfRawData == 0`,
 launch. The page is measured with zero content in the launch digest
 (the GPA is bound, the content is not).
 
-### `sev:cpuid`
+### `cpuid`
 
 Consumed at step 4 via `SNP_LAUNCH_UPDATE` with `page_type=cpuid`.
 
 ```cddl
-sev-cpuid = {
-  "type"    => "sev:cpuid",
+cpuid = {
+  "type"    => "cpuid",
   "section" => tstr,                ; PE section reserving the 4 KiB range
 }
 ```

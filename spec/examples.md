@@ -34,7 +34,7 @@ sections themselves are free-form.
     {"type": "load",       "section": ".initrd"},
     {"type": "load",       "section": ".cmdline"},
     {"type": "dtbo",       "section": ".dtbo"},
-    {"type": "sev:vmsa",   "section": ".sev.vms"}
+    {"type": "vmsa",       "section": ".sev.vms"}
   ]
 }
 ```
@@ -81,9 +81,9 @@ other non-loaded PE sections are ignored. Standard UKI boot.
     {"type": "load",        "section": ".cmdline"},
     {"type": "load",        "section": ".osrel"},
     {"type": "dtbo",        "section": ".dtbo"},
-    {"type": "sev:secrets", "section": ".sev.sec"},
-    {"type": "sev:cpuid",   "section": ".sev.cpu"},
-    {"type": "sev:vmsa",    "section": ".sev.vms"}
+    {"type": "secrets",     "section": ".sev.sec"},
+    {"type": "cpuid",       "section": ".sev.cpu"},
+    {"type": "vmsa",        "section": ".sev.vms"}
   ]
 }
 ```
