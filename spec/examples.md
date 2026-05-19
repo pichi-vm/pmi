@@ -72,19 +72,19 @@ other non-loaded PE sections are ignored. Standard UKI boot.
 {
   "version": 1,
   "dtb": ".dtb.sev",
+  "id-block": ".sev.idb",
+  "id-auth": ".sev.ida",
   "actions": [
-    {"type": "load",         "section": ".sev.svm"},
-    {"type": "load",         "section": ".ovmf"},
-    {"type": "load",         "section": ".linux"},
-    {"type": "load",         "section": ".initrd"},
-    {"type": "load",         "section": ".cmdline"},
-    {"type": "load",         "section": ".osrel"},
-    {"type": "dtbo",         "section": ".dtbo"},
-    {"type": "sev:secrets",  "section": ".sev.sec"},
-    {"type": "sev:cpuid",    "section": ".sev.cpu"},
-    {"type": "sev:vmsa",     "section": ".sev.vms"},
-    {"type": "sev:id-block", "section": ".sev.idb"},
-    {"type": "sev:id-auth",  "section": ".sev.ida"}
+    {"type": "load",        "section": ".sev.svm"},
+    {"type": "load",        "section": ".ovmf"},
+    {"type": "load",        "section": ".linux"},
+    {"type": "load",        "section": ".initrd"},
+    {"type": "load",        "section": ".cmdline"},
+    {"type": "load",        "section": ".osrel"},
+    {"type": "dtbo",        "section": ".dtbo"},
+    {"type": "sev:secrets", "section": ".sev.sec"},
+    {"type": "sev:cpuid",   "section": ".sev.cpu"},
+    {"type": "sev:vmsa",    "section": ".sev.vms"}
   ]
 }
 ```
