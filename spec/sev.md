@@ -20,11 +20,11 @@ the image does not support `sev` and the VMM MUST refuse to launch.
 sev = {
   "version" => uint,                     ; schema version (1)
   "dtb"     => tstr,                     ; PE section name; see dtb.md
-  ? "id"    => sev-id,                   ; signed launch identity; see id below
+  ? "id"    => id,                       ; signed launch identity; see id below
   "actions" => [+ sev-action],           ; ordered launch recipe (step 4)
 }
 
-sev-id = {
+id = {
   "block" => tstr,                       ; PE section: 96-byte SEV ID block
   "auth"  => tstr,                       ; PE section: SEV ID auth info (~4 KiB)
 }
@@ -75,7 +75,7 @@ The optional `id` field carries a signed launch identity — present on
 signed launches, absent on unsigned ones. It names two PE sections:
 
 ```cddl
-sev-id = {
+id = {
   "block" => tstr,                  ; PE section: 96-byte SEV ID block
   "auth"  => tstr,                  ; PE section: SEV ID auth info (~4 KiB)
 }
