@@ -29,7 +29,7 @@ sev-id = {
   "auth"  => tstr,                       ; PE section: SEV ID auth info (~4 KiB)
 }
 
-sev-action = sev-load / dtbo / vmsa / secrets / cpuid
+sev-action = load / dtbo / vmsa / secrets / cpuid
 ```
 
 VMMs MUST reject sections with an unrecognized `version`, an unknown
@@ -102,7 +102,7 @@ keys are required.
 optional field:
 
 ```cddl
-sev-load = {
+load = {
   "type"        => "load",
   "section"     => tstr,                ; PE section name to load
   ? "measured"  => bool,                ; default true
