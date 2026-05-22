@@ -1,52 +1,63 @@
 # Motivation
 
-PMI exists to solve four problems with how low-level virtual-machine
-images are defined, launched, attested, and tooled today. This document
-defines those problems; [Overview](overview.md) defines the goals that
-solve them and the methods that deliver those goals.
+PMI exists to solve four concrete problems with how low-level
+virtual-machine images are defined, launched, attested, and tooled
+today. Each problem corresponds one-to-one with a goal stated in
+[Overview](overview.md): this document defines the problem and
+explains why it is a problem; the overview states the goal and the
+methods that solve it.
+
+| # | Problem (this document)                    | Goal (overview.md)                       |
+| - | ------------------------------------------ | ---------------------------------------- |
+| 1 | The platform-conformance inversion         | Security against a malicious hypervisor  |
+| 2 | The artifact-sprawl problem                | Executable format portability            |
+| 3 | The attestation-divergence problem         | Attestation equivalence                  |
+| 4 | The tooling-fragmentation problem          | Tooling reuse                            |
 
 ## 1. The platform-conformance inversion
 
-The historical pattern for booting a machine is: firmware defines the
-platform layout, guest software adapts to it. The firmware enumerates
-devices, decides where memory lives, exposes a CPU configuration, and
-hands that picture to the kernel through a well-known interface (a
-Devicetree, an ACPI table set, an `e820` map, etc.). The guest reads
-the interface and configures itself accordingly.
+On bare metal, firmware defines the platform layout and the guest
+adapts to it: firmware enumerates devices, decides where memory lives,
+exposes a CPU configuration, and hands the picture to the kernel
+through a well-known interface (Devicetree, ACPI, `e820`). The
+asymmetry is structurally justified — firmware has direct knowledge of
+the underlying hardware and runs first; the guest has limited early-boot
+capability and hardware is largely fixed regardless of what the guest
+wants.
 
-On bare metal this asymmetry made sense. The firmware ran first, had
-direct knowledge of the underlying hardware, and was structurally
-positioned to discover the platform. The guest had limited capability
-to express what it required in early boot, and bare-metal hardware was
-largely fixed regardless of what the guest might have wanted.
+Virtual machines invert the capability asymmetry. A hypervisor has
+near-arbitrary flexibility to compose any platform the guest will
+see — any set of virtual devices, any memory map, any CPUID exposure,
+any interrupt controller version. The guest, meanwhile, keeps the
+same early-boot constraints it had on bare metal: it cannot re-verify
+the platform after the fact, cannot defend itself against subtle
+configuration discrepancies, and is at the mercy of whatever the
+hypervisor chose to present. The party with the most flexibility is
+the one whose choices the other party cannot effectively check.
 
-Virtual machines flip the capability asymmetry.
-
-A hypervisor has near-arbitrary flexibility to compose any platform the
-guest will see — any set of virtual devices, any memory map, any CPUID
-exposure, any interrupt controller version. The guest, meanwhile, has
-essentially the same early-boot constraints it had on bare metal: it
-cannot re-verify the platform after the fact, cannot defend itself
-against subtle configuration discrepancies, and is at the mercy of
-whatever the hypervisor chose to present. The party with the most
-flexibility is the one whose choices the other party cannot
-effectively check.
-
-Confidential Computing extends this into a security boundary. The
-hypervisor is no longer trusted, but the guest still consumes the
+Confidential Computing extends the asymmetry into a security boundary.
+The hypervisor is no longer trusted, but the guest still consumes the
 platform definition the hypervisor produces. A maliciously-crafted
 DSDT, an unexpected MMIO region, a missing or substituted device — the
-guest has no practical way to defend against these in early boot.
-Concrete demonstrations of this attack surface exist:
+guest has no practical way to defend against any of these in early
+boot. The attack surface is concrete and demonstrated:
 
 - [AMD-SB-3012](https://www.amd.com/en/resources/product-security/bulletin/amd-sb-3012.html)
   — ACPI/AML injection in SEV guests via QEMU.
-- [BadAML](https://dl.acm.org/doi/10.1145/3719027.3765123) (ACM CCS 2025,
-  Distinguished Paper) — universal AML injection across SEV and TDX
-  guests.
+- [BadAML](https://dl.acm.org/doi/10.1145/3719027.3765123) (ACM CCS
+  2025, Distinguished Paper) — universal AML injection across SEV and
+  TDX guests.
 
-The problem: the guest has no way to constrain what the hypervisor
-presents, and is too early in boot to validate it adversarially.
+**The problem in one sentence:** the guest has no way to constrain
+what the hypervisor presents, and is too early in boot to validate
+it adversarially.
+
+**PMI's response:** Goal (1) —
+[Security against a malicious hypervisor](overview.md#security-against-a-malicious-hypervisor).
+The image declares the platform it expects; the VMM either provides
+exactly that or refuses to launch. The guest's residual validation
+surface is reduced to a small, well-known set of rules the consumer
+can audit end-to-end.
 
 ## 2. The artifact-sprawl problem
 
@@ -67,7 +78,7 @@ one example; a Hyper-V–style **paravisor** loaded at the highest guest
 privilege level fits the same architectural slot. Service modules are
 absent from bare metal and non-CC VM boot.
 
-Concrete examples of where real deployments land in this pipeline:
+Real deployments span the pipeline:
 
 - `qemu -kernel image.efi` — the VMM extracts the kernel directly from
   the PE and starts the guest via the Linux boot protocol; no firmware
@@ -85,42 +96,48 @@ Concrete examples of where real deployments land in this pipeline:
 - UEFI on bare metal via PXE or HTTP Boot — firmware fetches the PE
   remotely; the EFI stub boots the kernel.
 
-Historically each of these shapes required its own image format and
-build pipeline — PE for UEFI boot, UKI for VMs that direct-boot, IGVM
-(PMI's primary prior art) for paravisor-style confidential boot. An
-image needing to serve more than one shape became more than one image,
-with parallel build paths to maintain.
+Historically each shape required its own image format and build
+pipeline — PE for UEFI boot, UKI for VMs that direct-boot, IGVM (PMI's
+primary prior art) for paravisor-style confidential boot. An image
+needing to serve more than one shape became more than one image, with
+parallel build paths to maintain and reconcile.
 
-The problem: the same workload, packaged for multiple boot shapes,
-fragments into incompatible artifacts.
+**The problem in one sentence:** the same workload, packaged for
+multiple boot shapes, fragments into incompatible artifacts.
+
+**PMI's response:** Goal (2) —
+[Executable format portability](overview.md#executable-format-portability).
+A single PE binary carries content for every boot shape the image
+author chooses to support; standard PE loaders ignore the parts they
+don't understand, and conformant VMMs read only the target sections
+relevant to them.
 
 ## 3. The attestation-divergence problem
 
 Confidential-computing launches produce a cryptographic measurement
 (SEV-SNP launch digest, CCA RIM, TDX MRTD) that a remote verifier uses
 to identify what was launched. The measurement is supposed to be the
-identity of the workload.
+identity of the workload — but today it depends on more than the
+workload.
 
-Today, two different VMMs of the same target launching the same image
-can produce different measurements. Several mechanisms drive the
-divergence:
+Several mechanisms drive divergence between two VMMs of the same
+target running the same image:
 
 - **Page submission order is implementation-defined.** A VMM that
   submits pages in disk-section order versus one that submits in
-  ascending GPA order will compute different incremental hashes from
-  the same bytes.
-- **The host picks values that contribute to the measurement.** SEV's
-  CPUID page and secrets-page placeholder, CCA's `RmiRealmParams`
-  (SVE vector length, debug counts, hash algorithm), TDX's
-  `ATTRIBUTES` and `XFAM` — each of these gets measured into the
-  cryptographic register today, but the host decides what bytes they
-  contain. The same image under two different hosts produces two
-  different attestations.
-- **The host picks values that go into the attestation report
-  alongside the cryptographic register.** SEV launch policy, TDX
-  `MRCONFIGID` / `MROWNER` / `MROWNERCONFIG`, CCA RPV — even when
-  these don't enter the cryptographic hash, verifier policy checks
-  them, and they vary per deployer.
+  ascending GPA order computes a different incremental hash from the
+  same bytes.
+- **The host picks values that are measured into the cryptographic
+  register.** SEV's CPUID page and secrets-page placeholder, CCA's
+  `RmiRealmParams` (SVE vector length, debug counts, hash algorithm),
+  TDX's `ATTRIBUTES` and `XFAM` — each of these is measured today, but
+  the host decides what bytes they contain. The same image under two
+  different hosts produces two different measurements.
+- **The host picks values that appear elsewhere in the attestation
+  report.** SEV launch policy, TDX `MRCONFIGID` / `MROWNER` /
+  `MROWNERCONFIG`, CCA RPV — even when these don't enter the
+  cryptographic hash, verifier policy checks them, and they vary per
+  deployer.
 
 The result: workload reproducibility breaks at the verifier. A
 verifier that wants to bind a workload to a specific attestation value
@@ -128,55 +145,55 @@ must know not just the image but which VMM is running it and which
 deployer assembled the launch — defeating the point of remote
 attestation as a workload-identity primitive.
 
-The problem: a CC measurement that depends on the VMM is not a
-workload identity; it's a launch-event identity.
+**The problem in one sentence:** a CC measurement that depends on the
+VMM is not a workload identity; it's a launch-event identity.
+
+**PMI's response:** Goal (3) —
+[Attestation equivalence](overview.md#attestation-equivalence). Every
+value that contributes to image and platform identity is bound by the
+PMI image; ordering of measured submissions is normatively pinned.
+The same image produces bit-identical image+platform identity fields
+across any two conformant VMMs of the same target.
 
 ## 4. The tooling-fragmentation problem
 
 A new image format historically demands a new toolchain at every
 layer:
 
-- **Producers.** A separate builder per format (PE-builder for UEFI,
-  UKI-builder for direct-boot VMs, IGVM-builder for paravisor-style
-  confidential boot). Image authors shipping to multiple shapes
-  maintain parallel build pipelines and reconcile their outputs by
-  hand.
-- **Consumers.** Each VMM rolls its own image parser. A bug found in
+- **Producers.** A separate builder per format (PE for UEFI, UKI for
+  direct-boot VMs, IGVM for paravisor-style confidential boot). Image
+  authors shipping to multiple shapes maintain parallel build
+  pipelines and reconcile their outputs by hand.
+- **Consumers.** Each VMM rolls its own image parser. A bug fixed in
   one parser doesn't fix the others; a hardening pass in one doesn't
   harden the others.
-- **In-guest stubs.** Each boot shape has its own pre-kernel
-  component (PE EFI stub, UKI loader, IGVM boot shim). They overlap
-  significantly but don't share code, because their input formats
-  don't share structure.
-- **Verifiers.** Each cryptographic-measurement protocol gets its own
+- **In-guest stubs.** Each boot shape has its own pre-kernel component
+  (PE EFI stub, UKI loader, IGVM boot shim). They overlap
+  significantly but don't share code because their input formats don't
+  share structure.
+- **Verifiers.** Each measurement protocol gets its own
   measurement-reproduction tool. Cross-target verifier libraries are
   rare; cross-VMM verifier libraries are rarer.
 - **Inspectors.** "Show me what this image will do" is hard to answer
   with a single tool when the image's format depends on the boot path
   the deployer happens to take.
-- **Signers and verifiers of identity.** UEFI Secure Boot signs PE;
-  IGVM has its own signature; UKI has its own conventions. A tenant
-  signing for multiple shapes signs multiple artifacts.
+- **Signers.** UEFI Secure Boot signs PE; IGVM has its own signature;
+  UKI has its own conventions. A tenant signing for multiple shapes
+  signs multiple artifacts.
 
 Existing PE-based tooling (`objcopy`, `objdump`, `sbsign`, `pesign`,
 `systemd-ukify`, `systemd-stub`, UEFI loaders) already covers the
-PE-format work for one shape (bare-metal UKI). A new image format
-that abandons PE forces all of these tools to be replaced or
-reinvented; one that extends PE without breaking the existing
-conventions inherits the existing ecosystem.
+PE-format work for one shape. A new image format that abandons PE
+forces all of these tools to be replaced; one that extends PE without
+breaking the existing conventions inherits the existing ecosystem.
 
-New tools that are PMI-specific (target-spec parsers, DTBO mergers,
-builders, VMMs, in-guest consumers, verifiers, signers, inspectors)
-each want to be small and focused enough that they compose across
-contexts: the same parser inside a builder and inside a VMM and
-inside a verifier; the same DTBO applier inside a bootloader stub
-and inside a future kernel-side merger.
+**The problem in one sentence:** every new shape doubles the
+toolchain surface area unless the format is designed to inherit
+existing tooling and to keep its new tooling narrow and composable.
 
-The problem: every new shape doubles the toolchain surface area
-unless the format is designed to inherit existing tooling and to
-keep its new tooling narrow and composable.
-
----
-
-The four goals PMI sets to solve these problems, and the methods that
-deliver them, are in [Overview](overview.md).
+**PMI's response:** Goal (4) —
+[Tooling reuse](overview.md#tooling-reuse). PMI extends PE without
+breaking existing PE-based tools; new PMI-specific tools (target-spec
+parsers, DTBO mergers, builders, VMMs, in-guest consumers, verifiers,
+signers, inspectors) have narrow, target-isolated contracts so they
+compose across contexts unchanged.
