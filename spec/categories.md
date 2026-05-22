@@ -7,13 +7,24 @@ give the spec a uniform vocabulary for talking about what gets
 measured, what reaches the attestation report through side channels,
 and what has no identity meaning at all.
 
+The categories are PMI's conceptual model for confidential computing
+as a whole — a unified taxonomy meant to apply across SEV-SNP, TDX,
+CCA, and any future CC target. The individual vendor designs are
+older than PMI and evolved independently; they will not all map
+cleanly onto the model. Per-target chapters sort each parameter into
+the model where it fits and surface the rest as **leftover** so the
+mismatches are visible. Leftovers may indicate vendor-specific
+evolutionary quirks, or they may indicate gaps in PMI's model that
+need to grow; classifying which is which is open work
+([Leftover values](#leftover-values)).
+
 This page defines each category in depth, gives a decision procedure
-for classifying any new target-specific parameter, and notes the
-host-supplied operational data that PMI deliberately does **not**
-carry. Each per-target chapter ([`sev`](sev.md), [`cca`](cca.md),
-[`tdx`](tdx.md)) enumerates its own parameters against this
-framework. [`vm`](vm.md) has no attestation channel, so the identity
-categories do not apply to it directly.
+for classifying any new target-specific parameter, and discusses how
+to think about leftover values. Each per-target chapter
+([`sev`](sev.md), [`cca`](cca.md), [`tdx`](tdx.md)) enumerates its
+own parameters against this framework. [`vm`](vm.md) has no
+attestation channel, so the identity categories do not apply to it
+directly.
 
 For the summary table and the goals these categories serve, see
 [Overview](overview.md#categories).
@@ -220,15 +231,23 @@ verifier policy checks them, but they bind to neither image nor
 tenant nor host nor any platform shape.
 
 These values are real and consequential to a verifier's policy, so
-we cannot dismiss them. But how they should sit relative to PMI's
-categories — whether they belong in a sixth category, whether they
-split into more than one, whether their attestation-report
-visibility distinguishes them from instance accidents in a way that
-matters for PMI's data model — is **open work**. The per-target
-chapters surface these as **leftover** in their parameter tables so
-the full set is visible in one place; once the per-target leftover
-sets are enumerated we can study them together and decide whether a
-coherent category emerges.
+we cannot dismiss them. The leftover set in any one target may
+reflect either:
+
+- A **vendor-specific evolutionary quirk** — the vendor design
+  bundled an operational choice into a measured or
+  attestation-visible field for historical reasons, and PMI's
+  conceptual model is still the right way to think about CC. In that
+  case the leftover is a documentation finding about that vendor.
+- A **gap in PMI's model** — the leftover names a recurring class of
+  data across multiple vendors that PMI's five categories do not
+  cover, and the model needs a new category (or a refinement of an
+  existing one) to accommodate it.
+
+The per-target chapters surface every parameter that does not fit as
+**leftover** so the full set is visible in one place; once the
+per-target leftover sets are enumerated we can study them together
+and decide which leftovers are quirks and which are gaps.
 
 The per-target chapters are the source of truth for which specific
 parameters are leftover today.
