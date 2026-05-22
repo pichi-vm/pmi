@@ -34,6 +34,55 @@ non-existent section reference, duplicate section reference, and
 overlapping `[VirtualAddress, VirtualAddress + VirtualSize)` ranges
 all cause the VMM to refuse to launch.
 
+## Parameters
+
+The `cca` target's parameters mapped against PMI's
+[categories](categories.md):
+
+| Parameter                                          | Category           | Source         | Notes                                                                                                                                |
+| -------------------------------------------------- | ------------------ | -------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `dtb` field (base DTB bytes)                       | Platform identity  | PMI image      | Names the [base DTB](dtb.md); host MUST be able to satisfy every declared resource                                                  |
+| `vcpu` field (BSP REC parameters)                  | Platform identity  | PMI image      | Applied at step 3 via `RMI_REC_CREATE`; measured into RIM                                                                            |
+| `load` action (kind `measured`)                    | Image identity     | PMI image      | Granule content submitted via `RMI_DATA_CREATE`; hashed and extended into RIM                                                        |
+| `load` action (kind `unmeasured`)                  | Image identity     | PMI image      | Granule placement image-declared via `RMI_DATA_CREATE_UNKNOWN`; content not transferred and not measured                             |
+| `fill` action (kind `dtbo`)                        | Instance accidents | Runtime        | Host-generated DT overlay; not submitted via `RMI_DATA_CREATE` and does not contribute to RIM                                        |
+
+### RmiRealmParams bit-by-bit
+
+The realm parameters passed to `RMI_REALM_CREATE` mix platform
+identity (liveness requirements measured into RIM), tenant identity
+(the deployer-supplied RPV), and instance accidents (per-deployment
+sizing). Today they are host-supplied via VMM-defined input; see
+[Status](#status) for the gap.
+
+| Parameter                                          | Category           | Source     | Notes                                                                                                                                |
+| -------------------------------------------------- | ------------------ | ---------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `s2sz` (IPA size)                                  | Platform identity  | Runtime    | Measured into RIM; image's address-space layout depends on it                                                                        |
+| `sve_en` / `sve_vl`                                | Platform identity  | Runtime    | Liveness requirement: image's use of SVE is gated on these                                                                           |
+| `num_bps` / `num_wps`                              | Platform identity  | Runtime    | Liveness requirement when image uses hardware breakpoints/watchpoints                                                                |
+| `pmu_en` / `pmu_num_ctrs`                          | Platform identity  | Runtime    | Liveness requirement when image uses PMU counters                                                                                    |
+| `hash_algo`                                        | Platform identity  | Runtime    | Determines RIM hash function; the verifier needs the same value to reproduce the expected RIM                                        |
+| `rpv` (Realm Personalization Value, 64 bytes)      | Tenant identity    | Runtime    | Not measured into RIM; surfaced in the Realm Token for verifier inspection                                                           |
+| Number of RECs                                     | Instance accidents | Runtime    | Per-deployment sizing                                                                                                                |
+
+### RmiRecParams (non-BSP)
+
+Secondary REC parameters beyond the BSP's `vcpu` field. Secondary
+RECs are created non-runnable by the VMM and brought up at runtime
+by the realm via `PSCI_CPU_ON`.
+
+| Parameter                                          | Category           | Source     | Notes                                                                                                                                |
+| -------------------------------------------------- | ------------------ | ---------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| BSP REC parameters                                 | Platform identity  | PMI image  | Carried via [`vcpu`](#vcpu-field)                                                                                                    |
+| Secondary REC initial state                        | Instance accidents | Runtime    | Brought up by the realm at runtime; not in the launch contract                                                                       |
+| Auxiliary REC granules (count from `RMI_REC_AUX_COUNT`) | Instance accidents | Runtime    | Per-platform / per-realm allocator output                                                                                            |
+
+`cca` has no signed launch identity equivalent to SEV's `id` block
+and no host-identity channel equivalent to SEV's `HOST_DATA`. CCA
+has no separate launch-policy field — the realm-creation feature
+flags are liveness requirements and classified as platform
+identity above.
+
 ## Launch model
 
 The `cca` target follows the [base launch model](vm.md#launch-model)
