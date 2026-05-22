@@ -1,17 +1,19 @@
 # Categories
 
 PMI distinguishes five categories of data that flow through any
-launch. The categories give the spec a uniform vocabulary for talking
-about what gets measured, what reaches the attestation report through
-side channels, what is image-bound, what is deployer-bound, and what
-has no identity meaning at all.
+launch: four **identity** categories (image, platform, tenant, host)
+and one **non-identity** category (instance accidents). The categories
+give the spec a uniform vocabulary for talking about what gets
+measured, what reaches the attestation report through side channels,
+and what has no identity meaning at all.
 
-This page defines each category in depth, calls out a sixth class of
-input — launch policy — that deliberately is **not** a PMI category,
-and gives a decision procedure for classifying any new target-specific
-parameter. Each per-target chapter ([`vm`](vm.md), [`sev`](sev.md),
-[`cca`](cca.md), [`tdx`](tdx.md)) enumerates its own parameters
-against this framework.
+This page defines each category in depth, gives a decision procedure
+for classifying any new target-specific parameter, and notes the
+host-supplied operational data that PMI deliberately does **not**
+carry. Each per-target chapter ([`sev`](sev.md), [`cca`](cca.md),
+[`tdx`](tdx.md)) enumerates its own parameters against this
+framework. [`vm`](vm.md) has no attestation channel, so the identity
+categories do not apply to it directly.
 
 For the summary table and the goals these categories serve, see
 [Overview](overview.md#categories).
@@ -157,47 +159,10 @@ count is observable but doesn't change shape (just size); MMIO
 location is observable and changes shape. The former is instance
 accident; the latter is platform identity.
 
-## Launch policy is not a PMI category
-
-Vendor APIs typically carry a field labeled "policy" or
-"attributes" that the deployer passes in at launch
-(`SNP_LAUNCH_START`'s POLICY, TDX's `ATTRIBUTES`,
-RmiRealmParams's feature flags). Within a single such field, the
-individual bits may belong to **different** PMI categories:
-
-- **Liveness-requirement bits** — bits whose value the image
-  depends on to run correctly (e.g., the TDX `ATTRIBUTES` bits that
-  enable LASS or PKS or PERFMON, the `XFAM` bits that authorize
-  SVE/AVX use). These are **platform identity** — they describe the
-  shape of the hardware the image expects.
-
-- **Launch policy bits** — bits the deployer chooses for
-  operational reasons that don't change what the image needs from
-  the platform (e.g., SEV-SNP's `POLICY.DEBUG` /
-  `POLICY.MIGRATE_MA` / `POLICY.SMT`, TDX's `ATTRIBUTES.DEBUG` /
-  `ATTRIBUTES.MIGRATABLE`). These are **out of PMI scope** as a
-  category. They reach the firmware via the vendor's channel and
-  appear in the attestation report; verifiers check them against
-  deployer policy.
-
-Launch policy bits are not image identity, not platform identity,
-not tenant identity, not host identity, and not instance accidents.
-They are a sixth class that PMI deliberately does **not** carry.
-The reason: PMI's job is to bind what the image declares to what
-the launch measures. Launch policy is a deployer choice about
-*how* to run a given image; it is host-supplied via vendor
-channels and surfaced in the attestation report by vendor
-mechanisms. PMI adds nothing by re-routing it.
-
-When a single vendor field mixes liveness requirements and launch
-policy in one bit-field (TDX's `ATTRIBUTES` is the running
-example), the per-target chapter MUST split the field bit by bit
-and assign each bit to its category.
-
 ## Decision procedure
 
-For any new target-specific parameter, classify it by answering
-these questions in order:
+For any new target-specific parameter, walk these questions in order
+and assign the first match:
 
 1. **Are the bytes themselves part of the workload?** (Kernel,
    initrd, command line, in-guest stub.) → **image identity**.
@@ -220,10 +185,8 @@ these questions in order:
    hardware shape?** (vCPU count, memory size, aux granule
    addresses, EPTP controls.) → **instance accident**.
 
-6. **Otherwise — is this a deployer operational choice that
-   doesn't change the workload's identity but does appear in the
-   attestation report?** (Debug enable, migratability,
-   SMT-allowed.) → **launch policy**, out of PMI scope.
+If none of the five questions match, the parameter is **leftover**;
+see [Leftover values](#leftover-values) below.
 
 If a single vendor field's bits answer differently across the
 questions, split the field by bit and classify each bit
@@ -238,8 +201,34 @@ independently.
 | Tenant identity    | Yes when image-bound; otherwise external | [`sev.id`](sev.md#id-field); CCA RPV and TDX MR\* are runtime-supplied to the VMM, not in PMI     |
 | Host identity      | No (PMI acknowledges the channel)        | SEV `HOST_DATA` and equivalents, VMM-supplied                                                     |
 | Instance accidents | Yes for resource allocation              | [`dtbo`](vm.md#dtbo-overlay) fill action; everything else (aux granules, EPTP) is VMM-internal    |
-| Launch policy      | Deliberately no                          | Vendor-defined fields passed to firmware by VMM-supplied input; appear in attestation report      |
 
 Per-target enumerations of every parameter against this table are in
-[`vm`](vm.md#parameters), [`sev`](sev.md#parameters),
-[`cca`](cca.md#parameters), and [`tdx`](tdx.md#parameters).
+[`sev`](sev.md#parameters), [`cca`](cca.md#parameters), and
+[`tdx`](tdx.md#parameters). [`vm`](vm.md) defines the inherited
+mechanisms; categories attach where the CC targets pick them up.
+
+## Leftover values
+
+After every PMI- and vendor-defined parameter is walked through the
+decision procedure, some values do not fit any of the four identity
+categories or instance accidents. The clearest examples are bits
+within vendor "policy" or "attributes" fields whose value is the
+deployer's operational choice (debug enable, migratability, SMT
+allowed, single-socket, ciphertext hiding) — they are host-supplied,
+they reach the attestation report through the vendor channel, and
+verifier policy checks them, but they bind to neither image nor
+tenant nor host nor any platform shape.
+
+These values are real and consequential to a verifier's policy, so
+we cannot dismiss them. But how they should sit relative to PMI's
+categories — whether they belong in a sixth category, whether they
+split into more than one, whether their attestation-report
+visibility distinguishes them from instance accidents in a way that
+matters for PMI's data model — is **open work**. The per-target
+chapters surface these as **leftover** in their parameter tables so
+the full set is visible in one place; once the per-target leftover
+sets are enumerated we can study them together and decide whether a
+coherent category emerges.
+
+The per-target chapters are the source of truth for which specific
+parameters are leftover today.
