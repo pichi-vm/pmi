@@ -1,29 +1,27 @@
 # Motivation
 
-PMI exists to solve four concrete problems with how low-level
-virtual-machine images are defined, launched, attested, and tooled
-today. Each problem corresponds one-to-one with a goal stated in
-[Overview](overview.md): this document defines the problem and
-explains why it is a problem; the overview states the goal and the
-methods that solve it.
+PMI exists to solve four problems. Each problem has a one-to-one
+corresponding goal in [Overview](overview.md). This document defines
+the problems and explains why they are problems; the overview defines
+the goals that solve them and the methods that deliver those goals.
 
-| # | Problem (this document)                    | Goal (overview.md)                       |
-| - | ------------------------------------------ | ---------------------------------------- |
-| 1 | The platform-conformance inversion         | Security against a malicious hypervisor  |
-| 2 | The artifact-sprawl problem                | Executable format portability            |
-| 3 | The attestation-divergence problem         | Attestation equivalence                  |
-| 4 | The tooling-fragmentation problem          | Tooling reuse                            |
+| # | Problem (this document)                                | Goal (overview.md)                                                                                |
+| - | ------------------------------------------------------ | ------------------------------------------------------------------------------------------------- |
+| 1 | Early boot can't defend against hypervisor attacks     | [Security against a malicious hypervisor](overview.md#security-against-a-malicious-hypervisor)    |
+| 2 | One workload needs multiple image artifacts            | [Executable format portability](overview.md#executable-format-portability)                        |
+| 3 | Same image, different VMM, different attestation       | [Attestation equivalence](overview.md#attestation-equivalence)                                    |
+| 4 | Every new image format needs new tools at every layer  | [Tooling reuse](overview.md#tooling-reuse)                                                        |
 
-## 1. The platform-conformance inversion
+## 1. Early boot can't defend against hypervisor attacks
 
 On bare metal, firmware defines the platform layout and the guest
 adapts to it: firmware enumerates devices, decides where memory lives,
 exposes a CPU configuration, and hands the picture to the kernel
 through a well-known interface (Devicetree, ACPI, `e820`). The
 asymmetry is structurally justified — firmware has direct knowledge of
-the underlying hardware and runs first; the guest has limited early-boot
-capability and hardware is largely fixed regardless of what the guest
-wants.
+the underlying hardware and runs first; the guest has limited
+early-boot capability and hardware is largely fixed regardless of what
+the guest wants.
 
 Virtual machines invert the capability asymmetry. A hypervisor has
 near-arbitrary flexibility to compose any platform the guest will
@@ -48,18 +46,14 @@ boot. The attack surface is concrete and demonstrated:
   2025, Distinguished Paper) — universal AML injection across SEV and
   TDX guests.
 
-**The problem in one sentence:** the guest has no way to constrain
-what the hypervisor presents, and is too early in boot to validate
-it adversarially.
-
-**PMI's response:** Goal (1) —
+**PMI's response:**
 [Security against a malicious hypervisor](overview.md#security-against-a-malicious-hypervisor).
 The image declares the platform it expects; the VMM either provides
-exactly that or refuses to launch. The guest's residual validation
-surface is reduced to a small, well-known set of rules the consumer
-can audit end-to-end.
+exactly that or refuses to launch, before the guest sees a single
+byte. The guest's residual validation surface is reduced to a small,
+well-known set of rules the consumer can audit end-to-end.
 
-## 2. The artifact-sprawl problem
+## 2. One workload needs multiple image artifacts
 
 Linux deployers boot through more shapes than bare metal does. A
 modern VM boot pipeline grows the bare-metal _firmware → kernel_
@@ -102,17 +96,14 @@ primary prior art) for paravisor-style confidential boot. An image
 needing to serve more than one shape became more than one image, with
 parallel build paths to maintain and reconcile.
 
-**The problem in one sentence:** the same workload, packaged for
-multiple boot shapes, fragments into incompatible artifacts.
-
-**PMI's response:** Goal (2) —
+**PMI's response:**
 [Executable format portability](overview.md#executable-format-portability).
 A single PE binary carries content for every boot shape the image
-author chooses to support; standard PE loaders ignore the parts they
+author chooses to support. Standard PE loaders ignore the parts they
 don't understand, and conformant VMMs read only the target sections
 relevant to them.
 
-## 3. The attestation-divergence problem
+## 3. Same image, different VMM, different attestation
 
 Confidential-computing launches produce a cryptographic measurement
 (SEV-SNP launch digest, CCA RIM, TDX MRTD) that a remote verifier uses
@@ -145,17 +136,14 @@ must know not just the image but which VMM is running it and which
 deployer assembled the launch — defeating the point of remote
 attestation as a workload-identity primitive.
 
-**The problem in one sentence:** a CC measurement that depends on the
-VMM is not a workload identity; it's a launch-event identity.
-
-**PMI's response:** Goal (3) —
+**PMI's response:**
 [Attestation equivalence](overview.md#attestation-equivalence). Every
 value that contributes to image and platform identity is bound by the
 PMI image; ordering of measured submissions is normatively pinned.
 The same image produces bit-identical image+platform identity fields
 across any two conformant VMMs of the same target.
 
-## 4. The tooling-fragmentation problem
+## 4. Every new image format needs new tools at every layer
 
 A new image format historically demands a new toolchain at every
 layer:
@@ -187,11 +175,7 @@ PE-format work for one shape. A new image format that abandons PE
 forces all of these tools to be replaced; one that extends PE without
 breaking the existing conventions inherits the existing ecosystem.
 
-**The problem in one sentence:** every new shape doubles the
-toolchain surface area unless the format is designed to inherit
-existing tooling and to keep its new tooling narrow and composable.
-
-**PMI's response:** Goal (4) —
+**PMI's response:**
 [Tooling reuse](overview.md#tooling-reuse). PMI extends PE without
 breaking existing PE-based tools; new PMI-specific tools (target-spec
 parsers, DTBO mergers, builders, VMMs, in-guest consumers, verifiers,
