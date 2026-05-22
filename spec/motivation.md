@@ -7,58 +7,67 @@ the goals that solve them and the methods that deliver those goals.
 
 | # | Problem (this document)                                | Goal (overview.md)                                                                                |
 | - | ------------------------------------------------------ | ------------------------------------------------------------------------------------------------- |
-| 1 | Early boot can't defend against hypervisor attacks     | [Security against a malicious hypervisor](overview.md#security-against-a-malicious-hypervisor)    |
+| 1 | The host-controlled platform definition is a large attack surface | [Security against a malicious hypervisor](overview.md#security-against-a-malicious-hypervisor)    |
 | 2 | One workload needs multiple image artifacts            | [Executable format portability](overview.md#executable-format-portability)                        |
 | 3 | Same image, different VMM, different attestation       | [Attestation equivalence](overview.md#attestation-equivalence)                                    |
 | 4 | Every new image format needs new tools at every layer  | [Tooling reuse](overview.md#tooling-reuse)                                                        |
 
-## 1. Early boot can't defend against hypervisor attacks
+## 1. The host-controlled platform definition is a large attack surface
 
 Booting an operating system requires platform information: which
 devices exist, where memory lives, what interrupt routing applies,
-what CPU features are available. The kernel cannot synthesize this
-information from nothing; it has to consume it from somewhere
-upstream — Devicetree on many architectures, ACPI on x86. Whoever
-supplies that information controls what the kernel believes about
-its environment.
+what CPU features are available. The kernel consumes this
+information from somewhere upstream — Devicetree on many
+architectures, ACPI on x86 — and uses it to shape essentially every
+subsequent decision: which drivers to load, what memory regions are
+usable, where MMIO accesses are routed, which CPU features are safe
+to enable, which interrupts to handle.
 
-Early boot is the worst possible point in the kernel's life cycle to
-validate what it consumes. The kernel is single-threaded, runs
-without drivers, lacks network and stable storage, has no
-cryptographic anchor to the underlying hardware (which in a VM
-doesn't have one for the guest to anchor against), and cannot defer
-the decision until it has more capability — every subsequent step
-depends on having committed to a platform model. The kernel must
-either trust what it is given or fail to boot.
+The surface defined by that information is large. Devicetree alone
+has thousands of bindings; ACPI adds AML, a Turing-complete bytecode
+the kernel evaluates in its own context. The surface is also subtle:
+many bindings express constraints whose violation manifests only as
+later behavior (an off-by-one in a memory range, a slightly-wrong
+interrupt-routing entry, a CPU feature bit asserted that the
+underlying silicon does not actually implement). Comprehensively
+validating an adversarial platform description at boot is not
+intractable in principle, but it requires re-implementing the
+semantics of every binding the kernel will rely on — a moving target
+that grows with every new device class the kernel learns.
 
-On bare metal this trust is acceptable. Firmware is part of the
+The party that supplies the platform description has two ways to
+weaponize it. The direct route is malicious content: a DSDT whose
+AML executes attacker-chosen code in kernel context; a device node
+whose `compatible` string steers the kernel into a vulnerable
+driver path; a CPU feature flag that asserts an extension the
+silicon does not provide, taking the kernel down a misoptimized
+code path. The indirect route is a legitimate-looking but
+adversarially-chosen definition that expands the attack surface the
+kernel exposes through its own subsequent behavior: exposing
+devices known to have unpatched CVEs in their drivers; choosing
+memory or interrupt layouts that interact badly with mitigations;
+selecting CPU feature combinations that put the kernel on code
+paths still being hardened. Even when no bytes are themselves
+malicious, "the host gets to pick" is an asymmetric advantage.
+
+On bare metal this asymmetry is acceptable. Firmware is part of the
 platform's identity, anchored through Secure Boot, measured boot,
 TPM-attested firmware images, or equivalent vendor mechanisms; an
-attacker who can substitute firmware has already won, so the kernel
-treating firmware-provided platform information as trusted does not
-expand the attack surface.
+attacker who can substitute firmware has already won. The kernel
+treating firmware-provided platform information as a low-attention
+input is consistent with the actual threat model.
 
-Under Confidential Computing the trust is not acceptable. The
-hypervisor — the party supplying the platform information the guest
-must consume — is explicitly outside the guest's trust boundary. The
-hypervisor can supply any platform description it wants, and the
-guest in early boot has neither the time nor the tooling to push
-back. ACPI is the worst case here because AML is a Turing-complete
-bytecode the kernel evaluates: a malicious DSDT runs arbitrary code
-in kernel context, with full guest privileges, before any defensive
-machinery has come up. The attack surface is concrete and
+Under Confidential Computing it is not acceptable. The hypervisor —
+the party supplying the platform description — is explicitly outside
+the guest's trust boundary, and every byte of the description
+becomes attack-relevant. The attack surface is concrete and
 demonstrated:
 
 - [AMD-SB-3012](https://www.amd.com/en/resources/product-security/bulletin/amd-sb-3012.html)
   — ACPI/AML injection in SEV guests via QEMU.
 - [BadAML](https://dl.acm.org/doi/10.1145/3719027.3765123) (ACM CCS
-  2025, Distinguished Paper) — universal AML injection across SEV and
-  TDX guests.
-
-The structural facts: the guest needs platform information to boot;
-that information comes from the attacker; the guest's defensive
-capability during the window when it must consume the information is
-essentially zero.
+  2025, Distinguished Paper) — universal AML injection across SEV
+  and TDX guests.
 
 **PMI's response:**
 [Security against a malicious hypervisor](overview.md#security-against-a-malicious-hypervisor).
