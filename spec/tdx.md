@@ -33,9 +33,12 @@ tdx = {
 tdx-action = load / fill
 ```
 
-VMMs MUST reject sections with an unrecognized `version`, an unknown
-top-level key, an unknown action `type` value, or an unknown action
-`kind` value.
+The schema-strictness and action-array validation rules from
+[`vm`](vm.md#schema) apply: unrecognized `version`, unknown key in
+any defined CBOR map, unknown action `type`, unknown action `kind`,
+non-existent section reference, duplicate section reference, and
+overlapping `[VirtualAddress, VirtualAddress + VirtualSize)` ranges
+all cause the VMM to refuse to launch.
 
 There is no `vcpu` field: TDX vCPU initial register state is set by
 the TDX module per the TDX architecture (see [Boot vCPU

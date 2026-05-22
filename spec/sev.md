@@ -31,9 +31,12 @@ id = {
 sev-action = load / fill
 ```
 
-VMMs MUST reject sections with an unrecognized `version`, an unknown
-top-level key, an unknown action `type` value, or an unknown action
-`kind` value.
+The schema-strictness and action-array validation rules from
+[`vm`](vm.md#schema) apply: unrecognized `version`, unknown key in
+any defined CBOR map, unknown action `type`, unknown action `kind`,
+non-existent section reference, duplicate section reference, and
+overlapping `[VirtualAddress, VirtualAddress + VirtualSize)` ranges
+all cause the VMM to refuse to launch.
 
 ## Launch model
 
@@ -69,6 +72,18 @@ for remote verification. A remote verifier MUST check policy fields in
 the attestation report — the launch digest alone does not establish
 policy properties.
 
+### Measurement scope
+
+Per [Measurement determinism](overview.md#measurement-determinism),
+the SEV-SNP launch digest is a deterministic function of the PMI
+image bytes alone: every page that contributes to the digest is named
+by an action in the spec's `actions` array, and within each action's
+PE section the VMM submits pages in GPA order. The host launch policy
+is the only value the SEV-SNP architecture surfaces to the verifier
+that is not part of the launch digest; image authors who require
+policy reproducibility in attestation MUST include the `id` block,
+which binds the host policy under the signed ID key.
+
 ## `id` field
 
 The optional `id` field carries a signed launch identity — present on
@@ -94,7 +109,8 @@ Both PE sections MUST be non-loaded (`IMAGE_SCN_MEM_DISCARDABLE`):
   key).
 
 Pairing is structural: when `id` is present, both `block` and `auth`
-keys are required.
+keys MUST be present; the VMM MUST refuse to launch on a spec that
+contains only one.
 
 ## `load` action
 

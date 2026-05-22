@@ -48,7 +48,7 @@ host-fillable paths above.
 
 Nodes the image declares MAY be annotated with `numa-node-id` by the
 host's overlay (see [`dtbo`](vm.md#dtbo-overlay)). This is the only property the host
-may add to non-`/cpus` / non-`/memory@*` / non-`/distance-map` nodes. The
+MAY add to non-`/cpus` / non-`/memory@*` / non-`/distance-map` nodes. The
 image MUST NOT pre-populate `numa-node-id` on its own declared nodes; the
 host supplies these at launch since the NUMA topology of the deployment
 host is not knowable at image build time.

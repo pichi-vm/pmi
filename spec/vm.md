@@ -23,8 +23,16 @@ vm-action = load / fill
 ```
 
 VMMs MUST reject sections with an unrecognized `version`, an unknown
-top-level key, an unknown action `type` value, or an unknown action
-`kind` value.
+key in any defined CBOR map (top-level or nested), an unknown action
+`type` value, or an unknown action `kind` value.
+
+VMMs MUST additionally refuse to launch if:
+
+- any action's `section` does not name a PE section present in the
+  image;
+- the same PE section name is referenced by more than one action; or
+- two action-referenced PE sections have overlapping
+  `[VirtualAddress, VirtualAddress + VirtualSize)` ranges.
 
 ## Launch model
 
@@ -105,7 +113,7 @@ fill = {
 }
 ```
 
-`kind` is required; there is no default.
+The fill action MUST include a `kind` value; there is no default.
 
 ### kind `dtbo`
 
@@ -138,9 +146,9 @@ is non-conformant.
 3. **Anything under `/distance-map`** (NUMA distance matrix).
 4. **The `numa-node-id` property** added to any node the base DTB
    already declared (e.g., `/pci@*`, device nodes). This is the only
-   property the host may add outside the first three paths; it may
-   never appear with any other host-contributed property on the same
-   node.
+   property the host MAY add outside the first three paths, and it
+   MUST NOT appear with any other host-contributed property on the
+   same node.
 
 The overlay's `totalsize` MUST NOT exceed the PE section's
 `VirtualSize`.
@@ -171,11 +179,13 @@ spin-table enable-method):
 
 - All addresses MUST be within the architecture's canonical bounds
   (currently `< 2^48` for x86-64 and aarch64).
-- No `address + size` computation MAY overflow.
+- Every `address + size` computation MUST NOT overflow the
+  architecture's address width.
 - All declared regions MUST be pairwise non-overlapping with each
-  other AND with each architecturally-fixed MMIO region declared in
-  the image's base DTB (interrupt controllers, syscon devices, PCIe
-  ECAM, etc.).
+  other AND with every base-DTB node bearing a `reg` property. (The
+  image's base DTB omits `/memory@*` per [dtb.md](dtb.md#image-side-responsibilities),
+  so every base-DTB `reg` resolves to non-RAM and is off-limits to
+  the overlay's `/memory@*` declarations.)
 - The union of all `/memory@*/reg` regions MUST contain every loaded
   PE section's `[VirtualAddress, VirtualAddress + VirtualSize)` range.
 - Each `cpu-release-addr` MUST lie inside a `/memory@*/reg` region AND
@@ -222,7 +232,9 @@ The VMM MUST reject a `vcpu` register map where any value exceeds the
 field width defined by the architecture schema (e.g., a `selector` value
 greater than `0xFFFF`).
 
-### x86-64 (`PE.FileHeader.Machine == 0x8664`)
+### vcpu-x64
+
+Used when `PE.FileHeader.Machine == 0x8664`.
 
 ```cddl
 vcpu-x64 = {
@@ -282,7 +294,9 @@ readable, accessed), S = 1, DPL = 0, P = 1, L = 1. A typical 64-bit data
 segment has `attributes = 0x0093`: type = `0x3` (data, writable, accessed),
 S = 1, DPL = 0, P = 1.
 
-### aarch64 (`PE.FileHeader.Machine == 0xAA64`)
+### vcpu-aarch64
+
+Used when `PE.FileHeader.Machine == 0xAA64`.
 
 ```cddl
 vcpu-aarch64 = {

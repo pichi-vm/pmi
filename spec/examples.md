@@ -1,5 +1,9 @@
 # Examples
 
+This document is non-normative; the blocks below illustrate the per-target
+bindings but are not reference test vectors. The normative wire format and
+constraints are defined in the per-target chapters.
+
 A PMI image is a PE binary that, for each supported target, carries a CBOR
 spec in a `.pmi.<target>` PE section. A VMM targeting one of them reads its
 section and follows the recipe. PE section names other than the target spec
@@ -13,7 +17,7 @@ sections themselves are free-form.
 {
   "version": 1,
   "dtb": ".dtb.vm",
-  "vcpu": {"rip": 0x100000, "rsp": 0x80000, "rflags": 0x2, "cs": {...}, ...},
+  "vcpu": {"rip": 0x100000, "rsp": 0x80000, "rflags": 0x2},
   "actions": [
     {"type": "load", "section": ".linux"},
     {"type": "load", "section": ".initrd"},
@@ -22,6 +26,11 @@ sections themselves are free-form.
   ]
 }
 ```
+
+(The omitted `vcpu` keys default to zero per `vcpu-x64`; a real boot image
+would set `cs`, `cr0`, `cr3`, `cr4`, `efer`, `gdtr`, and `idtr` to values
+matching its early entry-point code. See [`vcpu-x64`](vm.md#vcpu-x64)
+for the full schema.)
 
 ### `.pmi.sev`
 

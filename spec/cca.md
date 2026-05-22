@@ -27,9 +27,12 @@ cca = {
 cca-action = load / fill
 ```
 
-VMMs MUST reject sections with an unrecognized `version`, an unknown
-top-level key, an unknown action `type` value, or an unknown action
-`kind` value.
+The schema-strictness and action-array validation rules from
+[`vm`](vm.md#schema) apply: unrecognized `version`, unknown key in
+any defined CBOR map, unknown action `type`, unknown action `kind`,
+non-existent section reference, duplicate section reference, and
+overlapping `[VirtualAddress, VirtualAddress + VirtualSize)` ranges
+all cause the VMM to refuse to launch.
 
 ## Launch model
 
@@ -73,8 +76,7 @@ incorporates the RPV).
 
 The `vcpu` field carries the BSP REC parameters the VMM applies at
 step 3 via `RMI_REC_CREATE`. The schema is vm's
-[`vcpu-aarch64`](vm.md#aarch64-pe-fileheader-machine--0xaa64); CCA is
-aarch64 only.
+[`vcpu-aarch64`](vm.md#vcpu-aarch64); CCA is aarch64 only.
 
 The BSP REC is created with `runnable = RUNNABLE`. Its parameters
 (notably PC, GPRs, and the system registers exposed by
