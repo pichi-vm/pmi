@@ -52,8 +52,12 @@ The `cca` target's parameters mapped against PMI's
 The realm parameters passed to `RMI_REALM_CREATE` mix platform
 identity (liveness requirements measured into RIM), tenant identity
 (the deployer-supplied RPV), and instance accidents (per-deployment
-sizing). Today they are host-supplied via VMM-defined input; see
-[Status](#status) for the gap.
+sizing). Today they are host-supplied via VMM-defined input; the
+platform-identity fields need to be
+[promoted to image identity](categories.md#promoting-to-image-identity)
+so the image can declare them and a VMM that substitutes a different
+value diverges RIM. The concrete measured fill kinds are open spec
+work — see [Status](#status).
 
 | Parameter                                          | Category           | Source     | Notes                                                                                                                                |
 | -------------------------------------------------- | ------------------ | ---------- | ------------------------------------------------------------------------------------------------------------------------------------ |

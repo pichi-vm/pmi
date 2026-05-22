@@ -102,9 +102,12 @@ supplies is bound into the launch measurement. For
 [attestation equivalence](overview.md#attestation-equivalence) two
 conformant VMMs running the same PMI image must produce the same
 MRTD, which means the same `ATTRIBUTES` value — including its
-leftover bits. This is a documented gap: PMI does not yet carry a
-mechanism for the image to declare its expected `ATTRIBUTES` so
-that conformant VMMs can be forced to agree.
+leftover bits. PMI's path to close this gap is to
+[promote `ATTRIBUTES` to image identity](categories.md#promoting-to-image-identity)
+via a measured fill: the image declares the expected value in a PE
+section, the VMM submits exactly those bytes to `KVM_TDX_INIT_VM`,
+and a VMM that substitutes a different value diverges MRTD. The
+concrete measured fill kind is open spec work.
 
 ## Launch model
 
@@ -126,10 +129,11 @@ given action ordering.
 TD parameters are **host-supplied** — the VMM accepts them via
 VMM-defined input (CLI flag, config file, etc.) and passes them to
 `KVM_TDX_INIT_VM`. The fields and their PMI category mapping are
-enumerated in [TD_PARAMS](#td_params) above. Several of those fields
-are platform identity (liveness requirements measured into MRTD) and
-need a PMI carriage mechanism so the image can declare them; that is
-open work — see [Status](#status).
+enumerated in [TD_PARAMS](#td_params) above. Fields that are
+platform identity (liveness requirements measured into MRTD) need
+to be [promoted to image identity](categories.md#promoting-to-image-identity)
+so the image can declare them; the concrete measured fill kinds are
+open spec work — see [Status](#status).
 
 ## Boot vCPU initialization
 
