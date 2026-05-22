@@ -118,8 +118,8 @@ The fill action MUST include a `kind` value; there is no default.
 ### kind `dtbo`
 
 Delivers the runtime devicetree overlay described under
-[platform-definition
-inversion](overview.md#solving-the-platform-definition-inversion). The
+[platform definition
+inversion](overview.md#platform-definition-inversion--goals-1-and-3). The
 VMM generates the overlay fresh for this guest at step 4 and writes it
 into the section's GPA range. The in-guest consumer that merges the
 overlay onto the base DTB is not mandated by this spec — a guest stub,

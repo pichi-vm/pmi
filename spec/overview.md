@@ -1,104 +1,240 @@
 # Overview
 
-The key words "MUST", "MUST NOT", "SHOULD", "SHOULD NOT", and "MAY" in this
-specification are to be interpreted as described in
-[RFC 2119](https://www.rfc-editor.org/rfc/rfc2119).
+The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT",
+"SHOULD", "SHOULD NOT", "RECOMMENDED", "NOT RECOMMENDED", "MAY", and
+"OPTIONAL" in this document are to be interpreted as described in BCP 14
+[[RFC 2119]](https://www.rfc-editor.org/rfc/rfc2119)
+[[RFC 8174]](https://www.rfc-editor.org/rfc/rfc8174) when, and only
+when, they appear in all capitals, as shown here.
 
-This document explains how PMI addresses the two problems framed in
-[Motivation](motivation.md) and introduces the file structure that
-expresses the solution. See [`vm`](vm.md) for the base launch model and
-[Examples](examples.md) for concrete walkthroughs.
+This document defines the goals PMI is shaped to meet and the methods
+that meet them. The narrative behind these choices is in
+[Motivation](motivation.md); the per-target bindings are in
+[`vm`](vm.md), [`sev`](sev.md), [`cca`](cca.md), and [`tdx`](tdx.md);
+[Examples](examples.md) walks through concrete images.
 
-## Solving the platform-definition inversion
+## Goals
 
-PMI inverts the host-defines-platform pattern by making the image
-declarative about what hardware platform it expects.
+PMI has four goals:
 
-The image carries a base **Devicetree Blob (DTB)** describing its expected
-platform: virtual devices and their MMIO ranges, the interrupt controller,
-the PCIe topology, the console, reserved-memory regions, the `/chosen`
-parameters — everything outside the runtime-decided subtrees (`/cpus`,
-`/memory@*`, `/distance-map`). The VMM reads this DTB before launching the
-guest and is obligated to provide exactly what the DTB declares — every
-device at the declared GPA, every interrupt controller version, every PCIe
-layout. Anything the host cannot match is grounds for refusing to launch.
-The host has effectively infinite flexibility (it is software) to configure
-itself to match; the responsibility for matching is on the host.
+1. **Security against a malicious hypervisor.** The VMM detects
+   incompatibility between the image's declared platform and what the
+   host can actually provide, and refuses to launch. The guest's
+   validation responsibilities are minimal and well-known — bounded to
+   a small, enumerable surface.
+2. **Executable format portability.** The same PE bytes load in UEFI
+   on bare metal, in any non-CC VMM, and in any CC VMM whose target
+   the image declares. UEFI ignores PMI-specific sections; a PMI
+   image may simultaneously be a UKI.
+3. **Attestation equivalence.** For any two conformant VMMs of the
+   same target, given the same PMI image, the image-identity and
+   platform-identity fields of the resulting attestation reports are
+   bit-identical. Tenant-identity, host-identity, and
+   platform-reported fields (firmware/TCB versions, signing keys,
+   etc.) may legitimately vary.
+4. **Tooling reuse.** Existing PE-based tools work on PMI images
+   unchanged. New PMI-specific tools — parsers, DTBO mergers,
+   builders, VMMs, in-guest consumers, verifiers, signers,
+   inspectors — have narrow contracts and compose across contexts.
 
-The host's runtime decisions — how much memory this particular guest gets,
-how many vCPUs, how those vCPUs and memory are arranged across NUMA nodes —
-cannot be known to the image author in advance. The VMM supplies these
-through a **Devicetree Blob Overlay (DTBO)** it writes into a known segment
-at launch. The overlay is restricted by a content allowlist to exactly the
-three subtrees `/cpus`, `/memory@*`, and `/distance-map`, plus a single
-property (`numa-node-id`) that may be added to image-declared nodes.
-Anything outside the allowlist is rejected by the guest before the overlay
-is applied.
+### Security against a malicious hypervisor
 
-The result: the platform the guest boots against is the platform the image
-declared, plus a sharply bounded runtime delta that the guest validates
-against an explicit rule set. The validation surface is small enough to
-reason about, and the bulk of the platform (the base DTB) is bound into the
-launch measurement.
+The primary defense is VMM-side. The VMM reads the image's base
+[DTB](dtb.md) and the per-target spec, and validates that the host
+can provide every hardware capability declared at the declared GPAs.
+A host that cannot satisfy the declaration MUST be refused — the
+launch never starts.
 
-See [dtb.md](dtb.md) for the base DTB format, conformance contract, and
-image-side responsibilities; see [`dtbo` overlay](vm.md#dtbo-overlay)
-for the overlay schema, content allowlist, and consumer validation
-rules.
+The residual defense is guest-side. The host's one channel for
+contributing to the platform after launch is the
+[`dtbo` overlay](vm.md#dtbo-overlay), restricted by a narrow
+content allowlist (four categories). The in-guest PMI consumer
+validates the overlay against the allowlist and a small set of
+structural rules (FDT well-formedness, allowlisted nodes and
+properties, address-bearing values in canonical bounds and
+non-overlapping with the base DTB, phandle resolution, bounded
+length) and refuses to hand off to the kernel if any check fails.
 
-## Solving the single-artifact problem
+The narrow allowlist is what keeps the guest's validation surface
+tractable: the consumer is a small, enumerable piece of code that any
+reviewer can audit end-to-end.
 
-PMI inherits PE so a single binary can serve every shape of Linux boot,
-from bare metal to confidential VM, without per-shape image variants.
+The parties and their trust placement:
 
-### PE and UKI as background
+| Party             | Supplies                                                              | Trust under `vm`     | Trust under CC targets                       |
+| ----------------- | --------------------------------------------------------------------- | -------------------- | -------------------------------------------- |
+| Image author      | The PMI image bytes                                                   | Trusted              | Trusted                                      |
+| Deployer / tenant | Tenant identity (signatures, hashes that bind to the deployer)        | N/A                  | Trusted for tenant binding only              |
+| VMM / host        | Memory allocation, ABI calls into the firmware/module, dtbo content, host identity | Trusted              | Adversarial (outside the trust boundary)     |
+| PMI consumer      | In-guest validation, dtbo merge, kernel handoff                       | Trusted by the guest | Trusted by the guest, measured into launch identity |
 
-PE (Portable Executable) is the binary format that UEFI firmware loads and
-executes. A PE file is divided into named **sections**, each with a header
-describing where its bytes live in the file and where they should be mapped
-into memory. Sections marked `IMAGE_SCN_MEM_DISCARDABLE` are not mapped —
-they carry data the loader does not need at runtime. PMI imposes alignment
-rules on PE sections that allow zero-copy loading with 2M huge pages, and
-requires that target-spec sections be non-loaded; see
-[PE constraints and page granularity](pe.md) for the full rules.
+### Executable format portability
 
-A Unified Kernel Image (UKI) is a PE file that bundles a kernel (`.linux`),
-an initial ramdisk (`.initrd`), a command line (`.cmdline`), and an EFI stub
-into named PE sections. UEFI executes the stub; the stub loads the kernel
-and boots it. PMI builds on this same PE-with-named-sections idiom.
+A PMI image is one PE binary. The PE container is universally
+understood by PE-based loaders (UEFI, Windows, Wine). PMI's extension
+to PE is a set of non-loaded sections whose names begin with
+`.pmi.` — one per launch target the image supports. Because these
+sections are flagged `IMAGE_SCN_MEM_DISCARDABLE`, PE loaders that do
+not know about PMI ignore them. The same image bytes therefore boot:
 
-### PMI as a PE extension
+- on bare metal, where UEFI executes the UKI-style EFI stub
+- under a non-CC VMM, which reads `.pmi.vm` and follows its recipe
+- under a confidential VMM, which reads `.pmi.sev` / `.pmi.tdx` /
+  `.pmi.cca` and follows its recipe
 
-A PMI image is a PE binary. It MAY also be structured as a UKI (carrying
-`.linux`, `.initrd`, `.cmdline`, and an EFI stub) for bare-metal and
-stubbed VM paths; UEFI ignores the PMI-specific sections. A PMI image is
-not _required_ to be UKI-shaped — an image that contains only firmware
-(for OVMF-loads-kernel-from-disk modes), or only confidential-VM content,
-is equally valid. PMI is compatible with UKI, not a flavor of it.
+PMI is compatible with UKI, not a flavor of it. An image that
+contains only firmware (for OVMF-loads-kernel-from-disk modes), or
+only confidential-VM content, is equally valid.
 
-PMI's extension to PE is a set of non-loaded sections whose names begin
-with `.pmi.` — one per launch target the image supports.
+### Attestation equivalence
 
-### Targets
+For any two conformant VMMs of the same target, the image-identity
+and platform-identity fields of the attestation report MUST be
+bit-identical for the same PMI image. The cryptographic measurement
+register (SEV-SNP launch digest, CCA RIM, TDX MRTD) is included
+under this rule.
 
-PMI defines one **target** per launch path the image supports. A target is
-a self-contained CBOR spec carried in its own PE section (named by
-convention `.pmi.<target>`). A VMM targeting one of them reads that
-target's section, ignores the others, and executes the recipe it finds
-there.
+Tenant-identity, host-identity, and platform-reported fields
+(firmware/TCB versions, signing keys, etc.) MAY legitimately vary.
+Equivalence is therefore tested under a mask that zeroes out the
+legitimately-varying fields.
+
+This is the verifier's ergonomic test: given a PMI image and the
+relevant vendor specs, a verifier MUST be able to recompute the
+expected image+platform identity fields without running the workload,
+and compare to what the attestation report shows.
+
+### Tooling reuse
+
+PMI is shaped so existing PE-based tools (`objcopy`, `objdump`,
+`sbsign`, `ukify`, `systemd-stub`, UEFI loaders) work on PMI images
+unchanged. PMI uses no novel PE features; PE-aware tools that
+strip `IMAGE_SCN_MEM_DISCARDABLE` sections by default are the only
+known hazard.
+
+New PMI-specific tools are shaped to have narrow contracts and
+compose across contexts:
+
+- The target-spec parser is reusable in builders, VMMs, in-guest
+  consumers, verifiers, OCI inspectors, and debuggers.
+- The DTBO overlay applier is reusable in a small bootloader, in a
+  kernel-side pre-handoff stub, and in build-time validation.
+- A tenant-identity signer (e.g., for SEV id-block / id-auth) is
+  reusable across image authors and tenants.
+- Per-target VMM logic composes across hypervisors (KVM, HVF, WHP,
+  future ports) because every conformant VMM reads the same wire
+  format and applies the same rules.
+
+## Methods
+
+The four goals are delivered through four methods. Each method
+serves one or more goals.
+
+### Platform definition inversion → goals (1) and (3)
+
+The image declares the platform it expects to run on. The VMM and any
+in-guest consumer comply with the declaration or refuse to launch.
+The host has no input into the platform contract.
+
+PMI distinguishes four categories of identity that may appear in an
+attestation report:
+
+| Category          | What it is                                                                                                                                | Source                                                          | Appears in measurement? |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- | ----------------------- |
+| Image identity    | The bytes that constitute the guest workload — kernel, initrd, command line, firmware, any loaded PE section content                     | PMI image                                                       | Yes                     |
+| Platform identity | The hardware contract the workload expects — base DTB, boot vCPU register state, TD/realm attributes (ATTRIBUTES, XFAM, RmiRealmParams, launch policy) | PMI image                                                       | Yes                     |
+| Tenant identity   | Hash or signature that binds a deployment to a particular tenant — SEV id-block/id-auth, TDX MRCONFIGID/MROWNER/MROWNERCONFIG, CCA RPV     | PMI image (when tenant is the image author) or runtime input    | No — separate channel   |
+| Host identity     | Per-deployment values the host supplies — SEV `host_data`, VMM-internal config (max vCPUs, EPTP controls, aux granule addresses, etc.)    | Runtime input                                                   | No — separate channel   |
+
+**Image identity and platform identity MUST be deterministic functions
+of the PMI image bytes alone.** Together they produce the launch
+measurement.
+
+**Tenant identity** MAY be PMI-bound (when the tenant is the image
+author) or runtime-supplied.
+
+**Host identity** is always runtime-supplied — PMI never declares it.
+
+**Tenant identity and host identity MUST NOT contribute to the
+cryptographic measurement register.** They are surfaced in the
+attestation report through separate firmware channels (e.g.,
+`SNP_LAUNCH_FINISH`, the Realm Token, TDREPORT fields outside MRTD).
+
+This inversion delivers goal (1) because the host cannot substitute,
+omit, or relocate any platform value without being caught by the
+VMM's host-conformance check or by the guest's narrow
+consumer-validation rules. It delivers goal (3) because every measured
+input is image-determined, leaving no degrees of freedom in which two
+conformant VMMs of the same target could diverge.
+
+### PE-as-base → goal (2)
+
+A PMI image is a PE binary. PMI extends PE with non-loaded sections
+whose names begin with `.pmi.` — one per launch target the image
+supports. PMI imposes alignment rules on PE sections that allow
+zero-copy loading with 2 MiB huge pages, and requires target-spec
+sections to be flagged `IMAGE_SCN_MEM_DISCARDABLE` so existing PE
+loaders ignore them. See [pe.md](pe.md) for the full PE constraints
+and page-granularity rules.
+
+A PMI image MAY also be structured as a UKI (carrying `.linux`,
+`.initrd`, `.cmdline`, and an EFI stub) so the same bytes boot on
+bare metal under UEFI.
+
+### Self-contained byte sections and narrow per-target CBOR → goal (4)
+
+Each target's spec is carried as CBOR in its own PE section
+(`.pmi.<target>`) and is self-contained: a tool that handles one
+target does not need to read or parse other targets' chapters.
+
+Vendor-defined data structures — AMD SEV-SNP `id_block`/`id_auth`,
+Arm RMM `RmiRealmParams`/`RmiRecParams`, Intel TDX `TD_PARAMS` — are
+carried as opaque byte sections referenced by name from the target
+spec, not marshaled into CBOR. PMI mediates structure (which section
+holds which blob) but does not redefine vendor-specific semantics.
+This offloads semantic work to vendor-spec-aware tooling that exists
+anyway and keeps each PMI-specific tool small.
+
+### Pinned encoding and ordering → goals (3) and (4)
+
+For attestation equivalence and verifier reproducibility, every
+producer and consumer must agree byte-for-byte on the wire format and
+on the order in which measured inputs are submitted to firmware:
+
+- All target specs are encoded as CBOR per
+  [RFC 8949](https://www.rfc-editor.org/rfc/rfc8949). Producers MUST
+  emit Core Deterministic Encoding (RFC 8949 §4.2.1). Consumers MUST
+  reject malformed CBOR and MUST reject duplicate map keys.
+- Actions within a target's `actions` array are processed in array
+  order. Within each action's PE section, the VMM submits pages from
+  the lowest GPA to the highest. These two rules together pin the
+  order in which measured inputs reach firmware.
+- Each per-target chapter cites the vendor specification and version
+  it depends on (AMD SEV-SNP firmware ABI publication and revision;
+  Arm RMM specification DEN0137 revision; Intel TDX Module
+  specification revision).
+- Each per-target chapter SHOULD include normative reference
+  vectors — at minimum a positive vector (a PMI image whose decoded
+  spec matches an explicit byte sequence) and a negative vector (an
+  image that MUST be rejected, with the rejecting rule cited).
+
+## Targets
+
+PMI defines one **target** per launch path the image supports. A
+target is a self-contained CBOR spec carried in its own PE section. A
+VMM targeting one of them reads that target's section, ignores the
+others, and executes the recipe it finds there.
 
 The currently defined targets are:
 
-| Target          | PE section | Notes                                  |
-| --------------- | ---------- | -------------------------------------- |
-| [`vm`](vm.md)   | `.pmi.vm`  | Non-CC virtual machines                |
-| [`sev`](sev.md) | `.pmi.sev` | AMD SEV 3.0 (SEV-SNP) confidential VMs |
-| [`tdx`](tdx.md) | `.pmi.tdx` | Intel TDX confidential VMs (TODO)      |
-| [`cca`](cca.md) | `.pmi.cca` | Arm CCA confidential VMs (TODO)        |
+| Target          | PE section | Notes                                       |
+| --------------- | ---------- | ------------------------------------------- |
+| [`vm`](vm.md)   | `.pmi.vm`  | Non-CC virtual machines                     |
+| [`sev`](sev.md) | `.pmi.sev` | AMD SEV 3.0 (SEV-SNP) confidential VMs      |
+| [`tdx`](tdx.md) | `.pmi.tdx` | Intel TDX confidential VMs (working draft)  |
+| [`cca`](cca.md) | `.pmi.cca` | Arm CCA confidential VMs (working draft)    |
 
-Each target is described in its own binding. [`vm`](vm.md) defines the
-[base launch model](vm.md#launch-model); CC targets inherit it and
-describe only their cryptographic deltas. A VMM targeting one of them
-reads the corresponding `.pmi.<target>` section — there is no fallback
-or selection logic beyond that.
-
+[`vm`](vm.md) defines the [base launch model](vm.md#launch-model);
+CC targets inherit it and describe only their cryptographic deltas.
+A VMM targeting one of them reads the corresponding `.pmi.<target>`
+section — there is no fallback or selection logic beyond that.

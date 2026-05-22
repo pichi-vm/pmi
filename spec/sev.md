@@ -74,7 +74,7 @@ policy properties.
 
 ### Measurement scope
 
-Per [Measurement determinism](overview.md#measurement-determinism),
+Per [Attestation equivalence](overview.md#attestation-equivalence),
 the SEV-SNP launch digest is a deterministic function of the PMI
 image bytes alone: every page that contributes to the digest is named
 by an action in the spec's `actions` array, and within each action's
