@@ -20,27 +20,25 @@ PMI distinguishes five categories of data in any launch. The goals,
 methods, and per-target bindings that follow are stated in terms of
 these categories.
 
-| Category               | What it is                                                                                                                                                                                                                       | Source                                                       | Measured? | In attestation report? |
-| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ | --------- | ---------------------- |
-| **Image identity**     | The workload bytes — kernel, initrd, command line, firmware, any loaded PE section content                                                                                                                                       | PMI image                                                    | Yes       | Yes (in measurement)   |
-| **Platform identity**  | The fundamental hardware contract the workload expects — device declarations, MMIO regions, IRQ controller, PCIe topology (in the base DTB); boot vCPU register state; TD/realm attributes (ATTRIBUTES, XFAM, RmiRealmParams) | PMI image                                                    | Yes       | Yes (in measurement)   |
-| **Tenant identity**    | A hash or signature that binds a deployment to a particular tenant — SEV id-block/id-auth, TDX MRCONFIGID/MROWNER/MROWNERCONFIG, CCA RPV                                                                                          | PMI image (when tenant is the image author) or runtime input | No        | Yes (separate report field) |
-| **Host identity**      | Host-supplied attestation data — e.g., SEV `host_data`                                                                                                                                                                            | Runtime input                                                | No        | Yes (separate report field) |
-| **Instance accidents** | Per-launch sizing and wiring that doesn't identify anything — vCPU count, memory size, NUMA topology (in the dtbo); aux granule addresses; EPTP controls; allocator output                                                       | Runtime input                                                | No        | No                     |
-
-Platform identity is about the *shape* of the hardware contract, not
-its *size*. The 4-vCPU and 8-vCPU versions of the same image have
-identical platform identity (same shape, different size) — the sizing
-is instance accident. Changing MMIO addresses or interrupt controller
-version is a different shape and therefore different platform
-identity.
+| Category               | What it is                                                                                                                       | Source                                                       | Measured? | In attestation report?      |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ | --------- | --------------------------- |
+| **Image identity**     | The workload bytes — kernel, initrd, command line, firmware, any loaded PE section content                                       | PMI image                                                    | Yes       | Yes (in measurement)        |
+| **Platform identity**  | The hardware *shape* the workload expects — devices, MMIO, IRQ controller, PCIe (base DTB); boot vCPU state; CC-feature requirements | PMI image                                                    | Yes       | Yes (in measurement)        |
+| **Tenant identity**    | A hash or signature binding a deployment to a tenant — SEV id-block/id-auth, TDX MR\*, CCA RPV                                   | PMI image (when tenant is the image author) or runtime input | No        | Yes (separate report field) |
+| **Host identity**      | Host-supplied attestation data — e.g., SEV `HOST_DATA`                                                                           | Runtime input                                                | No        | Yes (separate report field) |
+| **Instance accidents** | Per-launch sizing and wiring with no identity meaning — vCPU count, memory size, NUMA (dtbo); aux granules; EPTP; allocator output | Runtime input                                                | No        | No                          |
 
 Image identity and platform identity contribute to the cryptographic
 measurement (SEV-SNP launch digest, CCA RIM, TDX MRTD). Tenant
-identity and host identity appear in the attestation report through
-separate firmware channels (e.g., `SNP_LAUNCH_FINISH`, the Realm
-Token, TDREPORT fields outside MRTD). Instance accidents appear in
-no attestation field at all.
+identity and host identity reach the attestation report through
+separate firmware channels (`SNP_LAUNCH_FINISH`, the Realm Token,
+TDREPORT fields outside MRTD). Instance accidents appear in no
+attestation field at all.
+
+See [Categories](categories.md) for each category in depth, the
+treatment of launch policy as a non-category, and a decision
+procedure for classifying new target parameters. Per-target
+enumerations live in each target's chapter.
 
 ## Goals
 
