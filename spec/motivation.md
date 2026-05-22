@@ -1,18 +1,69 @@
 # Motivation
 
-PMI exists to solve four problems. Each problem has a one-to-one
+PMI exists to solve five problems. Each problem has a one-to-one
 corresponding goal in [Overview](overview.md). This document defines
 the problems and explains why they are problems; the overview defines
-the goals that solve them and the methods that deliver those goals.
+the [categories](overview.md#categories) PMI distinguishes, the goals
+that solve the problems, and the methods that deliver those goals.
 
 | # | Problem (this document)                                | Goal (overview.md)                                                                                |
 | - | ------------------------------------------------------ | ------------------------------------------------------------------------------------------------- |
-| 1 | The host-controlled platform definition is a large attack surface | [Security against a malicious hypervisor](overview.md#security-against-a-malicious-hypervisor)    |
-| 2 | One workload needs multiple image artifacts            | [Executable format portability](overview.md#executable-format-portability)                        |
-| 3 | Same image, different VMM, different attestation       | [Attestation equivalence](overview.md#attestation-equivalence)                                    |
-| 4 | Every new image format needs new tools at every layer  | [Tooling reuse](overview.md#tooling-reuse)                                                        |
+| 1 | One workload needs multiple image artifacts            | [Executable format portability](overview.md#executable-format-portability)                        |
+| 2 | The host-controlled platform definition is a large attack surface | [Security against a malicious hypervisor](overview.md#security-against-a-malicious-hypervisor)    |
+| 3 | Same image, different deployment, different measurement | [Measurement stability](overview.md#measurement-stability)                                        |
+| 4 | Same image, different VMM, different attestation       | [Attestation equivalence](overview.md#attestation-equivalence)                                    |
+| 5 | Every new image format needs new tools at every layer  | [Tooling reuse](overview.md#tooling-reuse)                                                        |
 
-## 1. The host-controlled platform definition is a large attack surface
+## 1. One workload needs multiple image artifacts
+
+A single Linux workload — the same kernel, initrd, and command
+line — is increasingly expected to run in many shapes:
+bare metal under UEFI; as a direct-boot VM where the VMM extracts the
+kernel; under guest firmware (OVMF) that loads the kernel from a
+virtual disk; under a confidential VMM with a service module
+(COCONUT-SVSM, a paravisor) that initializes the confidential
+environment before the firmware sees it. The boot pipeline differs
+per shape:
+
+![Boot pipelines: bare metal versus modern VM](images/boot-modes.excalidraw.svg)
+
+For an image author distributing a workload, the natural unit is
+"one artifact." The artifact gets pulled from a registry, cached,
+signed once, scanned once, attested once, and referenced by one
+content hash. Anything that splits it into multiple artifacts
+duplicates that whole pipeline. Real deployments span the spectrum:
+
+- `qemu -kernel image.efi` — VMM extracts the kernel directly via
+  the Linux boot protocol; no firmware involved.
+- `qemu -bios OVMF.fd -kernel image.efi` — OVMF runs as guest UEFI
+  and boots the kernel from the PE.
+- `qemu -bios OVMF.fd -drive file=disk.img,...` — OVMF loads the
+  kernel from a virtual disk; the PE need not carry one.
+- COCONUT-SVSM + OVMF under SEV-SNP — the VMM launches the SVSM at
+  VMPL0, which initializes the confidential environment, exposes a
+  vTPM, and transitions OVMF to VMPL1.
+- UEFI on bare metal via PXE or HTTP Boot — firmware fetches the PE
+  remotely; the EFI stub boots the kernel.
+
+Existing image formats are shape-specific. PE/UKI assumes UEFI loads
+the image and runs an EFI stub. The Linux boot protocol assumes the
+VMM extracts the kernel. IGVM assumes a paravisor-style confidential
+boot with measurement metadata. An image author who wants to support
+more than one shape today produces more than one artifact, with
+parallel build paths, parallel signing flows, parallel registries to
+push to, and parallel rules to teach deployers about which artifact
+to pull for which shape.
+
+A service module (COCONUT-SVSM, paravisor) is a CC-specific
+privileged component that initializes the confidential environment
+and exposes services such as a vTPM before dropping the guest
+firmware to a lower privilege level; it is absent from bare metal
+and non-CC VM boot.
+
+**PMI's response:**
+[Executable format portability](overview.md#executable-format-portability).
+
+## 2. The host-controlled platform definition is a large attack surface
 
 Booting an operating system requires platform information: which
 devices exist, where memory lives, what interrupt routing applies,
@@ -72,50 +123,47 @@ demonstrated:
 **PMI's response:**
 [Security against a malicious hypervisor](overview.md#security-against-a-malicious-hypervisor).
 
-## 2. One workload needs multiple image artifacts
+## 3. Same image, different deployment, different measurement
 
-A single Linux workload — the same kernel, initrd, and command
-line — is increasingly expected to run in many shapes:
-bare metal under UEFI; as a direct-boot VM where the VMM extracts the
-kernel; under guest firmware (OVMF) that loads the kernel from a
-virtual disk; under a confidential VMM with a service module
-(COCONUT-SVSM, a paravisor) that initializes the confidential
-environment before the firmware sees it. The boot pipeline differs
-per shape:
+A deployer running the same image at different sizes is doing
+something operationally legitimate: more memory for a memory-hungry
+workload, more vCPUs for a parallel one, an additional NUMA node
+when the workload grows. These choices are about *how much* of a
+platform, not *which* platform. The workload's identity hasn't
+changed.
 
-![Boot pipelines: bare metal versus modern VM](images/boot-modes.excalidraw.svg)
+But the cryptographic launch measurement covers the platform
+definition the workload sees. If the platform definition is treated
+as a single monolithic thing, then resource-allocation values
+(vCPU count, memory layout, NUMA topology) end up measured
+alongside the fundamental hardware contract (devices, MMIO, IRQ
+controller, PCIe topology). Scaling the deployment then perturbs
+the measurement.
 
-For an image author distributing a workload, the natural unit is
-"one artifact." The artifact gets pulled from a registry, cached,
-signed once, scanned once, attested once, and referenced by one
-content hash. Anything that splits it into multiple artifacts
-duplicates that whole pipeline. Real deployments span the spectrum:
+The distinction the verifier wants is between the two kinds of
+platform information, illustrated by two questions:
 
-- `qemu -kernel image.efi` — VMM extracts the kernel directly via
-  the Linux boot protocol; no firmware involved.
-- `qemu -bios OVMF.fd -kernel image.efi` — OVMF runs as guest UEFI
-  and boots the kernel from the PE.
-- `qemu -bios OVMF.fd -drive file=disk.img,...` — OVMF loads the
-  kernel from a virtual disk; the PE need not carry one.
-- COCONUT-SVSM + OVMF under SEV-SNP — the VMM launches the SVSM at
-  VMPL0, which initializes the confidential environment, exposes a
-  vTPM, and transitions OVMF to VMPL1.
-- UEFI on bare metal via PXE or HTTP Boot — firmware fetches the PE
-  remotely; the EFI stub boots the kernel.
+- *If the deployer doubles memory and vCPUs, should the measurement
+  change?* No — the workload is the same; the deployer is just
+  sizing it.
+- *If the deployer changes the location of an MMIO region or the
+  interrupt controller version, should the measurement change?*
+  Yes — that's a different platform contract, structurally a
+  different workload.
 
-Existing image formats are shape-specific. PE/UKI assumes UEFI loads
-the image and runs an EFI stub. The Linux boot protocol assumes the
-VMM extracts the kernel. IGVM assumes a
-paravisor-style confidential boot with measurement metadata. An
-image author who wants to support more than one shape today produces
-more than one artifact, with parallel build paths, parallel signing
-flows, parallel registries to push to, and parallel rules to teach
-deployers about which artifact to pull for which shape.
+Without an explicit separation between these two kinds of platform
+information, the verifier has to know "what size was this deployed
+at?" before it can recompute the expected measurement — defeating
+the point of binding attestation to image identity. A deployer
+scaling from 4 vCPUs to 8 vCPUs would produce a different
+measurement than the 4-vCPU launch; a verifier that wants to bind
+release of secrets to "this image identity, regardless of scaling"
+cannot do it.
 
 **PMI's response:**
-[Executable format portability](overview.md#executable-format-portability).
+[Measurement stability](overview.md#measurement-stability).
 
-## 3. Same image, different VMM, different attestation
+## 4. Same image, different VMM, different attestation
 
 Remote attestation lets a verifier (a third party, a key broker, a
 policy engine) check what was launched before releasing secrets,
@@ -129,14 +177,13 @@ release-of-secret to that identity.
 
 For this to work, the launch measurement must be a function of the
 image. The same image must produce the same measurement regardless
-of where it ran, who ran it, or which conformant VMM submitted it to
-the firmware. Otherwise the verifier is binding to an event ("this
-specific launch under this specific VMM at this specific moment"),
-not to a workload identity, and reproducibility breaks: a deployer
-re-running the same image gets a different attestation, a verifier
-re-validating last week's launch can't recompute the expected
-measurement, and a tenant porting their workload from one cloud to
-another loses the binding entirely.
+of which conformant VMM submitted it to the firmware. Otherwise the
+verifier is binding to an event ("this specific launch under this
+specific VMM"), not to a workload identity, and reproducibility
+breaks: a verifier re-validating last week's launch can't recompute
+the expected measurement, a tenant porting their workload from one
+cloud to another loses the binding, and a deployer switching
+hypervisor implementations breaks every prior attestation.
 
 Today the launch measurement is not a function of the image alone.
 Several mechanisms drive divergence between two VMMs of the same
@@ -163,7 +210,7 @@ implementation, which host's configuration, which deployer's choice.
 **PMI's response:**
 [Attestation equivalence](overview.md#attestation-equivalence).
 
-## 4. Every new image format needs new tools at every layer
+## 5. Every new image format needs new tools at every layer
 
 Image formats are not consumed by one piece of software. A single
 format gets touched by:

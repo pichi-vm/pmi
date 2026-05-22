@@ -7,11 +7,12 @@ The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT",
 [[RFC 8174]](https://www.rfc-editor.org/rfc/rfc8174) when, and only
 when, they appear in all capitals, as shown here.
 
-This document defines the goals PMI is shaped to meet and the methods
-that meet them. The narrative behind these choices is in
-[Motivation](motivation.md); the per-target bindings are in
-[`vm`](vm.md), [`sev`](sev.md), [`cca`](cca.md), and [`tdx`](tdx.md);
-[Examples](examples.md) walks through concrete images.
+This document defines the categories of data PMI distinguishes, the
+goals PMI is shaped to meet, and the methods that meet them. The
+narrative behind these choices is in [Motivation](motivation.md); the
+per-target bindings are in [`vm`](vm.md), [`sev`](sev.md),
+[`cca`](cca.md), and [`tdx`](tdx.md); [Examples](examples.md) walks
+through concrete images.
 
 ## Categories
 
@@ -43,28 +44,51 @@ no attestation field at all.
 
 ## Goals
 
-PMI has four goals:
+PMI has five goals:
 
-1. **Security against a malicious hypervisor.** The image declares
+1. **Executable format portability.** The same PE bytes load in UEFI
+   on bare metal, in any non-CC VMM, and in any CC VMM whose target
+   the image declares. UEFI ignores PMI-specific sections; a PMI
+   image may simultaneously be a UKI.
+2. **Security against a malicious hypervisor.** The image declares
    image and platform identity; under CC, a host that substitutes any
    declared value produces a launch measurement that does not match
    the expected value, and a remote verifier rejects the launch. The
    guest's residual validation responsibilities are minimal and
    well-known.
-2. **Executable format portability.** The same PE bytes load in UEFI
-   on bare metal, in any non-CC VMM, and in any CC VMM whose target
-   the image declares. UEFI ignores PMI-specific sections; a PMI
-   image may simultaneously be a UKI.
-3. **Attestation equivalence.** For any two conformant VMMs of the
+3. **Measurement stability.** Scaling the same image to a different
+   deployment size produces the same launch measurement as the
+   original. Image identity and platform identity are measured;
+   instance accidents (resource allocation, allocator output,
+   VMM-internal configuration) are not.
+4. **Attestation equivalence.** For any two conformant VMMs of the
    same target, given the same PMI image, the image-identity and
    platform-identity fields of the resulting attestation reports are
    bit-identical. Tenant-identity, host-identity, and
    platform-reported fields (firmware/TCB versions, signing keys,
    etc.) may legitimately vary.
-4. **Tooling reuse.** Existing PE-based tools work on PMI images
+5. **Tooling reuse.** Existing PE-based tools work on PMI images
    unchanged. New PMI-specific tools — parsers, DTBO mergers,
    builders, VMMs, in-guest consumers, verifiers, signers,
    inspectors — have narrow contracts and compose across contexts.
+
+### Executable format portability
+
+A PMI image is one PE binary. The PE container is universally
+understood by PE-based loaders (UEFI, Windows, Wine). PMI's extension
+to PE is a set of non-loaded sections whose names begin with
+`.pmi.` — one per launch target the image supports. Because these
+sections are flagged `IMAGE_SCN_MEM_DISCARDABLE`, PE loaders that do
+not know about PMI ignore them. The same image bytes therefore boot:
+
+- on bare metal, where UEFI executes the UKI-style EFI stub
+- under a non-CC VMM, which reads `.pmi.vm` and follows its recipe
+- under a confidential VMM, which reads `.pmi.sev` / `.pmi.tdx` /
+  `.pmi.cca` and follows its recipe
+
+PMI is compatible with UKI, not a flavor of it. An image that
+contains only firmware (for OVMF-loads-kernel-from-disk modes), or
+only confidential-VM content, is equally valid.
 
 ### Security against a malicious hypervisor
 
@@ -111,23 +135,27 @@ The parties and their trust placement:
 | VMM / host        | Memory allocation, ABI calls into the firmware/module, dtbo content (instance accidents), host identity | Trusted              | Adversarial (outside the trust boundary)     |
 | PMI consumer      | In-guest validation, dtbo merge, kernel handoff                       | Trusted by the guest | Trusted by the guest, measured into launch identity |
 
-### Executable format portability
+### Measurement stability
 
-A PMI image is one PE binary. The PE container is universally
-understood by PE-based loaders (UEFI, Windows, Wine). PMI's extension
-to PE is a set of non-loaded sections whose names begin with
-`.pmi.` — one per launch target the image supports. Because these
-sections are flagged `IMAGE_SCN_MEM_DISCARDABLE`, PE loaders that do
-not know about PMI ignore them. The same image bytes therefore boot:
+A deployer scaling the same image to a different size produces the
+same launch measurement as the original. Doubling memory, changing
+the vCPU count, or rearranging NUMA topology changes the dtbo
+content but does not perturb the measurement; only the
+image-identity and platform-identity bytes contribute to it.
 
-- on bare metal, where UEFI executes the UKI-style EFI stub
-- under a non-CC VMM, which reads `.pmi.vm` and follows its recipe
-- under a confidential VMM, which reads `.pmi.sev` / `.pmi.tdx` /
-  `.pmi.cca` and follows its recipe
+This isolation is structural. The base DTB carries platform
+identity (image-bound, baked into the image bytes the measurement
+covers); the dtbo carries instance accidents (host-supplied at
+launch, allowlist-bounded, not measured). Image identity and
+platform identity move with the image; instance accidents move with
+the deployment; the measurement reflects only the former.
 
-PMI is compatible with UKI, not a flavor of it. An image that
-contains only firmware (for OVMF-loads-kernel-from-disk modes), or
-only confidential-VM content, is equally valid.
+Without this separation, the verifier would need to know the
+deployment-time resource sizing in order to recompute the expected
+measurement — defeating the point of binding attestation to image
+identity. With it, a verifier policy that says "release the secret
+when the launch measurement equals X" works across every
+deployment of image X, regardless of how the host sized it.
 
 ### Attestation equivalence
 
@@ -172,13 +200,27 @@ compose across contexts:
 
 ## Methods
 
-The four goals are delivered through four methods. Each method
+The five goals are delivered through four methods. Each method
 serves one or more goals.
 
-### Platform definition inversion → goals (1) and (3)
+### PE-as-base → goal (1)
+
+A PMI image is a PE binary. PMI extends PE with non-loaded sections
+whose names begin with `.pmi.` — one per launch target the image
+supports. PMI imposes alignment rules on PE sections that allow
+zero-copy loading with 2 MiB huge pages, and requires target-spec
+sections to be flagged `IMAGE_SCN_MEM_DISCARDABLE` so existing PE
+loaders ignore them. See [pe.md](pe.md) for the full PE constraints
+and page-granularity rules.
+
+A PMI image MAY also be structured as a UKI (carrying `.linux`,
+`.initrd`, `.cmdline`, and an EFI stub) so the same bytes boot on
+bare metal under UEFI.
+
+### Platform definition inversion → goals (2), (3), and (4)
 
 The image declares image and platform identity; the host complies
-or fails to produce a measurement a verifier will accept. The four
+or fails to produce a measurement a verifier will accept. The five
 [categories](#categories) make this concrete: image identity and
 platform identity are PMI-bound; tenant identity MAY be (when the
 tenant is the image author); host identity is runtime-supplied;
@@ -200,7 +242,7 @@ host identity are surfaced in the attestation report through
 separate firmware channels; instance accidents are not surfaced in
 the attestation at all.
 
-This inversion delivers goal (1) because under CC, a host that
+This inversion delivers goal (2) because under CC, a host that
 substitutes any image- or platform-identity value produces a launch
 measurement that does not match the expected value and the verifier
 rejects the launch — no secret is released. The dtbo (the residual
@@ -210,25 +252,17 @@ the guest by the narrow consumer-validation rules. Under non-CC
 host-conformance check, which fails the launch if the host cannot
 provide what the image expects.
 
-It delivers goal (3) because every measured input is
+It delivers goal (3) because the structural split between platform
+identity (image-bound, in the base DTB and the per-target spec) and
+instance accidents (host-supplied, in the dtbo) means deployment-time
+resource sizing never reaches the measurement. The 4-vCPU and 8-vCPU
+deployments of the same image produce the same measurement.
+
+It delivers goal (4) because every measured input is
 image-determined, leaving no degrees of freedom in which two
 conformant VMMs of the same target could diverge.
 
-### PE-as-base → goal (2)
-
-A PMI image is a PE binary. PMI extends PE with non-loaded sections
-whose names begin with `.pmi.` — one per launch target the image
-supports. PMI imposes alignment rules on PE sections that allow
-zero-copy loading with 2 MiB huge pages, and requires target-spec
-sections to be flagged `IMAGE_SCN_MEM_DISCARDABLE` so existing PE
-loaders ignore them. See [pe.md](pe.md) for the full PE constraints
-and page-granularity rules.
-
-A PMI image MAY also be structured as a UKI (carrying `.linux`,
-`.initrd`, `.cmdline`, and an EFI stub) so the same bytes boot on
-bare metal under UEFI.
-
-### Self-contained byte sections and narrow per-target CBOR → goal (4)
+### Self-contained byte sections and narrow per-target CBOR → goal (5)
 
 Each target's spec is carried as CBOR in its own PE section
 (`.pmi.<target>`) and is self-contained: a tool that handles one
@@ -242,7 +276,7 @@ holds which blob) but does not redefine vendor-specific semantics.
 This offloads semantic work to vendor-spec-aware tooling that exists
 anyway and keeps each PMI-specific tool small.
 
-### Pinned encoding and ordering → goals (3) and (4)
+### Pinned encoding and ordering → goals (4) and (5)
 
 For attestation equivalence and verifier reproducibility, every
 producer and consumer must agree byte-for-byte on the wire format and

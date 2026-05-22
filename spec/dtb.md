@@ -1,7 +1,7 @@
 # Base DTB
 
 The `dtb` field in a target spec names a PE section containing the base DTB
-the VMM inspects before launch. See [Overview](overview.md#platform-definition-inversion--goals-1-and-3)
+the VMM inspects before launch. See [Overview](overview.md#platform-definition-inversion--goals-2-3-and-4)
 for the conceptual role of the DTB.
 
 This document is the normative reference for the format, the host
