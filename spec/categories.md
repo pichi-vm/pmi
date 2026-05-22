@@ -251,3 +251,38 @@ and decide which leftovers are quirks and which are gaps.
 
 The per-target chapters are the source of truth for which specific
 parameters are leftover today.
+
+## Promoting to image identity
+
+PMI's category framework is descriptive: it sorts every parameter
+into the category it naturally fits today. But the framework is also
+actionable. Any value that ought to be image-bound but currently
+isn't — a liveness-requirement bit a vendor design left host-supplied,
+a CPUID curation a vendor delegated to the VMM, a measurement
+parameter (like a hash algorithm) the verifier needs to know — can
+be **promoted into image identity** by a measured fill operation
+the VMM is required to conform to.
+
+The mechanism:
+
+1. The image declares the value as bytes in a PE section it owns.
+2. A measured fill action names the section, binding the declared
+   bytes into the launch measurement — either directly (the section
+   bytes participate in the measurement) or indirectly (the verifier
+   compares the section bytes against the corresponding
+   attestation-report field).
+3. The VMM is required to submit exactly those bytes to the firmware
+   API that uses the field (`KVM_TDX_INIT_VM`'s `ATTRIBUTES` and
+   `XFAM`, `RMI_REALM_CREATE`'s realm parameters, the SEV-SNP CPUID
+   page, and so on).
+
+A conformant VMM passes the declared bytes through unchanged. A VMM
+that substitutes a different value produces a different launch
+measurement (or a mismatching attestation-report field), and the
+verifier rejects the launch — the same proof-of-binding PMI uses for
+everything in image identity.
+
+Promotion is how PMI closes gaps that vendor designs left open for
+evolutionary reasons. The per-target chapters surface candidate
+fields under their "open work" or "gap" notes; the concrete measured
+fill kinds that implement each promotion are open spec work.
