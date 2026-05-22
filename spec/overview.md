@@ -16,7 +16,7 @@ through concrete images.
 
 ## Categories
 
-PMI distinguishes five categories of data in any launch. The goals,
+PMI distinguishes six categories of data in any launch. The goals,
 methods, and per-target bindings that follow are stated in terms of
 these categories.
 
@@ -25,15 +25,16 @@ these categories.
 | **Image identity**     | The workload bytes — kernel, initrd, command line, firmware, any loaded PE section content                                       | PMI image                                                    | Yes       | Yes (in measurement)        |
 | **Platform identity**  | The hardware *shape* the workload expects — devices, MMIO, IRQ controller, PCIe (base DTB); boot vCPU state; CC-feature requirements | PMI image                                                    | Yes       | Yes (in measurement)        |
 | **Tenant identity**    | A hash or signature binding a deployment to a tenant — SEV id-block/id-auth, TDX MR\*, CCA RPV                                   | PMI image (when tenant is the image author) or runtime input | No        | Yes (separate report field) |
-| **Host identity**      | Host-supplied attestation data — e.g., SEV `HOST_DATA`                                                                           | Runtime input                                                | No        | Yes (separate report field) |
+| **Host identity**      | Host-supplied attestation data naming a host operator — e.g., SEV `HOST_DATA`                                                    | Runtime input                                                | No        | Yes (separate report field) |
+| **Deployer policy**    | Operational metadata the verifier checks against policy — SEV-SNP POLICY when no ID block is present                             | Runtime input                                                | No        | Yes (separate report field) |
 | **Instance accidents** | Per-launch sizing and wiring with no identity meaning — vCPU count, memory size, NUMA (dtbo); aux granules; EPTP; allocator output | Runtime input                                                | No        | No                          |
 
 Image identity and platform identity contribute to the cryptographic
 measurement (SEV-SNP launch digest, CCA RIM, TDX MRTD). Tenant
-identity and host identity reach the attestation report through
-separate firmware channels (`SNP_LAUNCH_FINISH`, the Realm Token,
-TDREPORT fields outside MRTD). Instance accidents appear in no
-attestation field at all.
+identity, host identity, and deployer policy reach the attestation
+report through separate firmware channels (`SNP_LAUNCH_FINISH`, the
+Realm Token, TDREPORT fields outside MRTD). Instance accidents
+appear in no attestation field at all.
 
 See [Categories](categories.md) for each category in depth, the
 treatment of launch policy as a non-category, and a decision

@@ -85,17 +85,17 @@ measured into MRTD and mixes liveness requirements (platform
 identity — the image won't run correctly without the bit's named
 value) with deployer operational choices (leftover).
 
-| Bit  | Name             | Category          | Notes                                                                                                |
-| ---- | ---------------- | ----------------- | ---------------------------------------------------------------------------------------------------- |
-| 0    | DEBUG            | Leftover          | Debug-enabled; deployer operational choice                                                           |
-| 27   | LASS             | Platform identity | Linear Address Space Separation; image's use of LASS is gated on this bit                            |
-| 28   | SEPT_VE_DISABLE | Platform identity | Disables #VE on pending Secure-EPT violations; the image's lazy-acceptance and #VE handling depend on this bit's value |
-| 29   | MIGRATABLE       | Leftover          | Migratable-TD flag; deployer operational choice                                                      |
-| 30   | PKS              | Platform identity | Protection Keys for Supervisor; liveness requirement when the image uses PKS                         |
-| 31   | KL               | Platform identity | Key Locker; liveness requirement when the image uses Key Locker instructions                         |
-| 62   | TPA              | Platform identity | TD Partitioning Architecture; liveness requirement when the image relies on partitioning             |
-| 63   | PERFMON          | Platform identity | Performance Monitoring; liveness requirement when the image uses PMU                                 |
-| Others | RESERVED       | N/A               | Architecturally MBZ or vendor-reserved                                                               |
+| Bit  | Name             | Category                | Notes                                                                                                |
+| ---- | ---------------- | ----------------------- | ---------------------------------------------------------------------------------------------------- |
+| 0    | DEBUG            | Measured leftover (topology A) | Operationally a deployer choice, but bound into MRTD by TDX; needs [promotion](categories.md#promoting-to-image-identity) |
+| 27   | LASS             | Platform identity       | Linear Address Space Separation; image's use of LASS is gated on this bit                            |
+| 28   | SEPT_VE_DISABLE | Platform identity       | Disables #VE on pending Secure-EPT violations; the image's lazy-acceptance and #VE handling depend on this bit's value |
+| 29   | MIGRATABLE       | Measured leftover (topology A) | Operationally a deployer choice, but bound into MRTD by TDX; needs [promotion](categories.md#promoting-to-image-identity) |
+| 30   | PKS              | Platform identity       | Protection Keys for Supervisor; liveness requirement when the image uses PKS                         |
+| 31   | KL               | Platform identity       | Key Locker; liveness requirement when the image uses Key Locker instructions                         |
+| 62   | TPA              | Platform identity       | TD Partitioning Architecture; liveness requirement when the image relies on partitioning             |
+| 63   | PERFMON          | Platform identity       | Performance Monitoring; liveness requirement when the image uses PMU                                 |
+| Others | RESERVED       | N/A                     | Architecturally MBZ or vendor-reserved                                                               |
 
 Because `ATTRIBUTES` is measured into MRTD, the value the host
 supplies is bound into the launch measurement. For

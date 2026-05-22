@@ -54,32 +54,40 @@ The `sev` target's parameters mapped against PMI's
 | `fill` action (kind `cpuid`)               | Platform identity (placement); launch policy (content)    | PMI image / Runtime | Image declares the GPA; VMM builds the CPUID table; PSP validates against actual processor; content is not in digest   |
 | `id.block` PE section (96 bytes)           | Tenant identity                                           | PMI image  | Signed ID block; surfaced through `SNP_LAUNCH_FINISH`                                                                  |
 | `id.auth` PE section (~4 KiB)              | Tenant identity                                           | PMI image  | ID auth info (ECDSA P-384 signatures + ID key + optional author key)                                                   |
-| `SNP_LAUNCH_START` POLICY                  | Leftover (see below)                                      | Runtime    | See [POLICY bit-by-bit](#policy-bit-by-bit); host-supplied, not measured, surfaced in attestation report               |
+| `SNP_LAUNCH_START` POLICY                  | Deployer policy (or tenant identity when wrapped by `id`) | Runtime    | See [POLICY bit-by-bit](#policy-bit-by-bit); host-supplied, not measured, surfaced in attestation report               |
 | `SNP_LAUNCH_FINISH` HOST_DATA              | Host identity                                             | Runtime    | Deployer-supplied; appears in attestation report through `SNP_LAUNCH_FINISH`                                           |
 
 ### POLICY bit-by-bit
 
 The 64-bit POLICY field passed to `SNP_LAUNCH_START` is host-supplied
-in its entirety. Every bit is currently **leftover** per
-[Leftover values](categories.md#leftover-values): none names a
-liveness requirement the image depends on, none names a tenant or
-host, and they are not instance accidents (they reach the attestation
-report).
+in its entirety. Every bit is
+[**deployer policy**](categories.md#deployer-policy): the field
+surfaces in the attestation report as a separate value, is not
+measured into the launch digest, and is consumed by a verifier-side
+policy check.
 
-| Bits  | Name                           | Category | Notes                                                                                  |
-| ----- | ------------------------------ | -------- | -------------------------------------------------------------------------------------- |
-| 0–7   | ABI_MINOR                      | Leftover | Minimum SEV-SNP firmware ABI minor version                                             |
-| 8–15  | ABI_MAJOR                      | Leftover | Minimum SEV-SNP firmware ABI major version                                             |
-| 16    | SMT                            | Leftover | SMT-allowed flag                                                                       |
-| 17    | RESERVED                       | N/A      | Architecturally MUST be 1                                                              |
-| 18    | MIGRATE_MA                     | Leftover | Allow migration via a migration agent                                                  |
-| 19    | DEBUG                          | Leftover | Debug-enabled flag                                                                     |
-| 20    | SINGLE_SOCKET                  | Leftover | Restrict execution to a single socket                                                  |
-| 21    | CXL_ALLOW                      | Leftover | Allow CXL devices                                                                      |
-| 22    | MEM_AES_256_XTS                | Leftover | Require AES-256-XTS memory encryption                                                  |
-| 23    | RAPL_DIS                       | Leftover | RAPL counter disable                                                                   |
-| 24    | CIPHERTEXT_HIDING_DRAM         | Leftover | Require ciphertext hiding for DRAM                                                     |
-| 25–63 | RESERVED                       | N/A      | Architecturally MBZ                                                                    |
+When an `id` block is present, the deployer (acting as tenant)
+signs an ID block that embeds the POLICY value; the firmware
+verifies the runtime POLICY matches the ID-bound POLICY and verifies
+the ID auth signature. In that configuration the POLICY bits derive
+cryptographic binding from the signed wrapping (which is **tenant
+identity**) — see topology **B** in
+[topological mapping of leftover](categories.md#topological-mapping-of-leftover).
+
+| Bits  | Name                           | Category        | Notes                                                                                  |
+| ----- | ------------------------------ | --------------- | -------------------------------------------------------------------------------------- |
+| 0–7   | ABI_MINOR                      | Deployer policy | Minimum SEV-SNP firmware ABI minor version                                             |
+| 8–15  | ABI_MAJOR                      | Deployer policy | Minimum SEV-SNP firmware ABI major version                                             |
+| 16    | SMT                            | Deployer policy | SMT-allowed flag                                                                       |
+| 17    | RESERVED                       | N/A             | Architecturally MUST be 1                                                              |
+| 18    | MIGRATE_MA                     | Deployer policy | Allow migration via a migration agent                                                  |
+| 19    | DEBUG                          | Deployer policy | Debug-enabled flag                                                                     |
+| 20    | SINGLE_SOCKET                  | Deployer policy | Restrict execution to a single socket                                                  |
+| 21    | CXL_ALLOW                      | Deployer policy | Allow CXL devices                                                                      |
+| 22    | MEM_AES_256_XTS                | Deployer policy | Require AES-256-XTS memory encryption                                                  |
+| 23    | RAPL_DIS                       | Deployer policy | RAPL counter disable                                                                   |
+| 24    | CIPHERTEXT_HIDING_DRAM         | Deployer policy | Require ciphertext hiding for DRAM                                                     |
+| 25–63 | RESERVED                       | N/A             | Architecturally MBZ                                                                    |
 
 If `id` is present, the host POLICY MUST be compatible with the
 POLICY field embedded in the signed ID block (see

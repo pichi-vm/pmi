@@ -1,11 +1,17 @@
 # Categories
 
-PMI distinguishes five categories of data that flow through any
-launch: four **identity** categories (image, platform, tenant, host)
-and one **non-identity** category (instance accidents). The categories
-give the spec a uniform vocabulary for talking about what gets
-measured, what reaches the attestation report through side channels,
-and what has no identity meaning at all.
+PMI distinguishes six categories of data that flow through any
+launch: four **identity** categories (image, platform, tenant, host),
+one **non-identity, in-report** category (deployer policy), and one
+**non-identity, off-report** category (instance accidents). The
+categories give the spec a uniform vocabulary for talking about what
+gets measured, what reaches the attestation report through side
+channels, and what has no identity meaning at all.
+
+The six categories emerged from a [topological mapping of
+leftover](#topological-mapping-of-leftover) values across SEV-SNP,
+CCA, and TDX: each leftover's correct category is determined by how
+it flows from image, through setup, into attestation.
 
 The categories are PMI's conceptual model for confidential computing
 as a whole — a unified taxonomy meant to apply across SEV-SNP, TDX,
@@ -29,7 +35,7 @@ directly.
 For the summary table and the goals these categories serve, see
 [Overview](overview.md#categories).
 
-## The five categories
+## The six categories
 
 ### Image identity
 
@@ -170,6 +176,42 @@ count is observable but doesn't change shape (just size); MMIO
 location is observable and changes shape. The former is instance
 accident; the latter is platform identity.
 
+### Deployer policy
+
+Deployer-supplied operational metadata that surfaces in the
+attestation report through a vendor channel but is **not**
+cryptographically bound to image, platform, tenant, or host.
+Concretely: every bit of SEV-SNP's `SNP_LAUNCH_START` POLICY when no
+`id` block is present (debug enable, migration agent allowed, SMT
+allowed, single socket, CXL allowed, encryption mode, etc.).
+
+- **Source.** Runtime input from the deployer / host operator.
+- **Measurement.** Does not enter the cryptographic launch
+  measurement.
+- **Attestation report.** Surfaced as a separate field through the
+  vendor channel (e.g., POLICY in the SEV-SNP attestation report).
+- **Verifier consumption.** Verifier-policy check — the verifier
+  compares the field against an expected value the deployer or
+  tenant has separately communicated. Not a cryptographic identity
+  match.
+- **Who decides.** The deployer, operationally, per launch.
+- **What changes it.** A different deployer choice — toggling debug,
+  permitting SMT, enabling migration — without rebuilding the image.
+
+The defining property: deployer policy is **operational metadata
+the verifier evaluates against policy**. The category exists
+because such fields are real, attestation-visible, and recurring
+across vendors, but they are not the identity of anything PMI
+binds. A tenant who wants stronger binding can wrap the value in a
+signed structure (SEV's ID block over POLICY); the wrapping
+structure then classifies as **tenant identity** and the embedded
+bits derive their binding from the signature, not from being
+deployer policy.
+
+This category was identified through the [topological mapping of
+leftover](#topological-mapping-of-leftover); see that section for
+the trace of how it falls out of the attestation-flow analysis.
+
 ## Decision procedure
 
 For any new target-specific parameter, walk these questions in order
@@ -196,7 +238,13 @@ and assign the first match:
    hardware shape?** (vCPU count, memory size, aux granule
    addresses, EPTP controls.) → **instance accident**.
 
-If none of the five questions match, the parameter is **leftover**;
+6. **Does this surface in the attestation report through a vendor
+   channel, host-supplied at launch, not signed by a tenant, and
+   consumed by a verifier-policy check rather than a cryptographic
+   identity match?** (SEV POLICY's bits when no `id` block is
+   present.) → **[deployer policy](#deployer-policy-proposed)**.
+
+If none of the six questions match, the parameter is **leftover**;
 see [Leftover values](#leftover-values) below.
 
 If a single vendor field's bits answer differently across the
@@ -211,6 +259,7 @@ independently.
 | Platform identity  | Yes                                      | [Base DTB](dtb.md), [`vcpu`](vm.md#vcpu-field) field, liveness-requirement bits of vendor structures carried as measured byte sections |
 | Tenant identity    | Yes when image-bound; otherwise external | [`sev.id`](sev.md#id-field); CCA RPV and TDX MR\* are runtime-supplied to the VMM, not in PMI     |
 | Host identity      | No (PMI acknowledges the channel)        | SEV `HOST_DATA` and equivalents, VMM-supplied                                                     |
+| Deployer policy    | No (PMI acknowledges the channel)        | Vendor "policy" / "attributes" fields surfaced in the attestation report; verifier-policy-checked |
 | Instance accidents | Yes for resource allocation              | [`dtbo`](vm.md#dtbo-overlay) fill action; everything else (aux granules, EPTP) is VMM-internal    |
 
 Per-target enumerations of every parameter against this table are in
@@ -251,6 +300,43 @@ and decide which leftovers are quirks and which are gaps.
 
 The per-target chapters are the source of truth for which specific
 parameters are leftover today.
+
+## Topological mapping of leftover
+
+The right category for any leftover value is determined by how it
+flows from the image, through launch setup, into the attestation
+report. Tracing every leftover known to PMI today produces five
+distinct flow topologies; each maps to an existing category or
+exposes a new one.
+
+| Topology | Where the value lands in attestation                      | Cryptographic binding                  | Examples                                                                      | Resolution                                                                                                  |
+| -------- | ---------------------------------------------------------- | -------------------------------------- | ----------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| **A**    | In the cryptographic measurement register                  | The measurement itself                 | TDX `ATTRIBUTES` (every bit), TDX `XFAM`, TDX `CPUID_CONFIG`                  | [Promote to image identity](#promoting-to-image-identity); the image MUST declare the expected value         |
+| **B**    | Separate attestation-report field; carried in a signed structure | Tenant key (via the signature)        | SEV `SNP_LAUNCH_START` POLICY when an `id` block is present                   | The signed structure is **tenant identity**; the embedded bits derive their binding from the signature       |
+| **C**    | Separate attestation-report field; not signed              | None — verifier-policy check only      | SEV `SNP_LAUNCH_START` POLICY when no `id` block is present                   | **[Deployer policy](#deployer-policy)** — new category emerged from this topology                            |
+| **D**    | Typed-page measurement (GPA + page type bound, content not) | Page type and placement only           | SEV `cpuid` page content; SEV `secrets` page content                          | Promote content-bearing fields to image identity (image declares the CPUID table) for verifier reproduction  |
+| **E**    | Not in the attestation report at all                       | None                                   | (Same flow as) instance accidents                                             | Already covered — **instance accident**                                                                     |
+
+Two observations from the trace:
+
+1. **The same bits can change topology between launches.** SEV POLICY
+   sits in **C** when no `id` block is present and shifts to **B**
+   when the deployer wraps it in a signed ID block. The bits do not
+   change; their cryptographic binding does.
+
+2. **Measured leftover (A) is structurally incompatible with
+   attestation equivalence.** Every bit in MRTD is part of the
+   image's cryptographic identity by construction. If a bit is
+   measured and the value is host-decided, two conformant VMMs
+   running the same image diverge MRTD. Promotion is therefore
+   mandatory for topology A, not optional.
+
+Topology **C** is the basis for the [Deployer
+policy](#deployer-policy) category. Topology **B** is not a separate
+category — it is what happens when a tenant-signed structure wraps
+deployer-policy bits, after which the wrapping is **tenant
+identity** and the embedded bits inherit cryptographic binding from
+the signature.
 
 ## Promoting to image identity
 
