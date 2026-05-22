@@ -39,25 +39,38 @@ PMI has four goals:
 
 ### Security against a malicious hypervisor
 
-The primary defense is VMM-side. The VMM reads the image's base
-[DTB](dtb.md) and the per-target spec, and validates that the host
-can provide every hardware capability declared at the declared GPAs.
-A host that cannot satisfy the declaration MUST be refused — the
-launch never starts.
+Under CC targets, the VMM is outside the guest's trust boundary, so
+a defense based on the VMM checking itself proves nothing — a
+malicious VMM will claim compliance and substitute whatever it
+likes. The actual defense is cryptographic. The image declares the
+platform it expects (devices, MMIO, IRQ routing, CPU features, the
+boot vCPU state); the declaration is bound into the launch
+measurement at firmware-controlled steps the VMM cannot bypass; a
+remote verifier rejects any launch whose measurement diverges from
+the expected value. A VMM that substituted a different platform
+produces a different measurement, and the verifier catches it before
+any secret is released. The VMM's role in "complying" with the
+image's declaration is therefore operational — the VMM either
+produces a launch state matching the declaration or fails to produce
+a measurement the verifier will accept.
 
-The residual defense is guest-side. The host's one channel for
-contributing to the platform after launch is the
-[`dtbo` overlay](vm.md#dtbo-overlay), restricted by a narrow
-content allowlist (four categories). The in-guest PMI consumer
-validates the overlay against the allowlist and a small set of
-structural rules (FDT well-formedness, allowlisted nodes and
-properties, address-bearing values in canonical bounds and
-non-overlapping with the base DTB, phandle resolution, bounded
-length) and refuses to hand off to the kernel if any check fails.
+The [`dtbo` overlay](vm.md#dtbo-overlay) is the one host-controlled
+input that reaches the guest after launch — after the launch
+measurement has been finalized. Because it is not measured, the
+in-guest PMI consumer (itself inside the trust boundary and bound
+into the launch measurement) validates it before merging with the
+base DTB. The overlay is restricted by a narrow content allowlist
+(four categories) plus a small set of structural rules (FDT
+well-formedness, allowlisted nodes and properties, address-bearing
+values in canonical bounds and non-overlapping with the base DTB,
+phandle resolution, bounded length). The allowlist is narrow on
+purpose: the validator is a small, enumerable piece of code that
+any reviewer can audit end-to-end.
 
-The narrow allowlist is what keeps the guest's validation surface
-tractable: the consumer is a small, enumerable piece of code that any
-reviewer can audit end-to-end.
+Under non-CC `vm` the VMM is inside the guest's trust boundary;
+its host-conformance check (refusing to launch when it cannot
+provide the declared platform) is the defense, and attestation
+does not apply.
 
 The parties and their trust placement:
 
@@ -160,11 +173,17 @@ cryptographic measurement register.** They are surfaced in the
 attestation report through separate firmware channels (e.g.,
 `SNP_LAUNCH_FINISH`, the Realm Token, TDREPORT fields outside MRTD).
 
-This inversion delivers goal (1) because the host cannot substitute,
-omit, or relocate any platform value without being caught by the
-VMM's host-conformance check or by the guest's narrow
-consumer-validation rules. It delivers goal (3) because every measured
-input is image-determined, leaving no degrees of freedom in which two
+This inversion delivers goal (1) because under CC, a host that
+substitutes any image- or platform-identity value produces a launch
+measurement that does not match the expected value and the verifier
+rejects the launch — no secret is released. The dtbo (the residual
+host-controlled input) is constrained at the guest by the narrow
+consumer-validation rules. Under non-CC `vm` the same declaration
+drives the VMM's operational host-conformance check, which fails
+the launch if the host cannot provide what the image expects.
+
+It delivers goal (3) because every measured input is
+image-determined, leaving no degrees of freedom in which two
 conformant VMMs of the same target could diverge.
 
 ### PE-as-base → goal (2)
