@@ -36,26 +36,21 @@ VMMs MUST additionally refuse to launch if:
 
 ## Parameters
 
-The `vm` target's parameters mapped against PMI's
-[categories](categories.md):
+`vm` has no cryptographic launch measurement and no attestation
+report, so PMI's [identity categories](categories.md) do not apply
+directly: there is no verifier to bind anything to. `vm` defines the
+*mechanisms* (the `dtb` field, the `vcpu` field, the `load` and
+`fill` actions, the `dtbo` overlay shape) that the CC targets
+inherit and overlay with measurement semantics. The mechanisms pick
+up category meaning in each CC target's chapter; see
+[`sev`](sev.md#parameters), [`cca`](cca.md#parameters), and
+[`tdx`](tdx.md#parameters) for the per-target enumerations.
 
-| Parameter                                          | Category           | Source     | Notes                                                                                                              |
-| -------------------------------------------------- | ------------------ | ---------- | ------------------------------------------------------------------------------------------------------------------ |
-| `dtb` field (the named PE section's FDT bytes)     | Platform identity  | PMI image  | Names the [base DTB](dtb.md) the VMM inspects and the host MUST be able to satisfy                                |
-| `vcpu` field                                       | Platform identity  | PMI image  | Boot vCPU register state; describes the CPU mode/contract the image expects                                       |
-| `load` action contents (kind `unmeasured`)         | Image identity     | PMI image  | The bytes of the workload (kernel, initrd, command line, stubs)                                                   |
-| `fill` action region (kind `dtbo`)                 | Instance accidents | Runtime    | Host-generated resource allocation (vCPU count, memory layout, NUMA topology)                                     |
-
-`vm` is non-CC, so no values reach an attestation report and there is
-no measurement register. PMI's category framework still applies: the
-image declares image and platform identity; the host's [host
-conformance](dtb.md#host-conformance) check fails the launch if the
-host cannot supply the declared platform.
-
-`vm` carries no tenant identity, no host identity, and no launch
-policy — these categories arise only when a vendor confidential
-firmware path defines channels for them. See [`sev`](sev.md),
-[`cca`](cca.md), and [`tdx`](tdx.md) for the CC bindings.
+Under `vm`, the image's declarations drive the VMM's operational
+[host-conformance check](dtb.md#host-conformance): the host either
+satisfies every declared resource or fails the launch. Resource
+allocation flows through the same [`dtbo`](#dtbo-overlay)
+fill mechanism, but with no measurement involved.
 
 ## Launch model
 
