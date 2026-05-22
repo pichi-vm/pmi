@@ -34,6 +34,29 @@ VMMs MUST additionally refuse to launch if:
 - two action-referenced PE sections have overlapping
   `[VirtualAddress, VirtualAddress + VirtualSize)` ranges.
 
+## Parameters
+
+The `vm` target's parameters mapped against PMI's
+[categories](categories.md):
+
+| Parameter                                          | Category           | Source     | Notes                                                                                                              |
+| -------------------------------------------------- | ------------------ | ---------- | ------------------------------------------------------------------------------------------------------------------ |
+| `dtb` field (the named PE section's FDT bytes)     | Platform identity  | PMI image  | Names the [base DTB](dtb.md) the VMM inspects and the host MUST be able to satisfy                                |
+| `vcpu` field                                       | Platform identity  | PMI image  | Boot vCPU register state; describes the CPU mode/contract the image expects                                       |
+| `load` action contents (kind `unmeasured`)         | Image identity     | PMI image  | The bytes of the workload (kernel, initrd, command line, stubs)                                                   |
+| `fill` action region (kind `dtbo`)                 | Instance accidents | Runtime    | Host-generated resource allocation (vCPU count, memory layout, NUMA topology)                                     |
+
+`vm` is non-CC, so no values reach an attestation report and there is
+no measurement register. PMI's category framework still applies: the
+image declares image and platform identity; the host's [host
+conformance](dtb.md#host-conformance) check fails the launch if the
+host cannot supply the declared platform.
+
+`vm` carries no tenant identity, no host identity, and no launch
+policy — these categories arise only when a vendor confidential
+firmware path defines channels for them. See [`sev`](sev.md),
+[`cca`](cca.md), and [`tdx`](tdx.md) for the CC bindings.
+
 ## Launch model
 
 A VMM executes the launch in six ordered steps:
