@@ -38,6 +38,52 @@ non-existent section reference, duplicate section reference, and
 overlapping `[VirtualAddress, VirtualAddress + VirtualSize)` ranges
 all cause the VMM to refuse to launch.
 
+## Parameters
+
+The `sev` target's parameters mapped against PMI's
+[categories](categories.md):
+
+| Parameter                                  | Category                                                  | Source     | Notes                                                                                                                  |
+| ------------------------------------------ | --------------------------------------------------------- | ---------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `dtb` field (base DTB bytes)               | Platform identity                                         | PMI image  | Names the [base DTB](dtb.md); the host MUST be able to satisfy every declared resource                                 |
+| `load` action (kind `measured`)            | Image identity                                            | PMI image  | Page bytes contribute to the launch digest                                                                             |
+| `load` action (kind `unmeasured`)          | Image identity                                            | PMI image  | Bytes are image-declared; not bound to the digest, used for verifier-irrelevant data                                   |
+| `load` action (kind `vmsa`)                | Platform identity                                         | PMI image  | BSP register state at launch (VMPL0 VMSA); typed-page measurement binds GPA + page type, content binds via measurement |
+| `fill` action (kind `dtbo`)                | Instance accidents                                        | Runtime    | Host-generated resource allocation; bypasses `SNP_LAUNCH_UPDATE` and does not contribute to the digest                 |
+| `fill` action (kind `secrets`)             | Platform identity (placement); firmware-supplied (content) | PMI image  | PSP populates the page at launch; GPA + page type bound in digest, content is not                                      |
+| `fill` action (kind `cpuid`)               | Platform identity (placement); launch policy (content)    | PMI image / Runtime | Image declares the GPA; VMM builds the CPUID table; PSP validates against actual processor; content is not in digest   |
+| `id.block` PE section (96 bytes)           | Tenant identity                                           | PMI image  | Signed ID block; surfaced through `SNP_LAUNCH_FINISH`                                                                  |
+| `id.auth` PE section (~4 KiB)              | Tenant identity                                           | PMI image  | ID auth info (ECDSA P-384 signatures + ID key + optional author key)                                                   |
+| `SNP_LAUNCH_START` POLICY                  | Launch policy (out of PMI scope)                          | Runtime    | See [Launch policy](#launch-policy); host-supplied, not measured, surfaced in attestation report                       |
+| `SNP_LAUNCH_FINISH` HOST_DATA              | Host identity                                             | Runtime    | Deployer-supplied; out of PMI scope; appears in attestation report                                                     |
+
+### POLICY bit-by-bit
+
+The 64-bit POLICY field passed to `SNP_LAUNCH_START` is host-supplied
+in its entirety. PMI classifies every bit as **launch policy**
+(out-of-scope as a PMI category, per [Launch policy is not a PMI
+category](categories.md#launch-policy-is-not-a-pmi-category)).
+
+| Bits  | Name                           | Category      | Notes                                                                                  |
+| ----- | ------------------------------ | ------------- | -------------------------------------------------------------------------------------- |
+| 0–7   | ABI_MINOR                      | Launch policy | Minimum SEV-SNP firmware ABI minor version                                             |
+| 8–15  | ABI_MAJOR                      | Launch policy | Minimum SEV-SNP firmware ABI major version                                             |
+| 16    | SMT                            | Launch policy | SMT-allowed flag                                                                       |
+| 17    | RESERVED                       | N/A           | Architecturally MUST be 1                                                              |
+| 18    | MIGRATE_MA                     | Launch policy | Allow migration via a migration agent                                                  |
+| 19    | DEBUG                          | Launch policy | Debug-enabled flag                                                                     |
+| 20    | SINGLE_SOCKET                  | Launch policy | Restrict execution to a single socket                                                  |
+| 21    | CXL_ALLOW                      | Launch policy | Allow CXL devices                                                                      |
+| 22    | MEM_AES_256_XTS                | Launch policy | Require AES-256-XTS memory encryption                                                  |
+| 23    | RAPL_DIS                       | Launch policy | RAPL counter disable                                                                   |
+| 24    | CIPHERTEXT_HIDING_DRAM         | Launch policy | Require ciphertext hiding for DRAM                                                     |
+| 25–63 | RESERVED                       | N/A           | Architecturally MBZ                                                                    |
+
+If `id` is present, the host POLICY MUST be compatible with the
+POLICY field embedded in the signed ID block (see
+[Launch policy](#launch-policy)); this is the mechanism by which a
+tenant-signed image binds host policy choices.
+
 ## Launch model
 
 The `sev` target follows the [base launch model](vm.md#launch-model)
