@@ -13,15 +13,44 @@ that meet them. The narrative behind these choices is in
 [`vm`](vm.md), [`sev`](sev.md), [`cca`](cca.md), and [`tdx`](tdx.md);
 [Examples](examples.md) walks through concrete images.
 
+## Categories
+
+PMI distinguishes five categories of data in any launch. The goals,
+methods, and per-target bindings that follow are stated in terms of
+these categories.
+
+| Category               | What it is                                                                                                                                                                                                                       | Source                                                       | Measured? | In attestation report? |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ | --------- | ---------------------- |
+| **Image identity**     | The workload bytes — kernel, initrd, command line, firmware, any loaded PE section content                                                                                                                                       | PMI image                                                    | Yes       | Yes (in measurement)   |
+| **Platform identity**  | The fundamental hardware contract the workload expects — device declarations, MMIO regions, IRQ controller, PCIe topology (in the base DTB); boot vCPU register state; TD/realm attributes (ATTRIBUTES, XFAM, RmiRealmParams, launch policy) | PMI image                                                    | Yes       | Yes (in measurement)   |
+| **Tenant identity**    | A hash or signature that binds a deployment to a particular tenant — SEV id-block/id-auth, TDX MRCONFIGID/MROWNER/MROWNERCONFIG, CCA RPV                                                                                          | PMI image (when tenant is the image author) or runtime input | No        | Yes (separate report field) |
+| **Host identity**      | Host-supplied attestation data — e.g., SEV `host_data`                                                                                                                                                                            | Runtime input                                                | No        | Yes (separate report field) |
+| **Instance accidents** | Per-launch sizing and wiring that doesn't identify anything — vCPU count, memory size, NUMA topology (in the dtbo); aux granule addresses; EPTP controls; allocator output                                                       | Runtime input                                                | No        | No                     |
+
+Platform identity is about the *shape* of the hardware contract, not
+its *size*. The 4-vCPU and 8-vCPU versions of the same image have
+identical platform identity (same shape, different size) — the sizing
+is instance accident. Changing MMIO addresses or interrupt controller
+version is a different shape and therefore different platform
+identity.
+
+Image identity and platform identity contribute to the cryptographic
+measurement (SEV-SNP launch digest, CCA RIM, TDX MRTD). Tenant
+identity and host identity appear in the attestation report through
+separate firmware channels (e.g., `SNP_LAUNCH_FINISH`, the Realm
+Token, TDREPORT fields outside MRTD). Instance accidents appear in
+no attestation field at all.
+
 ## Goals
 
 PMI has four goals:
 
-1. **Security against a malicious hypervisor.** The VMM detects
-   incompatibility between the image's declared platform and what the
-   host can actually provide, and refuses to launch. The guest's
-   validation responsibilities are minimal and well-known — bounded to
-   a small, enumerable surface.
+1. **Security against a malicious hypervisor.** The image declares
+   image and platform identity; under CC, a host that substitutes any
+   declared value produces a launch measurement that does not match
+   the expected value, and a remote verifier rejects the launch. The
+   guest's residual validation responsibilities are minimal and
+   well-known.
 2. **Executable format portability.** The same PE bytes load in UEFI
    on bare metal, in any non-CC VMM, and in any CC VMM whose target
    the image declares. UEFI ignores PMI-specific sections; a PMI
@@ -43,29 +72,30 @@ Under CC targets, the VMM is outside the guest's trust boundary, so
 a defense based on the VMM checking itself proves nothing — a
 malicious VMM will claim compliance and substitute whatever it
 likes. The actual defense is cryptographic. The image declares the
-platform it expects (devices, MMIO, IRQ routing, CPU features, the
-boot vCPU state); the declaration is bound into the launch
-measurement at firmware-controlled steps the VMM cannot bypass; a
-remote verifier rejects any launch whose measurement diverges from
-the expected value. A VMM that substituted a different platform
-produces a different measurement, and the verifier catches it before
-any secret is released. The VMM's role in "complying" with the
-image's declaration is therefore operational — the VMM either
-produces a launch state matching the declaration or fails to produce
-a measurement the verifier will accept.
+platform identity it expects; the declaration is bound into the
+launch measurement at firmware-controlled steps the VMM cannot
+bypass; a remote verifier rejects any launch whose measurement
+diverges from the expected value. A VMM that substituted any
+image-identity or platform-identity value produces a different
+measurement, and the verifier catches it before any secret is
+released. The VMM's role in "complying" with the image's declaration
+is therefore operational — the VMM either produces a launch state
+matching the declaration or fails to produce a measurement the
+verifier will accept.
 
-The [`dtbo` overlay](vm.md#dtbo-overlay) is the one host-controlled
-input that reaches the guest after launch — after the launch
-measurement has been finalized. Because it is not measured, the
-in-guest PMI consumer (itself inside the trust boundary and bound
-into the launch measurement) validates it before merging with the
-base DTB. The overlay is restricted by a narrow content allowlist
-(four categories) plus a small set of structural rules (FDT
-well-formedness, allowlisted nodes and properties, address-bearing
-values in canonical bounds and non-overlapping with the base DTB,
-phandle resolution, bounded length). The allowlist is narrow on
-purpose: the validator is a small, enumerable piece of code that
-any reviewer can audit end-to-end.
+The [`dtbo` overlay](vm.md#dtbo-overlay) carries instance accidents
+(resource allocation: vCPU count, memory layout, NUMA topology). It
+is the one host-controlled input that reaches the guest after the
+launch measurement has been finalized. Because it is not measured,
+the in-guest PMI consumer (itself inside the trust boundary and
+bound into the launch measurement) validates it before merging with
+the base DTB. The overlay is restricted by a narrow content
+allowlist plus a small set of structural rules (FDT well-formedness,
+allowlisted nodes and properties, address-bearing values in
+canonical bounds and non-overlapping with the base DTB, phandle
+resolution, bounded length). The allowlist is narrow on purpose:
+the validator is a small, enumerable piece of code that any reviewer
+can audit end-to-end.
 
 Under non-CC `vm` the VMM is inside the guest's trust boundary;
 its host-conformance check (refusing to launch when it cannot
@@ -76,9 +106,9 @@ The parties and their trust placement:
 
 | Party             | Supplies                                                              | Trust under `vm`     | Trust under CC targets                       |
 | ----------------- | --------------------------------------------------------------------- | -------------------- | -------------------------------------------- |
-| Image author      | The PMI image bytes                                                   | Trusted              | Trusted                                      |
+| Image author      | The PMI image bytes (image + platform identity)                       | Trusted              | Trusted                                      |
 | Deployer / tenant | Tenant identity (signatures, hashes that bind to the deployer)        | N/A                  | Trusted for tenant binding only              |
-| VMM / host        | Memory allocation, ABI calls into the firmware/module, dtbo content, host identity | Trusted              | Adversarial (outside the trust boundary)     |
+| VMM / host        | Memory allocation, ABI calls into the firmware/module, dtbo content (instance accidents), host identity | Trusted              | Adversarial (outside the trust boundary)     |
 | PMI consumer      | In-guest validation, dtbo merge, kernel handoff                       | Trusted by the guest | Trusted by the guest, measured into launch identity |
 
 ### Executable format portability
@@ -107,10 +137,12 @@ bit-identical for the same PMI image. The cryptographic measurement
 register (SEV-SNP launch digest, CCA RIM, TDX MRTD) is included
 under this rule.
 
-Tenant-identity, host-identity, and platform-reported fields
-(firmware/TCB versions, signing keys, etc.) MAY legitimately vary.
-Equivalence is therefore tested under a mask that zeroes out the
-legitimately-varying fields.
+Tenant-identity and host-identity fields MAY legitimately vary
+(they're per-deployer or per-host); platform-reported fields
+(firmware/TCB versions, signing keys, etc.) MAY also vary
+(they're not in PMI's control). Instance accidents do not appear in
+the attestation at all. Equivalence is therefore tested under a mask
+that zeroes out the legitimately-varying and non-attestation fields.
 
 This is the verifier's ergonomic test: given a PMI image and the
 relevant vendor specs, a verifier MUST be able to recompute the
@@ -145,42 +177,38 @@ serves one or more goals.
 
 ### Platform definition inversion → goals (1) and (3)
 
-The image declares the platform it expects to run on. The VMM and any
-in-guest consumer comply with the declaration or refuse to launch.
-The host has no input into the platform contract.
-
-PMI distinguishes four categories of identity that may appear in an
-attestation report:
-
-| Category          | What it is                                                                                                                                | Source                                                          | Appears in measurement? |
-| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- | ----------------------- |
-| Image identity    | The bytes that constitute the guest workload — kernel, initrd, command line, firmware, any loaded PE section content                     | PMI image                                                       | Yes                     |
-| Platform identity | The hardware contract the workload expects — base DTB, boot vCPU register state, TD/realm attributes (ATTRIBUTES, XFAM, RmiRealmParams, launch policy) | PMI image                                                       | Yes                     |
-| Tenant identity   | Hash or signature that binds a deployment to a particular tenant — SEV id-block/id-auth, TDX MRCONFIGID/MROWNER/MROWNERCONFIG, CCA RPV     | PMI image (when tenant is the image author) or runtime input    | No — separate channel   |
-| Host identity     | Per-deployment values the host supplies — SEV `host_data`, VMM-internal config (max vCPUs, EPTP controls, aux granule addresses, etc.)    | Runtime input                                                   | No — separate channel   |
-
-**Image identity and platform identity MUST be deterministic functions
-of the PMI image bytes alone.** Together they produce the launch
+The image declares image and platform identity; the host complies
+or fails to produce a measurement a verifier will accept. The four
+[categories](#categories) make this concrete: image identity and
+platform identity are PMI-bound; tenant identity MAY be (when the
+tenant is the image author); host identity is runtime-supplied;
+instance accidents are runtime-supplied and never enter the
 measurement.
+
+**Image identity and platform identity MUST be deterministic
+functions of the PMI image bytes alone.** Together they produce the
+launch measurement.
 
 **Tenant identity** MAY be PMI-bound (when the tenant is the image
 author) or runtime-supplied.
 
 **Host identity** is always runtime-supplied — PMI never declares it.
 
-**Tenant identity and host identity MUST NOT contribute to the
-cryptographic measurement register.** They are surfaced in the
-attestation report through separate firmware channels (e.g.,
-`SNP_LAUNCH_FINISH`, the Realm Token, TDREPORT fields outside MRTD).
+**Tenant identity, host identity, and instance accidents MUST NOT
+contribute to the cryptographic measurement register.** Tenant and
+host identity are surfaced in the attestation report through
+separate firmware channels; instance accidents are not surfaced in
+the attestation at all.
 
 This inversion delivers goal (1) because under CC, a host that
 substitutes any image- or platform-identity value produces a launch
 measurement that does not match the expected value and the verifier
 rejects the launch — no secret is released. The dtbo (the residual
-host-controlled input) is constrained at the guest by the narrow
-consumer-validation rules. Under non-CC `vm` the same declaration
-drives the VMM's operational host-conformance check, which fails
-the launch if the host cannot provide what the image expects.
+host-controlled input carrying instance accidents) is constrained at
+the guest by the narrow consumer-validation rules. Under non-CC
+`vm` the same declaration drives the VMM's operational
+host-conformance check, which fails the launch if the host cannot
+provide what the image expects.
 
 It delivers goal (3) because every measured input is
 image-determined, leaving no degrees of freedom in which two

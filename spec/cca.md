@@ -147,8 +147,9 @@ The CCA target binding is a working draft. Open items:
   need their own schema (e.g., the `runnable` flag at REC creation,
   which RMM 1.0-rel0 includes in RIM only when set).
 - Auxiliary REC granules (count returned by `RMI_REC_AUX_COUNT`):
-  per-platform and per-realm, allocated by the VMM independently of
-  PMI — currently out of PMI scope.
+  per-platform and per-realm, allocated by the VMM. These are
+  [instance accidents](overview.md#categories) — runtime
+  allocator output — and by design out of PMI's bindings.
 - REM (Realm Extensible Measurement) initial state: REMs are
   runtime-extended by the realm; whether the spec needs image-side
   declaration of expected REM extensions is open.
