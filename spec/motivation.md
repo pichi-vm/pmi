@@ -1,6 +1,6 @@
 # Motivation
 
-PMI exists to solve five problems. Each problem has a one-to-one
+PMI exists to solve six problems. Each problem has a one-to-one
 corresponding goal in [Overview](overview.md). This document defines
 the problems and explains why they are problems; the overview defines
 the [categories](overview.md#categories) PMI distinguishes, the goals
@@ -9,10 +9,11 @@ that solve the problems, and the methods that deliver those goals.
 | # | Problem (this document)                                | Goal (overview.md)                                                                                |
 | - | ------------------------------------------------------ | ------------------------------------------------------------------------------------------------- |
 | 1 | One workload needs multiple image artifacts            | [Executable format portability](overview.md#executable-format-portability)                        |
-| 2 | The host-controlled platform definition is a large attack surface | [Security against a malicious hypervisor](overview.md#security-against-a-malicious-hypervisor)    |
-| 3 | Same image, different deployment, different measurement | [Measurement stability](overview.md#measurement-stability)                                        |
-| 4 | Same image, different VMM, different attestation       | [Attestation equivalence](overview.md#attestation-equivalence)                                    |
-| 5 | Every new image format needs new tools at every layer  | [Tooling reuse](overview.md#tooling-reuse)                                                        |
+| 2 | Existing solutions are target-specific and don't compose | [Uniform approach across targets](overview.md#uniform-approach-across-targets)                  |
+| 3 | The host-controlled platform definition is a large attack surface | [Security against a malicious hypervisor](overview.md#security-against-a-malicious-hypervisor)    |
+| 4 | Same image, different deployment, different measurement | [Measurement stability](overview.md#measurement-stability)                                        |
+| 5 | Same image, different VMM, different attestation       | [Attestation equivalence](overview.md#attestation-equivalence)                                    |
+| 6 | Every new image format needs new tools at every layer  | [Tooling reuse](overview.md#tooling-reuse)                                                        |
 
 ## 1. One workload needs multiple image artifacts
 
@@ -63,7 +64,46 @@ and non-CC VM boot.
 **PMI's response:**
 [Executable format portability](overview.md#executable-format-portability).
 
-## 2. The host-controlled platform definition is a large attack surface
+## 2. Existing solutions are target-specific and don't compose
+
+Each CC architecture and major hypervisor stack has independently
+noticed that the problems below need solving, and each has rolled
+its own answer:
+
+- **Intel TDX defines HOB (Hand-Off Block)** as a per-target
+  mechanism for the host to hand platform information to the guest.
+  It standardizes the channel but not the trust model — the HOB
+  remains host-controlled and the guest still has to validate it —
+  and the mechanism only applies inside TDX.
+- **IGVM (Microsoft)** is a hypervisor-anchored image format for
+  paravisor-style confidential boots. It addresses a slice of the
+  artifact-sprawl problem for that one boot shape, but doesn't
+  extend to non-paravisor confidential boot, non-CC VM, bare metal,
+  or to CC targets outside its scope.
+- **QEMU has ad-hoc conventions** for SEV id-block / CPUID page /
+  VMSA submission; libkrun does it differently; each cloud
+  hypervisor has its own variant. None of them port.
+- **Each VMM rolls its own measurement-reproduction tool** for its
+  own targets. Each one has to be separately maintained, separately
+  hardened, separately validated against attestation reports.
+- **Each VMM exposes its own knobs** for binding the host's launch
+  policy, choosing CPU feature exposure, configuring NUMA topology,
+  signing tenant identity. Image authors learn N idiosyncratic
+  surfaces.
+
+Each of these is a target-specific or hypervisor-specific attempt at
+the same general class of problem. The result: even where individual
+problems are partly addressed, the solutions don't compose. A
+workload that wants to run SEV on AWS, TDX on Azure, and CCA on a
+tenant-owned bare-metal Arm box needs three different image-build
+paths, three different verifier integrations, three different
+consumer stubs. An image author supporting two CC architectures
+effectively maintains two image-format toolchains in parallel.
+
+**PMI's response:**
+[Uniform approach across targets](overview.md#uniform-approach-across-targets).
+
+## 3. The host-controlled platform definition is a large attack surface
 
 Booting an operating system requires platform information: which
 devices exist, where memory lives, what interrupt routing applies,
@@ -123,7 +163,7 @@ demonstrated:
 **PMI's response:**
 [Security against a malicious hypervisor](overview.md#security-against-a-malicious-hypervisor).
 
-## 3. Same image, different deployment, different measurement
+## 4. Same image, different deployment, different measurement
 
 A deployer running the same image at different sizes is doing
 something operationally legitimate: more memory for a memory-hungry
@@ -163,7 +203,7 @@ cannot do it.
 **PMI's response:**
 [Measurement stability](overview.md#measurement-stability).
 
-## 4. Same image, different VMM, different attestation
+## 5. Same image, different VMM, different attestation
 
 Remote attestation lets a verifier (a third party, a key broker, a
 policy engine) check what was launched before releasing secrets,
@@ -210,7 +250,7 @@ implementation, which host's configuration, which deployer's choice.
 **PMI's response:**
 [Attestation equivalence](overview.md#attestation-equivalence).
 
-## 5. Every new image format needs new tools at every layer
+## 6. Every new image format needs new tools at every layer
 
 Image formats are not consumed by one piece of software. A single
 format gets touched by:

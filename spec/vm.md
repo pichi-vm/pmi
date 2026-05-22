@@ -119,7 +119,7 @@ The fill action MUST include a `kind` value; there is no default.
 
 Delivers the runtime devicetree overlay described under
 [platform definition
-inversion](overview.md#platform-definition-inversion--goals-2-3-and-4). The
+inversion](overview.md#platform-definition-inversion--goals-2-3-4-and-5). The
 VMM generates the overlay fresh for this guest at step 4 and writes it
 into the section's GPA range. The in-guest consumer that merges the
 overlay onto the base DTB is not mandated by this spec — a guest stub,

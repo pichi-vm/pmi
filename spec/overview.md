@@ -44,30 +44,36 @@ no attestation field at all.
 
 ## Goals
 
-PMI has five goals:
+PMI has six goals:
 
 1. **Executable format portability.** The same PE bytes load in UEFI
    on bare metal, in any non-CC VMM, and in any CC VMM whose target
    the image declares. UEFI ignores PMI-specific sections; a PMI
    image may simultaneously be a UKI.
-2. **Security against a malicious hypervisor.** The image declares
+2. **Uniform approach across targets.** PMI uses the same shape for
+   every target — same CBOR structure, same categories framework,
+   same action types, same base-DTB-vs-dtbo split, same byte-section
+   pattern for vendor blobs, same encoding rules. Native vendor
+   semantics differ per target; PMI's interface on top of them does
+   not.
+3. **Security against a malicious hypervisor.** The image declares
    image and platform identity; under CC, a host that substitutes any
    declared value produces a launch measurement that does not match
    the expected value, and a remote verifier rejects the launch. The
    guest's residual validation responsibilities are minimal and
    well-known.
-3. **Measurement stability.** Scaling the same image to a different
+4. **Measurement stability.** Scaling the same image to a different
    deployment size produces the same launch measurement as the
    original. Image identity and platform identity are measured;
    instance accidents (resource allocation, allocator output,
    VMM-internal configuration) are not.
-4. **Attestation equivalence.** For any two conformant VMMs of the
+5. **Attestation equivalence.** For any two conformant VMMs of the
    same target, given the same PMI image, the image-identity and
    platform-identity fields of the resulting attestation reports are
    bit-identical. Tenant-identity, host-identity, and
    platform-reported fields (firmware/TCB versions, signing keys,
    etc.) may legitimately vary.
-5. **Tooling reuse.** Existing PE-based tools work on PMI images
+6. **Tooling reuse.** Existing PE-based tools work on PMI images
    unchanged. New PMI-specific tools — parsers, DTBO mergers,
    builders, VMMs, in-guest consumers, verifiers, signers,
    inspectors — have narrow contracts and compose across contexts.
@@ -89,6 +95,32 @@ not know about PMI ignore them. The same image bytes therefore boot:
 PMI is compatible with UKI, not a flavor of it. An image that
 contains only firmware (for OVMF-loads-kernel-from-disk modes), or
 only confidential-VM content, is equally valid.
+
+### Uniform approach across targets
+
+PMI uses the same shape for every target. An image author who
+supports `vm`, `sev`, `cca`, and `tdx` writes the same CBOR
+structure with the same action types (`load`, `fill`), the same
+[categories](#categories) framework, the same base-DTB-vs-dtbo
+split, the same byte-section pattern for vendor-defined blobs, and
+the same encoding and ordering rules. The per-target chapters
+differ only in their target-specific deltas: what kinds of `load`
+mean, which vendor structures get carried as byte sections, what
+the underlying firmware does with each action.
+
+This means an image author learns one format and ships one image to
+N targets; a verifier learns one input structure (the native crypto
+differs but PMI's contribution to it is uniform); a consumer parses
+one CBOR spec shape regardless of which target it's running under;
+tools (parser, DTBO applier, signer, inspector) work uniformly
+across targets.
+
+Native vendor differences (SEV-SNP's launch digest vs. CCA's RIM
+vs. TDX's MRTD, AMD's id-block vs. CCA's RPV vs. TDX's MRCONFIGID,
+the firmware ABIs each target rides) are preserved — PMI is a
+framework on top of native target semantics, not a replacement for
+them. But everything PMI itself defines applies uniformly across
+every target.
 
 ### Security against a malicious hypervisor
 
@@ -200,10 +232,11 @@ compose across contexts:
 
 ## Methods
 
-The five goals are delivered through four methods. Each method
-serves one or more goals.
+The six goals are delivered through four methods. Each method serves
+one or more goals. Goal (2) — uniformity across targets — is served
+by every method, because each method is target-agnostic by design.
 
-### PE-as-base → goal (1)
+### PE-as-base → goals (1) and (2)
 
 A PMI image is a PE binary. PMI extends PE with non-loaded sections
 whose names begin with `.pmi.` — one per launch target the image
@@ -217,7 +250,11 @@ A PMI image MAY also be structured as a UKI (carrying `.linux`,
 `.initrd`, `.cmdline`, and an EFI stub) so the same bytes boot on
 bare metal under UEFI.
 
-### Platform definition inversion → goals (2), (3), and (4)
+The PE container itself is target-agnostic: the same image carries
+sections for every target the image author chooses to support, and
+loaders that don't know about a target simply ignore its sections.
+
+### Platform definition inversion → goals (2), (3), (4), and (5)
 
 The image declares image and platform identity; the host complies
 or fails to produce a measurement a verifier will accept. The five
@@ -242,7 +279,7 @@ host identity are surfaced in the attestation report through
 separate firmware channels; instance accidents are not surfaced in
 the attestation at all.
 
-This inversion delivers goal (2) because under CC, a host that
+This inversion delivers goal (3) because under CC, a host that
 substitutes any image- or platform-identity value produces a launch
 measurement that does not match the expected value and the verifier
 rejects the launch — no secret is released. The dtbo (the residual
@@ -252,17 +289,23 @@ the guest by the narrow consumer-validation rules. Under non-CC
 host-conformance check, which fails the launch if the host cannot
 provide what the image expects.
 
-It delivers goal (3) because the structural split between platform
+It delivers goal (4) because the structural split between platform
 identity (image-bound, in the base DTB and the per-target spec) and
 instance accidents (host-supplied, in the dtbo) means deployment-time
 resource sizing never reaches the measurement. The 4-vCPU and 8-vCPU
 deployments of the same image produce the same measurement.
 
-It delivers goal (4) because every measured input is
+It delivers goal (5) because every measured input is
 image-determined, leaving no degrees of freedom in which two
 conformant VMMs of the same target could diverge.
 
-### Self-contained byte sections and narrow per-target CBOR → goal (5)
+It delivers goal (2) because the categories framework is the same
+across every target: `vm`, `sev`, `cca`, and `tdx` all use the same
+image/platform/tenant/host/accidents partition, and the same
+base-DTB-vs-dtbo split. An image author who learns the inversion for
+one target knows it for all of them.
+
+### Self-contained byte sections and narrow per-target CBOR → goals (2) and (6)
 
 Each target's spec is carried as CBOR in its own PE section
 (`.pmi.<target>`) and is self-contained: a tool that handles one
@@ -276,7 +319,14 @@ holds which blob) but does not redefine vendor-specific semantics.
 This offloads semantic work to vendor-spec-aware tooling that exists
 anyway and keeps each PMI-specific tool small.
 
-### Pinned encoding and ordering → goals (4) and (5)
+The same byte-section pattern applies to every target: an image
+author who learns the convention once can use it for every
+vendor-defined blob across `sev`, `cca`, and `tdx`. PMI tooling
+treats vendor blobs uniformly — read the section by name, pass
+through the bytes — regardless of which target's spec referenced
+them.
+
+### Pinned encoding and ordering → goals (2), (5), and (6)
 
 For attestation equivalence and verifier reproducibility, every
 producer and consumer must agree byte-for-byte on the wire format and
@@ -298,6 +348,10 @@ on the order in which measured inputs are submitted to firmware:
   vectors — at minimum a positive vector (a PMI image whose decoded
   spec matches an explicit byte sequence) and a negative vector (an
   image that MUST be rejected, with the rejecting rule cited).
+
+The encoding and ordering rules apply uniformly across every
+target; a producer learns one set of rules, a verifier implements
+one reproduction strategy.
 
 ## Targets
 
