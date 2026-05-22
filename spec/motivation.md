@@ -74,8 +74,8 @@ demonstrated:
 
 ## 2. One workload needs multiple image artifacts
 
-A single Linux workload — the same kernel, initrd, command line, and
-service modules — is increasingly expected to run in many shapes:
+A single Linux workload — the same kernel, initrd, and command
+line — is increasingly expected to run in many shapes:
 bare metal under UEFI; as a direct-boot VM where the VMM extracts the
 kernel; under guest firmware (OVMF) that loads the kernel from a
 virtual disk; under a confidential VMM with a service module
