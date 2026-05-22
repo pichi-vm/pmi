@@ -105,7 +105,7 @@ duplicates that whole pipeline. Real deployments span the spectrum:
 
 Existing image formats are shape-specific. PE/UKI assumes UEFI loads
 the image and runs an EFI stub. The Linux boot protocol assumes the
-VMM extracts the kernel. IGVM (PMI's primary prior art) assumes a
+VMM extracts the kernel. IGVM assumes a
 paravisor-style confidential boot with measurement metadata. An
 image author who wants to support more than one shape today produces
 more than one artifact, with parallel build paths, parallel signing
