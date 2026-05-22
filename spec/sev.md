@@ -54,30 +54,32 @@ The `sev` target's parameters mapped against PMI's
 | `fill` action (kind `cpuid`)               | Platform identity (placement); launch policy (content)    | PMI image / Runtime | Image declares the GPA; VMM builds the CPUID table; PSP validates against actual processor; content is not in digest   |
 | `id.block` PE section (96 bytes)           | Tenant identity                                           | PMI image  | Signed ID block; surfaced through `SNP_LAUNCH_FINISH`                                                                  |
 | `id.auth` PE section (~4 KiB)              | Tenant identity                                           | PMI image  | ID auth info (ECDSA P-384 signatures + ID key + optional author key)                                                   |
-| `SNP_LAUNCH_START` POLICY                  | Launch policy (out of PMI scope)                          | Runtime    | See [Launch policy](#launch-policy); host-supplied, not measured, surfaced in attestation report                       |
-| `SNP_LAUNCH_FINISH` HOST_DATA              | Host identity                                             | Runtime    | Deployer-supplied; out of PMI scope; appears in attestation report                                                     |
+| `SNP_LAUNCH_START` POLICY                  | Leftover (see below)                                      | Runtime    | See [POLICY bit-by-bit](#policy-bit-by-bit); host-supplied, not measured, surfaced in attestation report               |
+| `SNP_LAUNCH_FINISH` HOST_DATA              | Host identity                                             | Runtime    | Deployer-supplied; appears in attestation report through `SNP_LAUNCH_FINISH`                                           |
 
 ### POLICY bit-by-bit
 
 The 64-bit POLICY field passed to `SNP_LAUNCH_START` is host-supplied
-in its entirety. PMI classifies every bit as **launch policy**
-(out-of-scope as a PMI category, per [Launch policy is not a PMI
-category](categories.md#launch-policy-is-not-a-pmi-category)).
+in its entirety. Every bit is currently **leftover** per
+[Leftover values](categories.md#leftover-values): none names a
+liveness requirement the image depends on, none names a tenant or
+host, and they are not instance accidents (they reach the attestation
+report).
 
-| Bits  | Name                           | Category      | Notes                                                                                  |
-| ----- | ------------------------------ | ------------- | -------------------------------------------------------------------------------------- |
-| 0–7   | ABI_MINOR                      | Launch policy | Minimum SEV-SNP firmware ABI minor version                                             |
-| 8–15  | ABI_MAJOR                      | Launch policy | Minimum SEV-SNP firmware ABI major version                                             |
-| 16    | SMT                            | Launch policy | SMT-allowed flag                                                                       |
-| 17    | RESERVED                       | N/A           | Architecturally MUST be 1                                                              |
-| 18    | MIGRATE_MA                     | Launch policy | Allow migration via a migration agent                                                  |
-| 19    | DEBUG                          | Launch policy | Debug-enabled flag                                                                     |
-| 20    | SINGLE_SOCKET                  | Launch policy | Restrict execution to a single socket                                                  |
-| 21    | CXL_ALLOW                      | Launch policy | Allow CXL devices                                                                      |
-| 22    | MEM_AES_256_XTS                | Launch policy | Require AES-256-XTS memory encryption                                                  |
-| 23    | RAPL_DIS                       | Launch policy | RAPL counter disable                                                                   |
-| 24    | CIPHERTEXT_HIDING_DRAM         | Launch policy | Require ciphertext hiding for DRAM                                                     |
-| 25–63 | RESERVED                       | N/A           | Architecturally MBZ                                                                    |
+| Bits  | Name                           | Category | Notes                                                                                  |
+| ----- | ------------------------------ | -------- | -------------------------------------------------------------------------------------- |
+| 0–7   | ABI_MINOR                      | Leftover | Minimum SEV-SNP firmware ABI minor version                                             |
+| 8–15  | ABI_MAJOR                      | Leftover | Minimum SEV-SNP firmware ABI major version                                             |
+| 16    | SMT                            | Leftover | SMT-allowed flag                                                                       |
+| 17    | RESERVED                       | N/A      | Architecturally MUST be 1                                                              |
+| 18    | MIGRATE_MA                     | Leftover | Allow migration via a migration agent                                                  |
+| 19    | DEBUG                          | Leftover | Debug-enabled flag                                                                     |
+| 20    | SINGLE_SOCKET                  | Leftover | Restrict execution to a single socket                                                  |
+| 21    | CXL_ALLOW                      | Leftover | Allow CXL devices                                                                      |
+| 22    | MEM_AES_256_XTS                | Leftover | Require AES-256-XTS memory encryption                                                  |
+| 23    | RAPL_DIS                       | Leftover | RAPL counter disable                                                                   |
+| 24    | CIPHERTEXT_HIDING_DRAM         | Leftover | Require ciphertext hiding for DRAM                                                     |
+| 25–63 | RESERVED                       | N/A      | Architecturally MBZ                                                                    |
 
 If `id` is present, the host POLICY MUST be compatible with the
 POLICY field embedded in the signed ID block (see
