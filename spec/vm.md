@@ -2,7 +2,7 @@
 
 **Registered prefix:** `vm`.
 
-## New target: `.pmi.vm`
+## 1. New target: `.pmi.vm`
 
 The `.pmi.vm` PE section MUST be non-loaded
 (`IMAGE_SCN_MEM_DISCARDABLE`). If absent, the VMM MUST refuse to
@@ -15,7 +15,7 @@ The VMM executes the launch in five ordered steps:
 1. Read the `.pmi.vm` PE section.
 2. Target initialize. No-op.
 3. Process each entry in `actions` in array order.
-4. Apply [`vm:vcpu`](#new-target-attribute-vmvcpu) to the boot
+4. Apply [`vm:vcpu`](#2-new-target-attribute-vmvcpu) to the boot
    vCPU.
 5. Start the guest.
 
@@ -48,7 +48,7 @@ places the section's bytes in guest memory per
 [section shape](load.md#section-shapes); no measurement is
 performed.
 
-## New target attribute: `vm:vcpu`
+## 2. New target attribute: `vm:vcpu`
 
 `vm:vcpu` is a CBOR map of boot-vCPU register values applied at
 launch step 4. The schema is selected by `PE.FileHeader.Machine`:
