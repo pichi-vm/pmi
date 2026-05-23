@@ -3,9 +3,10 @@
 **Registered prefix:** `vm`.
 
 The `vm` extension defines the `vm` launch target: a non-CC
-virtual machine path that is also the base PMI ships for the
-[common target shape](extensions.md#common-target-shape). It
-exercises three of the [four extension points](extensions.md#four-extension-points):
+virtual machine path that is also the base PMI ships against the
+[common target skeleton](extensions.md#1-new-targets-registered-only).
+It exercises three of the [four extension
+points](extensions.md#four-extension-points):
 
 | Extension point                | What `vm` adds                                                                 |
 | ------------------------------ | ------------------------------------------------------------------------------ |

@@ -14,32 +14,6 @@ extensions any layer can use without coordinating with PMI. Both
 classes feed into a set of four extension points; one of those is
 registered-only.
 
-## Common target shape
-
-Every PMI target spec is a CBOR map with this skeleton:
-
-```cddl
-target = {
-  "version" => uint,                       ; schema version
-  "actions" => [+ action],                 ; ordered launch recipe
-  ; per-target firmware-bound fields (e.g., sev's `id`, vm/cca's `vcpu`)
-}
-
-action = {
-  "type" => tstr,                          ; selects load / fill / ...
-  ; per-type fields
-}
-```
-
-`type` is the only universal action field. Everything else is
-defined per action type. A new action a layer registers chooses its
-own fields independent of what PMI's existing actions use.
-
-Across `vm`, `sev`, `cca`, and `tdx` the shape never changes; only
-the per-target firmware-bound side fields, the action types each
-target admits, and the ABI those actions drive change. An upper
-layer extends this shape without re-specifying it.
-
 ## Namespacing
 
 Names that appear in the wire format fall into one of three
@@ -108,103 +82,70 @@ for both registered and unregistered prefixes.
 
 A registered prefix MAY define a new launch target — a new
 `.pmi.<target>` PE section whose schema and launch model the
-registered spec defines.
+registered spec defines. This extension point is reserved for
+registered prefixes. PE section names starting with `.pmi.` are
+PMI's namespace; allowing unregistered prefixes to claim names
+there would conflict with the rule that loaders refuse images
+they don't understand and muddle the discovery model (loaders
+look for `.pmi.<target>` sections by name).
 
+A target's CBOR map follows this skeleton:
+
+```cddl
+target = {
+  "version" => uint,                       ; schema version
+  "actions" => [+ action],                 ; ordered launch recipe
+  ; per-target firmware-bound fields (extension point 2)
+}
+
+action = {
+  "type" => tstr,                          ; selects load / fill / ...
+  ; per-type fields
+}
 ```
-.pmi.<registered>      ; e.g., .pmi.dillo for a hypothetical
-                       ; registered extension named `dillo`
-```
 
-This extension point is reserved for registered prefixes. PE
-section names starting with `.pmi.` are PMI's namespace; allowing
-unregistered prefixes to claim names there would conflict with
-the rule that loaders refuse images they don't understand and
-muddle the discovery model (loaders look for `.pmi.<target>`
-sections by name).
+`type` is the only universal action field. Everything else is
+defined per action type.
 
-To define a new target, register the prefix per
+To define a new target, register the prefix per the
 [extension registry](../README.md#extensions) and have the spec
-follow the [common target shape](#common-target-shape): a CBOR
-map with `version` and `actions`, plus whatever per-target
-firmware-bound fields the new target needs.
+specify what target attributes, action types, and action kinds
+the target adds to this skeleton.
 
 ### 2. Target attributes (top-level keys)
 
-A namespaced top-level CBOR key adds a piece of metadata the upper
-layer needs to know about, independent of any action.
-
-```cbor-diag
-{
-  "version": 1,
-  "actions": [ ... ],
-
-  "registered:platform":  <layer-defined value>,
-  "unregistered:config":  <layer-defined value>
-}
-```
-
-The value can be any CBOR type the upper layer specifies. PMI
-ignores everything under a prefix it doesn't own; a layer-aware
-loader reads its own `<layer>:*` keys per the layer's spec.
+A namespaced top-level CBOR key adds a piece of metadata the
+extension needs at launch, independent of any action. The value
+can be any CBOR type the extension specifies. PMI ignores
+everything under a prefix it doesn't own; a layer-aware loader
+reads its own `<layer>:*` keys per the layer's spec.
 
 ### 3. New actions
 
-A namespaced `type` value adds a new kind of operation the upper
-layer wants performed at launch, alongside PMI's own actions.
+A namespaced `type` value adds a new kind of operation the
+extension wants performed at launch, alongside PMI's own actions.
 
-```cbor-diag
-{
-  "type": "registered:configure"
-  ; per-action fields the upper layer defines
-}
-```
-
-```cbor-diag
-{
-  "type": "unregistered:provision"
-  ; per-action fields the upper layer defines
-}
-```
-
-PMI executes actions in array order; an upper-layer action runs at
+PMI executes actions in array order; an extension action runs at
 its array position relative to PMI's actions. Beyond `type`, the
-shape of an upper-layer action is entirely the upper layer's spec:
-it chooses its own fields and defines what the action does — what
-the VMM submits, what firmware or VMM calls happen, what
-measurement (if any) the operation contributes to.
+shape of an extension action is entirely the extension's spec —
+fields, what the action does, what firmware or VMM calls happen,
+what measurement (if any) the operation contributes to.
 
 ### 4. Action-defined extension points
 
-An individual action's schema may declare its own extension point.
-This is not a generic PMI mechanism — it is a property of specific
-actions whose specs opt into it. The shape of the extension point
-is whatever that action's spec defines.
+An individual action's schema may declare its own extension
+point. This is not a generic PMI mechanism — it is a property of
+specific actions whose specs opt into it. The shape of the
+extension point is whatever that action's spec defines.
 
 PMI's two built-in actions — [`load`](load.md) and
 [`fill`](fill.md) — both declare their `kind` field as a
 free-form text string, explicitly admitting namespaced values
-alongside the per-target kinds the target chapters enumerate:
-
-```cbor-diag
-{
-  "type": "load",
-  ...,
-  "kind": "registered:<name>"
-}
-```
-
-```cbor-diag
-{
-  "type": "fill",
-  ...,
-  "kind": "unregistered:<name>"
-}
-```
-
-The `kind` selector and the per-kind semantics are the action's
-contract; the namespacing rule is what lets upper layers
+alongside the per-target kinds the target chapters enumerate. The
+`kind` selector and the per-kind semantics are the action's
+contract; the namespacing rule is what lets extensions
 participate without colliding.
 
 Future actions MAY define their own extension points (the same
-`kind`-style pattern, or something entirely different), or none at
-all. The spec defining the action decides.
+`kind`-style pattern, or something entirely different), or none
+at all. The spec defining the action decides.
