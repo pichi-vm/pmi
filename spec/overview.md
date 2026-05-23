@@ -9,10 +9,12 @@ when, they appear in all capitals, as shown here.
 
 This document defines the categories of data PMI distinguishes, the
 goals PMI is shaped to meet, and the methods that meet them. The
-narrative behind these choices is in [Motivation](motivation.md); the
-per-target bindings are in [`vm`](vm.md), [`sev`](sev.md),
-[`cca`](cca.md), and [`tdx`](tdx.md); [Examples](examples.md) walks
-through concrete images.
+narrative behind these choices is in [Motivation](motivation.md);
+[Categories](categories.md) defines each category in depth with the
+topological mapping that produced them; the per-target bindings are
+in [`vm`](vm.md), [`sev`](sev.md), [`cca`](cca.md), and
+[`tdx`](tdx.md); [Examples](examples.md) walks through concrete
+images.
 
 ## Categories
 
