@@ -46,7 +46,6 @@ The `sev` target's parameters mapped against PMI's
 | ------------------------------------------ | --------------------------------------------------------- | ---------- | ---------------------------------------------------------------------------------------------------------------------- |
 | `load` action (kind `measured`)            | Image identity                                            | PMI image  | Page bytes contribute to the launch digest                                                                             |
 | `load` action (kind `vmsa`)                | Platform identity                                         | PMI image  | BSP register state at launch (VMPL0 VMSA); typed-page measurement binds GPA + page type, content binds via measurement |
-| `fill` action (kind `dtbo`)                | Instance accidents                                        | Runtime    | Host-generated resource allocation; bypasses `SNP_LAUNCH_UPDATE` and does not contribute to the digest                 |
 | `fill` action (kind `secrets`)             | Platform identity (placement); firmware-supplied (content) | PMI image  | PSP populates the page at launch; GPA + page type bound in digest, content is not                                      |
 | `fill` action (kind `cpuid`)               | Platform identity (placement); launch policy (content)    | PMI image / Runtime | Image declares the GPA; VMM builds the CPUID table; PSP validates against actual processor; content is not in digest   |
 | `id.block` PE section (96 bytes)           | Tenant identity                                           | PMI image  | Signed ID block; surfaced through `SNP_LAUNCH_FINISH`                                                                  |
@@ -217,17 +216,9 @@ additional kinds.
 fill = {
   "type"    => "fill",
   "section" => tstr,                ; zero PE section to populate
-  "kind"    => "dtbo" / "secrets" / "cpuid",
+  "kind"    => "secrets" / "cpuid",
 }
 ```
-
-### kind `dtbo`
-
-Same as the [base `dtbo` fill kind](vm.md#kind-dtbo). The VMM
-generates the overlay and writes it to the section's GPA range; the
-page bypasses `SNP_LAUNCH_UPDATE` and does not contribute to the
-launch digest. See [`dtbo` overlay](vm.md#dtbo-overlay) for content
-and consumer-validation rules.
 
 ### kind `secrets`
 

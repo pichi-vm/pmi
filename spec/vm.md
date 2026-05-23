@@ -111,110 +111,15 @@ range but carries no on-disk data.
 fill = {
   "type"    => "fill",
   "section" => tstr,                ; zero PE section to populate
-  "kind"    => "dtbo",              ; vm defines one kind
+  "kind"    => tstr,                ; kind selector (per-target or namespaced)
 }
 ```
 
 The fill action MUST include a `kind` value; there is no default.
-
-### kind `dtbo`
-
-Delivers the runtime devicetree overlay described under
-[platform definition
-inversion](overview.md#platform-definition-inversion--goals-2-3-4-and-5). The
-VMM generates the overlay fresh for this guest at step 4 and writes it
-into the section's GPA range. The in-guest consumer that merges the
-overlay onto the base DTB is not mandated by this spec — a guest stub,
-an overlay-at-boot kernel, or any other trusted component will do. PMI
-defines the overlay's content rules and consumer-validation rules in
-[`dtbo` overlay](#dtbo-overlay) below.
-
-## `dtbo` overlay
-
-The runtime devicetree overlay (FDT v17) carries the host-decided
-supplement to the image's declared platform: CPU enumeration
-(`/cpus`), memory layout (`/memory@*`), NUMA topology
-(`/distance-map`), and `numa-node-id` annotations on image-declared
-nodes. These cannot be known at image-build time.
-
-### Content allowlist
-
-The overlay MUST contribute ONLY content that falls into one of the
-following four categories. Any node or property outside this allowlist
-is non-conformant.
-
-1. **Nodes and properties under `/cpus`** (CPU enumeration).
-2. **Nodes and properties under `/memory@*`** (memory layout).
-3. **Anything under `/distance-map`** (NUMA distance matrix).
-4. **The `numa-node-id` property** added to any node the base DTB
-   already declared (e.g., `/pci@*`, device nodes). This is the only
-   property the host MAY add outside the first three paths, and it
-   MUST NOT appear with any other host-contributed property on the
-   same node.
-
-The overlay's `totalsize` MUST NOT exceed the PE section's
-`VirtualSize`.
-
-### Consumer validation (normative)
-
-The consumer MUST treat the overlay as adversarial input from the
-host. The consumer MUST reject the launch if any of the following
-validations fail.
-
-**Structural.** The overlay MUST be a well-formed FDT (header magic
-`0xd00dfeed`, version 17, all block offsets within `totalsize`, all
-referenced strings null-terminated within the strings block, every
-`FDT_BEGIN_NODE` paired with a corresponding `FDT_END_NODE`).
-
-**Allowlist.** Every node and property the overlay touches MUST fall
-into one of the four allowlist categories above.
-
-**Architecture relevance.** Every host-contributed node, property, and
-value MUST be defined for the guest's target architecture. (Example:
-a DT `enable-method` value of `spin-table` on x86 is non-conformant —
-x86 does not define that bring-up method.)
-
-**Address-bearing values.** For every host-contributed address (every
-`/memory@*/reg` and any `/memory@*/linux,usable-memory` entry, plus
-every `/cpus/cpu@N/cpu-release-addr` on architectures that use the
-spin-table enable-method):
-
-- All addresses MUST be within the architecture's canonical bounds
-  (currently `< 2^48` for x86-64 and aarch64).
-- Every `address + size` computation MUST NOT overflow the
-  architecture's address width.
-- All declared regions MUST be pairwise non-overlapping with each
-  other AND with every base-DTB node bearing a `reg` property. (The
-  image's base DTB omits `/memory@*` per [dtb.md](dtb.md#image-side-responsibilities),
-  so every base-DTB `reg` resolves to non-RAM and is off-limits to
-  the overlay's `/memory@*` declarations.)
-- The union of all `/memory@*/reg` regions MUST contain every loaded
-  PE section's `[VirtualAddress, VirtualAddress + VirtualSize)` range.
-- Each `cpu-release-addr` MUST lie inside a `/memory@*/reg` region AND
-  MUST NOT overlap any loaded PE section's range.
-
-**Bounded byte length.** Implementations MUST enforce an upper bound
-on the overlay's byte length to prevent denial-of-service via oversized
-overlays. The recommended minimum is 64 KiB; resource-constrained
-implementations MAY enforce smaller bounds.
-
-**Phandle resolution.** Every phandle referenced by a host-contributed
-property MUST resolve to a node present in the merged DTB.
-
-### Non-validation
-
-The consumer is NOT required to validate:
-
-- The values of `numa-node-id` properties beyond structural type
-  conformance (a kernel will tolerate or reject bad NUMA IDs through
-  its own bounds; misassignment is at worst a denial-of-service).
-- The values within the `distance-matrix` property under
-  `/distance-map` (pure numeric hints for NUMA scheduling; bad values
-  degrade performance but do not compromise the guest).
-- The `compatible` strings on host-added CPU or device nodes
-  (kernel-side driver curation is the appropriate defense against
-  driver-specific attacks; this is out of scope for the dtbo
-  consumer).
+`vm` defines no fill kinds itself; CC targets layer firmware-bound
+kinds on top (see [`sev`](sev.md#fill-action) for `secrets` and
+`cpuid`), and upper layers register their own under the
+[Extensions](overview.md#extensions) namespace.
 
 ## `vcpu` field
 

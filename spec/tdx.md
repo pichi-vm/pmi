@@ -5,14 +5,11 @@ The `tdx` target is the Intel TDX launch path. It is built on
 [`load`](vm.md#load-action) / [`fill`](vm.md#fill-action) actions with
 TDX-specific kinds.
 
-PMI's platform-definition inversion applies on TDX. The image declares
-its platform via a base DTB (measured into MRTD) and the runtime slice
-via a `dtbo` fill (host-decided, consumer-validated). The image
-provides an in-TD PMI consumer that takes the role TDVF plays in
-non-PMI TDX guests; the consumer reads the merged DTB + dtbo, applies
-PMI's [consumer validation](vm.md#consumer-validation-normative), and
-hands off to the kernel. The PMI consumer's implementation is out of
-scope for this spec.
+The image carries an in-TD PMI consumer that takes the role TDVF
+plays in non-PMI TDX guests: it occupies the architectural reset
+vector, performs vCPU rendezvous, reads any upper-layer metadata
+the image declares, and hands off to the kernel. The PMI consumer's
+implementation is out of scope for this spec.
 
 ## PE section
 
@@ -51,7 +48,6 @@ The `tdx` target's parameters mapped against PMI's
 | Parameter                                          | Category           | Source     | Notes                                                                                                                |
 | -------------------------------------------------- | ------------------ | ---------- | -------------------------------------------------------------------------------------------------------------------- |
 | `load` action (kind `measured`)                    | Image identity     | PMI image  | Page bytes contribute to MRTD via `TDH.MR.EXTEND`; the PMI consumer (reset-vector occupant) is itself a measured load |
-| `fill` action (kind `dtbo`)                        | Instance accidents | Runtime    | Host-generated DT overlay; not submitted via `KVM_TDX_INIT_MEM_REGION` and does not contribute to MRTD              |
 | EPTP controls                                      | Instance accidents | Runtime    | VMM-internal; not visible to the guest as hardware shape                                                             |
 
 ### TD_PARAMS
@@ -144,24 +140,17 @@ and the PMI consumer MUST NOT depend on them.
 
 The image MUST carry a **PMI consumer**: a measured component that
 occupies the architectural reset vector, performs vCPU rendezvous,
-reads PMI's platform-definition surface from known IPAs (the merged
-[base DTB](dtb.md) and [`dtbo` overlay](vm.md#dtbo-overlay)), applies
-the consumer-validation rules, and hands off to the kernel.
-
-The PMI consumer is loaded as a `measured` load action and is
-therefore part of the launch identity (MRTD). The IPAs at which the
-consumer expects to find the base DTB and the dtbo region are
-determined at image-build time by the `VirtualAddress` fields of the
-corresponding PE sections, and are baked into the (measured)
-consumer. A hostile or buggy host cannot redirect the consumer; any
-deviation in IPA placement breaks the consumer's expectations and the
-launch fails at consumer-validation time.
+and hands off to the kernel. The PMI consumer is loaded as a
+`measured` load action and is therefore part of the launch identity
+(MRTD). Upper layers that need additional reset-vector
+responsibilities (DTB inspection, dtbo merge, consumer validation
+against host-supplied data) layer them onto the PMI consumer via
+the [Extensions](overview.md#extensions) namespace.
 
 This spec describes the consumer's contract but does not mandate an
 implementation. Image authors may use any consumer that satisfies the
 contract; PMI consumers for TDX are expected to be lightweight (much
-smaller than TDVF) and to focus on PMI's consumer-validation and
-DTB-to-kernel-handoff responsibilities.
+smaller than TDVF).
 
 ## `load` action
 
@@ -187,32 +176,16 @@ flag set — `TDH.MEM.PAGE.ADD` followed by `TDH.MR.EXTEND` per
 
 ## `fill` action
 
-`tdx` uses the [base `fill` action](vm.md#fill-action) with the
-`dtbo` kind from `vm` unchanged.
-
-### Schema
-
-```cddl
-fill = {
-  "type"    => "fill",
-  "section" => tstr,                ; zero PE section to populate
-  "kind"    => "dtbo",
-}
-```
-
-### kind `dtbo`
-
-Same as the [base `dtbo` fill kind](vm.md#kind-dtbo). The VMM
-generates the overlay and writes it to the section's GPA range; the
-page is not submitted via `KVM_TDX_INIT_MEM_REGION` and does not
-contribute to MRTD. See [`dtbo` overlay](vm.md#dtbo-overlay) for
-content and consumer-validation rules.
+`tdx` defines no fill kinds itself. The [base `fill`
+action](vm.md#fill-action) is available for upper layers to use via
+the [Extensions](overview.md#extensions) namespace (e.g.,
+`dillo:dtbo` for a dillo-managed devicetree overlay).
 
 Note: PMI deliberately does not define a `td-hob` fill kind. The TD
-HOB mechanism is TDVF-specific and conflicts with PMI's
-platform-definition inversion (it would allow the host to supply
-unconstrained platform info to the guest). PMI consumers on TDX read
-the dtbo overlay directly and do not consume HOBs.
+HOB mechanism is TDVF-specific and would allow the host to supply
+unconstrained platform info to the guest. Upper layers that need
+platform-definition delivery use their own namespaced fill kinds
+with their own consumer-validation rules.
 
 ## Status
 
@@ -220,10 +193,11 @@ The TDX target binding is a working draft. Open items:
 
 - A reference PMI consumer for TDX (out of spec scope, but needed for
   the binding to be usable in practice). Expected responsibilities:
-  reset-vector occupation, vCPU rendezvous, DTB + dtbo merge with
-  consumer validation, lazy memory acceptance, MMIO handling via
-  `TDG.VP.VMCALL<#VE.RequestMMIO>`, CPUID page consumption, and
-  DT-to-ACPI translation for kernels that expect ACPI.
+  reset-vector occupation, vCPU rendezvous, lazy memory acceptance,
+  MMIO handling via `TDG.VP.VMCALL<#VE.RequestMMIO>`, CPUID page
+  consumption, and kernel handoff. Upper-layer responsibilities
+  (DTB inspection, dtbo merge, consumer validation) are layered on
+  top of the base PMI consumer.
 - The exact CDDL constraint on PE section `VirtualAddress` for the
   reset-vector-occupying load — whether the spec should mandate the
   architectural reset vector address or leave it to the consumer's

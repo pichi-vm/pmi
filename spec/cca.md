@@ -42,7 +42,6 @@ The `cca` target's parameters mapped against PMI's
 | -------------------------------------------------- | ------------------ | -------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
 | `vcpu` field (BSP REC parameters)                  | Platform identity  | PMI image      | Applied at step 3 via `RMI_REC_CREATE`; measured into RIM                                                                            |
 | `load` action (kind `measured`)                    | Image identity     | PMI image      | Granule content submitted via `RMI_DATA_CREATE`; hashed and extended into RIM                                                        |
-| `fill` action (kind `dtbo`)                        | Instance accidents | Runtime        | Host-generated DT overlay; not submitted via `RMI_DATA_CREATE` and does not contribute to RIM                                        |
 
 ### RmiRealmParams bit-by-bit
 
@@ -158,26 +157,10 @@ extended into RIM.
 
 ## `fill` action
 
-`cca` uses the [base `fill` action](vm.md#fill-action) with the
-`dtbo` kind from `vm` unchanged.
-
-### Schema
-
-```cddl
-fill = {
-  "type"    => "fill",
-  "section" => tstr,                ; zero PE section to populate
-  "kind"    => "dtbo",
-}
-```
-
-### kind `dtbo`
-
-Same as the [base `dtbo` fill kind](vm.md#kind-dtbo). The VMM
-generates the overlay and writes it to the section's GPA range; the
-page is not submitted via `RMI_DATA_CREATE` and does not contribute
-to RIM. See [`dtbo` overlay](vm.md#dtbo-overlay) for content and
-consumer-validation rules.
+`cca` defines no fill kinds itself. The [base `fill`
+action](vm.md#fill-action) is available for upper layers to use via
+the [Extensions](overview.md#extensions) namespace (e.g.,
+`dillo:dtbo` for a dillo-managed devicetree overlay).
 
 ## Status
 
