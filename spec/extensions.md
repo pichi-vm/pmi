@@ -3,11 +3,15 @@
 PMI is a substrate. The PE container, the per-target CBOR launch
 recipes, and the action mechanism cover the firmware-bound mechanics
 of every launch — and stop there. Upper layers (hypervisor specs,
-in-guest stubs, image schemas) need to attach layer-specific data to
-PMI images and have a VMM that understands them do something with
-it. PMI exposes a single extensibility contract — a namespacing
-convention — and three extension points that bolt new behavior onto
-a target spec without changing PMI's core shape.
+in-guest stubs, image schemas) need to attach layer-specific data
+to PMI images and have a VMM that understands them do something
+with it.
+
+PMI exposes a single extensibility contract: a namespacing
+convention that admits two classes of extension — **registered**
+extensions defined within the PMI spec, and **unregistered**
+extensions any layer can use without coordinating with PMI. Both
+classes feed into the same three extension points on a target spec.
 
 ## Common target shape
 
@@ -35,69 +39,96 @@ the per-target firmware-bound side fields, the action types each
 target admits, and the ABI those actions drive change. An upper
 layer extends this shape without re-specifying it.
 
-## Namespacing rule
+## Namespacing
 
-PMI's only extensibility primitive: a namespacing convention for
-names that appear in the wire format.
+Names that appear in the wire format fall into one of three
+classes:
 
 - **Unprefixed names** (e.g., `version`, `actions`, `secrets`,
-  `cpuid`) are reserved for PMI.
-- **Prefixed names** of the form `<layer>:<name>` belong to the
-  named upper layer.
-- The prefix names the **consumer** — typically a hypervisor or
-  in-guest stub — not the producer. Multiple image tools may emit
-  the same prefix for the same consumer.
-- Loaders MUST reject any name they do not understand. A pure PMI
-  loader presented with any `<layer>:*` name refuses to launch; a
-  layer-aware loader handles it per the layer's spec.
+  `cpuid`) are reserved for PMI itself.
+- **Registered prefixed names** of the form `<layer>:<name>`,
+  where `<layer>` appears in the [Extension registry](#extension-registry)
+  below.
+- **Unregistered prefixed names** of the form `<layer>:<name>`,
+  where `<layer>` is a collision-resistant reverse-DNS identifier.
 
-The same strict-rejection rule that already governs unknown PMI
-keys, types, and kinds handles unknown namespaced names with no
-new mechanism.
+The prefix names the **consumer** — typically a hypervisor or
+in-guest stub — not the producer. Multiple image tools may emit
+the same prefix for the same consumer.
 
-### Registered vs unregistered extensions
+Loaders MUST reject any name they do not understand. A pure PMI
+loader presented with any prefixed name refuses to launch; a
+layer-aware loader handles only the prefixes its spec covers and
+refuses the rest. The strict-rejection rule already governing
+unknown PMI keys, types, and kinds handles unknown namespaced
+names with no new mechanism.
 
-A `<layer>` prefix falls into one of two classes:
+### Registered extensions
 
-- **Registered.** The prefix appears in PMI's
-  [extension registry](#extension-registry) below, which points at
-  the spec defining that layer. Registered prefixes are short,
-  single-segment names (no dots): `dillo`, `acmecorp`, etc. The
-  registry exists so that registered prefixes do not collide and so
-  that any loader can find the authoritative spec for a prefix it
-  encounters.
-- **Unregistered.** A layer that doesn't want to (or hasn't yet)
-  registered with PMI MUST use a collision-resistant prefix in
-  reverse-DNS form, containing at least one dot:
-  `com.example.foo`, `org.openstack.bar`, `urn.uuid.<uuid>`. The
-  dot is what makes it syntactically distinguishable from a
-  registered prefix; the reverse-DNS convention is what makes it
-  collision-resistant in practice.
+A registered `<layer>` prefix:
 
-A loader MAY use the syntactic distinction to choose where to look
-for a layer's spec — registered prefixes in the PMI registry,
-unregistered prefixes in whatever out-of-band documentation the
-layer maintains — but functionally both classes are handled
-identically: recognised names are honored, unrecognised names cause
-launch refusal.
+- Is a single segment with no dots.
+- Appears in the [Extension registry](#extension-registry) below,
+  which points at the layer's authoritative spec.
+- Is short and memorable — the registry exists so registered
+  prefixes don't collide and so any loader can find the spec for a
+  prefix it encounters.
+
+A layer becomes registered by opening an issue or pull request
+against the PMI spec repository with the proposed prefix and a
+link to its spec. Once accepted, the prefix appears in the
+registry and is considered part of PMI's stable extension
+surface.
+
+### Unregistered extensions
+
+An unregistered `<layer>` prefix:
+
+- MUST contain at least one dot.
+- SHOULD use reverse-DNS form
+  (`com.example.foo`, `org.openstack.bar`) under a domain the
+  layer controls, or a similar collision-resistant scheme
+  (`urn.uuid.<uuid>`).
+- Has no entry in the registry; the layer is responsible for
+  documenting its own contract however it sees fit.
+
+Unregistered extensions exist for layers that are private,
+experimental, deployer-specific, or simply not yet ready to
+register. They are first-class — a layer-aware loader honors them
+exactly like registered ones — but PMI does not vouch for them and
+provides no discoverability beyond what the layer publishes
+itself.
+
+### Distinguishing the two classes
+
+The dot/no-dot rule makes the two classes syntactically
+distinguishable without consulting the registry: any prefix
+containing a dot is unregistered; any prefix without a dot is
+registered (or invalid, if it's not in the registry).
+
+This lets a loader route prefix resolution efficiently — checking
+the local registry for dotless prefixes, falling back to its
+configured set of supported reverse-DNS prefixes for dotted ones —
+but functionally both classes are handled identically: recognised
+names are honored, unrecognised names cause launch refusal.
 
 ## Extension registry
 
-The following prefixes are registered with PMI. Each entry MUST
-link to the layer's authoritative spec.
+The following prefixes are registered with PMI. Each entry links
+to the layer's authoritative spec.
 
 | Prefix | Spec |
 | ------ | ---- |
 | _(none yet)_ | |
 
-Prefixes here MUST be single-segment names without dots. To register
-a prefix, open an issue or pull request against the PMI spec
-repository with the proposed prefix and a link to the layer's spec.
+To register a prefix, open an issue or pull request against the
+PMI spec repository with the proposed prefix and a link to the
+layer's spec.
 
 ## Three extension points
 
-An upper layer attaches behavior at one of three places in a target
-spec.
+Either class of prefix attaches behavior to a target spec at one
+of three places.
 
 ### 1. Target attributes (top-level keys)
 
@@ -108,8 +139,9 @@ layer needs to know about, independent of any action.
 {
   "version": 1,
   "actions": [ ... ],
-  "<layer>:platform":  <layer-defined value>,
-  "<layer>:something": <layer-defined value>
+
+  "registered:platform":    <layer-defined value>,
+  "com.example.bar:config": <layer-defined value>
 }
 ```
 
@@ -124,7 +156,14 @@ layer wants performed at launch, alongside PMI's own actions.
 
 ```cbor-diag
 {
-  "type": "<layer>:configure",
+  "type": "registered:configure"
+  ; per-action fields the upper layer defines
+}
+```
+
+```cbor-diag
+{
+  "type": "com.example.bar:provision"
   ; per-action fields the upper layer defines
 }
 ```
@@ -149,14 +188,23 @@ layer-specific.
 {
   "type": "fill",
   ...,
-  "kind": "<layer>:<name>"
+  "kind": "registered:<name>"
+}
+```
+
+```cbor-diag
+{
+  "type": "fill",
+  ...,
+  "kind": "com.example.bar:<name>"
 }
 ```
 
 `fill` is the canonical example: its `kind` field selects between
 firmware-bound operations PMI defines (`secrets`, `cpuid`) and
-namespaced kinds upper layers register. The `kind` selector is
-PMI's mechanism; the per-kind semantics are the upper layer's spec.
+namespaced kinds upper layers register or define out-of-band. The
+`kind` selector is PMI's mechanism; the per-kind semantics are the
+upper layer's spec.
 
 `load` admits the same pattern, though PMI's own load kinds today
 (`measured`, `unmeasured`, `vmsa`) cover the firmware-bound cases.
