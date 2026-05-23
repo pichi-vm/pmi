@@ -65,14 +65,11 @@ names with no new mechanism.
 
 ### Registered extensions
 
-A registered `<layer>` prefix:
-
-- Is a single segment with no dots.
-- Appears in the [Extension registry](#extension-registry) below,
-  which points at the layer's authoritative spec.
-- Is short and memorable — the registry exists so registered
-  prefixes don't collide and so any loader can find the spec for a
-  prefix it encounters.
+A registered `<layer>` prefix appears in the
+[Extension registry](#extension-registry) below, which points at
+the layer's authoritative spec. The registry exists so registered
+prefixes don't collide and so any loader can find the spec for a
+prefix it encounters.
 
 A layer becomes registered by opening an issue or pull request
 against the PMI spec repository with the proposed prefix and a
@@ -82,15 +79,13 @@ surface.
 
 ### Unregistered extensions
 
-An unregistered `<layer>` prefix:
-
-- MUST contain at least one dot.
-- SHOULD use reverse-DNS form
-  (`com.example.foo`, `org.openstack.bar`) under a domain the
-  layer controls, or a similar collision-resistant scheme
-  (`urn.uuid.<uuid>`).
-- Has no entry in the registry; the layer is responsible for
-  documenting its own contract however it sees fit.
+An unregistered `<layer>` prefix has no entry in the registry. The
+layer chooses the prefix and is responsible for ensuring it is
+collision-resistant — there is no central coordinator preventing
+two unregistered layers from picking the same prefix, so the
+prefix must be unique by construction (e.g., derived from a domain
+the layer controls, a UUID, or any other scheme that makes
+accidental collision negligible).
 
 Unregistered extensions exist for layers that are private,
 experimental, deployer-specific, or simply not yet ready to
@@ -98,19 +93,6 @@ register. They are first-class — a layer-aware loader honors them
 exactly like registered ones — but PMI does not vouch for them and
 provides no discoverability beyond what the layer publishes
 itself.
-
-### Distinguishing the two classes
-
-The dot/no-dot rule makes the two classes syntactically
-distinguishable without consulting the registry: any prefix
-containing a dot is unregistered; any prefix without a dot is
-registered (or invalid, if it's not in the registry).
-
-This lets a loader route prefix resolution efficiently — checking
-the local registry for dotless prefixes, falling back to its
-configured set of supported reverse-DNS prefixes for dotted ones —
-but functionally both classes are handled identically: recognised
-names are honored, unrecognised names cause launch refusal.
 
 ## Extension registry
 
@@ -141,7 +123,7 @@ layer needs to know about, independent of any action.
   "actions": [ ... ],
 
   "registered:platform":    <layer-defined value>,
-  "com.example.bar:config": <layer-defined value>
+  "unregistered:config": <layer-defined value>
 }
 ```
 
@@ -163,7 +145,7 @@ layer wants performed at launch, alongside PMI's own actions.
 
 ```cbor-diag
 {
-  "type": "com.example.bar:provision"
+  "type": "unregistered:provision"
   ; per-action fields the upper layer defines
 }
 ```
@@ -196,7 +178,7 @@ layer-specific.
 {
   "type": "fill",
   ...,
-  "kind": "com.example.bar:<name>"
+  "kind": "unregistered:<name>"
 }
 ```
 
