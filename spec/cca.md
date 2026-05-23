@@ -35,8 +35,9 @@ all cause the VMM to refuse to launch.
 
 ## Parameters
 
-The `cca` target's parameters mapped against PMI's
-[categories](categories.md):
+The following analysis maps the `cca` target's parameters against
+the non-normative [categories framework](categories.md), as
+reference for upper-layer specs reasoning about what flows where:
 
 | Parameter                                          | Category           | Source         | Notes                                                                                                                                |
 | -------------------------------------------------- | ------------------ | -------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
@@ -94,30 +95,25 @@ defined by `vm`, with the following Arm CCA behavior layered on:
 | 3. Update     | `RMI_DATA_CREATE` / `RMI_DATA_CREATE_UNKNOWN` per action | each action in array order; selection by action kind                |
 | 4. Finalize   | `RMI_REALM_ACTIVATE`                   | locks RIM                                                           |
 
-Within each step-4 action's PE section the VMM submits granules from
+Within each step-3 action's PE section the VMM submits granules from
 the lowest GPA to the highest, so RIM extension is deterministic for
 a given action ordering.
 
 ## Realm parameters
 
 Realm parameters are **host-supplied** — the VMM accepts them via
-VMM-defined input (CLI flag, config file, etc.), which is out of
-scope for PMI. These include:
+VMM-defined input (CLI flag, config file, etc.) and passes them to
+`RMI_REALM_CREATE`. PMI does not carry them. The fields and their
+classification under the non-normative categories framework are
+enumerated in [RmiRealmParams bit-by-bit](#rmirealmparams-bit-by-bit)
+above; fields measured into RIM (feature flags, hash algorithm) are
+candidates an upper-layer spec can
+[promote to image identity](categories.md#promotion-via-measured-load)
+via PMI's measured load plus the
+[Extensions](overview.md#extensions) namespace.
 
-- Feature flags (LPA2, SVE vector length, number of breakpoints and
-  watchpoints, etc.), constrained by what `RMI_FEATURES` reports the
-  platform supports.
-- Hash algorithm used for RIM/REM extension.
-- Number of RECs.
-- Realm Personalization Value (RPV) — 64 bytes supplied by the
-  deployer.
-
-The VMM passes these to `RMI_REALM_CREATE`. The features specified
-at realm creation are measured into RIM; the RPV is not measured but
-appears in the Realm Token for verifier inspection.
-
-CCA does not currently define a signed launch identity equivalent to
-SEV's `id-block` / `id-auth`. The PMI image carries no identity
+CCA does not currently define a signed launch identity equivalent
+to SEV's `id-block` / `id-auth`. The PMI image carries no identity
 material; verifiers bind to RIM plus the Realm Token (which
 incorporates the RPV).
 

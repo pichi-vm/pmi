@@ -39,8 +39,9 @@ all cause the VMM to refuse to launch.
 
 ## Parameters
 
-The `sev` target's parameters mapped against PMI's
-[categories](categories.md):
+The following analysis maps the `sev` target's parameters against
+the non-normative [categories framework](categories.md), as
+reference for upper-layer specs reasoning about what flows where:
 
 | Parameter                                  | Category                                                  | Source     | Notes                                                                                                                  |
 | ------------------------------------------ | --------------------------------------------------------- | ---------- | ---------------------------------------------------------------------------------------------------------------------- |
@@ -101,7 +102,7 @@ defined by `vm`, with the following SEV-SNP behavior layered on:
 | 3. Update     | per action kind      | each action in array order; firmware path and `page_type` derive from the action's kind (see per-kind sections below) |
 | 4. Finalize   | `SNP_LAUNCH_FINISH`  | `id.block` + `id.auth` (if `id` is present); `host_data` is deployer-supplied |
 
-Within each step-4 action's PE section the VMM submits pages from the
+Within each step-3 action's PE section the VMM submits pages from the
 lowest GPA to the highest, so the launch digest is deterministic for a
 given action ordering.
 
@@ -126,15 +127,19 @@ policy properties.
 
 ### Measurement scope
 
-Per [Attestation equivalence](overview.md#attestation-equivalence),
-the SEV-SNP launch digest is a deterministic function of the PMI
-image bytes alone: every page that contributes to the digest is named
-by an action in the spec's `actions` array, and within each action's
-PE section the VMM submits pages in GPA order. The host launch policy
-is the only value the SEV-SNP architecture surfaces to the verifier
-that is not part of the launch digest; image authors who require
-policy reproducibility in attestation MUST include the `id` block,
-which binds the host policy under the signed ID key.
+Every page that contributes to the launch digest is named by an
+action in the spec's `actions` array, and within each action's PE
+section the VMM submits pages in GPA order — so the bytes PMI feeds
+to `SNP_LAUNCH_UPDATE` reach the digest in a deterministic order.
+Whether the digest as a whole is a function of the PMI image alone
+depends on what else the launch carries; the only SEV-SNP input
+that surfaces to the verifier without entering the launch digest is
+the host launch policy. Image authors who require policy
+reproducibility in attestation MUST include the `id` block, which
+binds the host policy under the signed ID key.
+
+Upper layers that add their own measured loads via PMI's actions
+participate in the digest on the same deterministic terms.
 
 ## `id` field
 

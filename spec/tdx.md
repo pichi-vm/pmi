@@ -42,8 +42,9 @@ initialization](#boot-vcpu-initialization) below).
 
 ## Parameters
 
-The `tdx` target's parameters mapped against PMI's
-[categories](categories.md):
+The following analysis maps the `tdx` target's parameters against
+the non-normative [categories framework](categories.md), as
+reference for upper-layer specs reasoning about what flows where:
 
 | Parameter                                          | Category           | Source     | Notes                                                                                                                |
 | -------------------------------------------------- | ------------------ | ---------- | -------------------------------------------------------------------------------------------------------------------- |
@@ -52,12 +53,13 @@ The `tdx` target's parameters mapped against PMI's
 
 ### TD_PARAMS
 
-The `TD_PARAMS` structure passed to `KVM_TDX_INIT_VM` is currently
-host-supplied and not represented in PMI. Several of its fields name
-liveness requirements the image depends on, so they classify as
-platform identity and need a PMI carriage mechanism (open work).
-Other fields are deployer-bound (tenant identity) or
-operationally-bound (leftover).
+The `TD_PARAMS` structure passed to `KVM_TDX_INIT_VM` is
+host-supplied; PMI does not carry it. Several of its fields name
+liveness requirements the image depends on (platform identity) and
+will need an upper-layer carriage mechanism via PMI's measured load
+plus the [Extensions](overview.md#extensions) namespace. Other
+fields are deployer-bound (tenant identity) or operationally-bound
+(leftover).
 
 | Field                                              | Category           | Source     | Notes                                                                                                                |
 | -------------------------------------------------- | ------------------ | ---------- | -------------------------------------------------------------------------------------------------------------------- |
@@ -110,7 +112,7 @@ defined by `vm`, with the following Intel TDX behavior layered on:
 | 3. Update     | `KVM_TDX_INIT_MEM_REGION` per action       | each action in array order; `KVM_TDX_MEASURE_MEMORY_REGION` flag set per the action's kind |
 | 4. Finalize   | `KVM_TDX_FINALIZE_VM`                      | locks MRTD                                                            |
 
-Within each step-4 action's PE section the VMM submits pages from the
+Within each step-3 action's PE section the VMM submits pages from the
 lowest GPA to the highest, so MRTD extension is deterministic for a
 given action ordering.
 
@@ -118,12 +120,14 @@ given action ordering.
 
 TD parameters are **host-supplied** — the VMM accepts them via
 VMM-defined input (CLI flag, config file, etc.) and passes them to
-`KVM_TDX_INIT_VM`. The fields and their PMI category mapping are
-enumerated in [TD_PARAMS](#td_params) above. Fields that are
-platform identity (liveness requirements measured into MRTD) need
-to be [promoted to image identity](categories.md#promotion-via-measured-load)
-so the image can declare them; the concrete measured fill kinds are
-open spec work — see [Status](#status).
+`KVM_TDX_INIT_VM`. The fields and their classification under the
+non-normative categories framework are enumerated in
+[TD_PARAMS](#td_params) above. Fields that classify as platform
+identity (liveness requirements measured into MRTD) are candidates
+an upper-layer spec can
+[promote to image identity](categories.md#promotion-via-measured-load)
+via PMI's measured load plus the
+[Extensions](overview.md#extensions) namespace.
 
 ## Boot vCPU initialization
 
@@ -140,9 +144,10 @@ occupies the architectural reset vector, performs vCPU rendezvous,
 and hands off to the kernel. The PMI consumer is loaded as a
 `measured` load action and is therefore part of the launch identity
 (MRTD). Upper layers that need additional reset-vector
-responsibilities (DTB inspection, dtbo merge, consumer validation
-against host-supplied data) layer them onto the PMI consumer via
-the [Extensions](overview.md#extensions) namespace.
+responsibilities — platform-metadata inspection, host-data merge,
+consumer validation against host-supplied bytes — layer them onto
+the PMI consumer via the [Extensions](overview.md#extensions)
+namespace.
 
 This spec describes the consumer's contract but does not mandate an
 implementation. Image authors may use any consumer that satisfies the
@@ -193,8 +198,8 @@ The TDX target binding is a working draft. Open items:
   reset-vector occupation, vCPU rendezvous, lazy memory acceptance,
   MMIO handling via `TDG.VP.VMCALL<#VE.RequestMMIO>`, CPUID page
   consumption, and kernel handoff. Upper-layer responsibilities
-  (DTB inspection, dtbo merge, consumer validation) are layered on
-  top of the base PMI consumer.
+  (platform-metadata inspection, host-data merge, consumer
+  validation) are layered on top of the base PMI consumer.
 - The exact CDDL constraint on PE section `VirtualAddress` for the
   reset-vector-occupying load — whether the spec should mandate the
   architectural reset vector address or leave it to the consumer's

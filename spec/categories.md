@@ -26,7 +26,7 @@ up.
 | Category               | What it is                                                                                                       | Source                                                       | Measured? | In attestation report?      |
 | ---------------------- | ---------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ | --------- | --------------------------- |
 | **Image identity**     | The workload bytes — kernel, initrd, command line, firmware, in-guest stubs                                      | PMI image                                                    | Yes       | Yes (in measurement)        |
-| **Platform identity**  | The hardware *shape* the workload expects — devices, MMIO, IRQ controller, PCIe topology, CC-feature requirements | Upper-layer image declarations                               | Yes       | Yes (in measurement)        |
+| **Platform identity**  | The hardware *shape* the workload expects — devices, MMIO, IRQ controller, PCIe topology, CC-feature requirements | Mostly upper-layer image declarations; PMI carries the firmware-bound parts (boot vCPU state on vm/cca, `vmsa` load on sev) | Yes       | Yes (in measurement)        |
 | **Tenant identity**    | A hash or signature binding a deployment to a tenant — SEV id-block/id-auth, TDX MR\*, CCA RPV                   | PMI image (when tenant is the image author) or runtime input | No        | Yes (separate report field) |
 | **Host identity**      | Host-supplied attestation data naming a host operator — e.g., SEV `HOST_DATA`                                    | Runtime input                                                | No        | Yes (separate report field) |
 | **Deployer policy**    | Operational metadata the verifier checks against policy — SEV-SNP POLICY when no ID block is present             | Runtime input                                                | No        | Yes (separate report field) |
@@ -38,10 +38,15 @@ when image-bound (SEV's `id` block lives in `.pmi.sev`). Host
 identity, deployer policy, and instance accidents are channels PMI
 doesn't carry — vendor APIs deliver them to firmware directly.
 
-Platform identity is the interesting one: it is what an upper layer
-(dillo) defines, declares, and binds. The upper layer carries its
-own DTB and any platform descriptors via PMI's load and fill actions
-plus the [Extensions](overview.md#extensions) namespace.
+Platform identity is split: PMI carries the parts the firmware ABI
+forces into the launch (boot vCPU state on vm/cca, the `vmsa` load
+on sev — these are firmware-bound and have nowhere else to live).
+Everything else — devices, MMIO, IRQ controller, PCIe topology,
+CC-feature requirements — is what an upper layer (e.g., dillo)
+defines, declares, and binds. The upper layer carries its own DTB
+(or equivalent) and any additional platform descriptors via PMI's
+load and fill actions plus the [Extensions](overview.md#extensions)
+namespace.
 
 ## Topological mapping (the trace that informed the split)
 
