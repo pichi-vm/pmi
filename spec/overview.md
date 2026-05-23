@@ -374,3 +374,38 @@ The currently defined targets are:
 CC targets inherit it and describe only their cryptographic deltas.
 A VMM targeting one of them reads the corresponding `.pmi.<target>`
 section — there is no fallback or selection logic beyond that.
+
+## Extensions
+
+PMI is a substrate for upper layers — hypervisors, in-guest stubs,
+image schemas — that want to carry layer-specific data alongside
+PMI's firmware-bound launch recipe. PMI's extensibility surface is
+one rule: a namespacing convention for top-level CBOR map keys and
+for action `kind` values.
+
+- **Unprefixed names** (e.g., `version`, `actions`, `secrets`,
+  `cpuid`) are reserved for PMI itself.
+- **Prefixed names** of the form `<layer>:<name>` (e.g.,
+  `dillo:dtb`, `dillo:dtbo`) belong to the named upper layer.
+- The prefix names the **consumer** (typically a hypervisor or
+  in-guest stub), not the producer. Multiple image tools may emit
+  the same prefix for the same consumer.
+- Loaders MUST reject any top-level key or action `kind` they do
+  not understand. A pure PMI loader presented with `dillo:dtbo`
+  refuses to launch; a `dillo`-aware loader executes it per
+  dillo's spec.
+
+This applies to the existing strict-rejection rule
+([Per-target chapters](#targets) keep their wording unchanged): an
+upper-layer-aware loader is "understanding" the layer's namespace
+by virtue of implementing the layer's spec, so an
+unrecognised-key rejection in a pure PMI loader is correct
+behavior — the loader cannot fulfill the image's contract.
+
+Upper layers may also carry their data in their own PE sections,
+named with the same prefix convention (e.g., `.dillo.<...>`). PE
+section names are file-format-level, not part of PMI's CBOR
+schemas; PMI's only normative role for them is naming the PE
+sections used by PMI's own actions (`.pmi.<target>` for target
+specs, image-author-chosen names for sections referenced by
+actions).
