@@ -21,10 +21,11 @@ The fill action MUST include a `kind` value; there is no default.
 
 ## Kinds
 
-`fill` kinds are defined per-target or by upper-layer extensions.
-This action defines no kinds itself; each kind's contract — what
-the VMM writes into the region and whether the operation
-contributes to measurement — lives in the target chapter that
-defines it (or the upper-layer spec that registers it). See the
-per-target chapters and [Extensions](extensions.md) for the
-namespacing rule.
+PMI itself defines no `fill` kinds. Every `fill` kind is
+namespaced — the kinds the active target itself adds use the
+target name as the prefix (each target is a
+[registered extension](extensions.md#extension-registry)), and
+any further kinds come from other registered or unregistered
+extensions. The per-kind contract — what the VMM writes into the
+region and whether the operation contributes to measurement —
+lives in the spec that defines the kind.

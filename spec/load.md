@@ -15,9 +15,12 @@ load = {
 }
 ```
 
-`load` is extensible through its `kind` field. The field accepts
-any of the unprefixed kinds the active target defines, plus any
-namespaced kind a registered or unregistered extension defines.
+`load` is extensible through its `kind` field. The only unprefixed
+kind PMI itself defines is [`measured`](#default-kind-measured)
+below. Every other kind is namespaced — including the kinds the
+active target itself adds, since each target is a
+[registered extension](extensions.md#extension-registry) and uses
+its target name as the prefix.
 
 ## Section shapes
 

@@ -45,8 +45,9 @@ layer extends this shape without re-specifying it.
 Names that appear in the wire format fall into one of three
 classes:
 
-- **Unprefixed names** (e.g., `version`, `actions`, `secrets`,
-  `cpuid`) are reserved for PMI itself.
+- **Unprefixed names** (e.g., `version`, `actions`, `measured`)
+  are reserved for PMI itself — the spec defines them in its
+  core pages (target shape, `load`, `fill`).
 - **Registered prefixed names** of the form `<layer>:<name>`,
   where `<layer>` appears in the [Extension registry](#extension-registry)
   below.

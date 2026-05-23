@@ -3,9 +3,9 @@
 The `sev` target is built on [`vm`](vm.md): inherits vm's base
 launch model and admits the [`load`](load.md) and
 [`fill`](fill.md) actions with SEV-SNP-specific kinds. It
-replaces vm's [`vcpu`](vm.md#vcpu-field) field with a `vmsa` load
-kind for the BSP register state, and adds an optional `id` field
-for signed launches.
+replaces vm's [`vcpu`](vm.md#vcpu-field) field with a `sev:vmsa`
+load kind for the BSP register state, and adds an optional `id`
+field for signed launches.
 
 ## PE section
 
@@ -137,7 +137,7 @@ The `sev` target admits the [`load`](load.md) and
   VMM implementations MUST NOT substitute data-page operations for
   zero-page operations or vice versa.
 
-- **`vmsa`**: the VMM submits the PE section's 4 KiB contents via
+- **`sev:vmsa`**: the VMM submits the PE section's 4 KiB contents via
   `SNP_LAUNCH_UPDATE` with `PAGE_TYPE_VMSA`. The section's
   contents are the VMPL0 BSP register state at launch, in the
   layout defined by the AMD SEV-SNP firmware ABI. The PSP
@@ -150,7 +150,7 @@ The `sev` target admits the [`load`](load.md) and
 
 `sev` defines two `fill` kinds:
 
-- **`secrets`**: the VMM submits the page via `SNP_LAUNCH_UPDATE`
+- **`sev:secrets`**: the VMM submits the page via `SNP_LAUNCH_UPDATE`
   with `PAGE_TYPE_SECRETS`. No content is supplied; the PSP
   populates the page with platform secrets in encrypted guest
   memory at launch. The referenced PE section MUST have
@@ -158,7 +158,7 @@ The `sev` target admits the [`load`](load.md) and
   digest as a typed page — the GPA and page type are bound, the
   content is not.
 
-- **`cpuid`**: the VMM constructs the CPUID table it wants to
+- **`sev:cpuid`**: the VMM constructs the CPUID table it wants to
   expose to the guest in the layout defined by the AMD SEV-SNP
   firmware ABI, then submits the table via `SNP_LAUNCH_UPDATE`
   with `PAGE_TYPE_CPUID`. The PSP validates each CPUID entry

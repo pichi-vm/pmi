@@ -39,7 +39,7 @@ for the full schema.)
     {"type": "load", "section": ".linux"},
     {"type": "load", "section": ".initrd"},
     {"type": "load", "section": ".cmdline"},
-    {"type": "load", "section": ".sev.vms", "kind": "vmsa"}
+    {"type": "load", "section": ".sev.vms", "kind": "sev:vmsa"}
   ]
 }
 ```
@@ -61,7 +61,7 @@ for the full schema.)
 3. Process actions: `SNP_LAUNCH_UPDATE` with `PAGE_TYPE_NORMAL` for
    `.linux`, `.initrd`, `.cmdline` (default kind `measured`).
    `SNP_LAUNCH_UPDATE` with `PAGE_TYPE_VMSA` for `.sev.vms` (kind
-   `vmsa`).
+   `sev:vmsa`).
 4. `SNP_LAUNCH_FINISH` (no `id` in this example).
 5. Kernel starts.
 
@@ -89,9 +89,9 @@ kinds prefixed `dillo:`). PMI itself does not carry any of those.
     {"type": "load", "section": ".initrd"},
     {"type": "load", "section": ".cmdline"},
     {"type": "load", "section": ".osrel"},
-    {"type": "fill", "section": ".sev.sec", "kind": "secrets"},
-    {"type": "fill", "section": ".sev.cpu", "kind": "cpuid"},
-    {"type": "load", "section": ".sev.vms", "kind": "vmsa"}
+    {"type": "fill", "section": ".sev.sec", "kind": "sev:secrets"},
+    {"type": "fill", "section": ".sev.cpu", "kind": "sev:cpuid"},
+    {"type": "load", "section": ".sev.vms", "kind": "sev:vmsa"}
   ]
 }
 ```
