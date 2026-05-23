@@ -14,6 +14,7 @@ PMI is a working draft. Schemas and semantics may change.
 
 - [Motivation](spec/motivation.md) — Problem and goals
 - [Overview](spec/overview.md) — Architecture and reading guide
+- [Actions](spec/actions.md) — `load` and `fill`, the building blocks of a launch recipe
 - [Extensions](spec/extensions.md) — Common target shape and upper-layer extension points
 
 ### Targets

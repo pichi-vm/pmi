@@ -1,9 +1,9 @@
 # `cca` Target
 
 The `cca` target is the Arm CCA (Confidential Compute Architecture)
-launch path. It is built on [`vm`](vm.md): inherits vm's base launch
-model, extends vm's [`load`](vm.md#load-action) and
-[`fill`](vm.md#fill-action) actions with CCA-specific kinds, and uses
+launch path. It is built on [`vm`](vm.md): inherits vm's base
+launch model and admits the [`load`](actions.md#load) and
+[`fill`](actions.md#fill) actions with CCA-specific kinds. It uses
 a `vcpu` top-level field that the VMM applies as the BSP REC
 parameters via `RMI_REC_CREATE` at step 2.
 
@@ -75,34 +75,25 @@ The BSP REC is created with `runnable = RUNNABLE`. Its parameters
 non-runnable by the VMM (independent of PMI) and brought up at
 runtime by the realm via `PSCI_CPU_ON`.
 
-## `load` action
+## Actions
 
-`cca` extends the [base `load` action](vm.md#load-action) with
-CCA-specific kinds; the default kind is `measured`.
+The `cca` target admits the [`load`](actions.md#load) and
+[`fill`](actions.md#fill) actions defined on the actions page.
 
-### Schema
+### `load`
 
-```cddl
-load = {
-  "type"    => "load",
-  "section" => tstr,                ; PE section name to load
-  ? "kind"  => "measured",  ; default "measured"
-}
-```
+`cca` defines one `load` kind:
 
-### kind `measured`
+- **`measured`** (default): the VMM submits the PE section's
+  granules via `RMI_DATA_CREATE`. The granule content is copied
+  from a non-secure source granule to the destination granule,
+  hashed, and the hash is extended into RIM.
 
-The default kind. The VMM submits the PE section's granules via
-`RMI_DATA_CREATE`. The granule content is copied from a non-secure
-source granule to the destination granule, hashed, and the hash is
-extended into RIM.
+### `fill`
 
-## `fill` action
-
-`cca` defines no fill kinds itself. The [base `fill`
-action](vm.md#fill-action) is available for upper layers to use via
-the [Extensions](extensions.md) namespace (e.g.,
-`dillo:dtbo` for a dillo-managed devicetree overlay).
+`cca` defines no `fill` kinds. Upper layers MAY register their
+own through `fill`'s extension point; see
+[Extensions](extensions.md).
 
 ## Status
 

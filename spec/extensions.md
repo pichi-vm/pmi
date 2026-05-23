@@ -99,18 +99,27 @@ itself.
 The following prefixes are registered with PMI. Each entry links
 to the layer's authoritative spec.
 
-| Prefix | Spec |
-| ------ | ---- |
-| _(none yet)_ | |
+| Prefix  | Spec                          |
+| ------- | ----------------------------- |
+| `vm`    | [spec/vm.md](vm.md) target    |
+| `sev`   | [spec/sev.md](sev.md) target  |
+| `cca`   | [spec/cca.md](cca.md) target  |
+| `tdx`   | [spec/tdx.md](tdx.md) target  |
+
+The four current targets are themselves registered extensions —
+each one owns the `<target>` name in the registry and the
+corresponding `.pmi.<target>` PE section (see the
+[target extension point](#4-new-targets-registered-only) below).
 
 To register a prefix, open an issue or pull request against the
 PMI spec repository with the proposed prefix and a link to the
 layer's spec.
 
-## Three extension points
+## Four extension points
 
-Either class of prefix attaches behavior to a target spec at one
-of three places.
+A prefix attaches behavior to a PMI image at one of four places.
+Points 1–3 work for both registered and unregistered prefixes;
+point 4 is reserved for registered prefixes only.
 
 ### 1. Target attributes (top-level keys)
 
@@ -164,14 +173,14 @@ This is not a generic PMI mechanism — it is a property of specific
 actions whose specs opt into it. The shape of the extension point
 is whatever that action's spec defines.
 
-`fill` is the canonical example. `fill`'s schema declares its
-`kind` field as a free-form text string, explicitly admitting
-namespaced values alongside the kinds the spec enumerates
-(`secrets`, `cpuid`):
+PMI's two built-in actions — [`load`](actions.md#load) and
+[`fill`](actions.md#fill) — both declare their `kind` field as a
+free-form text string, explicitly admitting namespaced values
+alongside the per-target kinds the target chapters enumerate:
 
 ```cbor-diag
 {
-  "type": "fill",
+  "type": "load",
   ...,
   "kind": "registered:<name>"
 }
@@ -185,15 +194,34 @@ namespaced values alongside the kinds the spec enumerates
 }
 ```
 
-The `kind` selector and the per-kind semantics are entirely
-`fill`'s contract; the namespacing rule is what lets upper layers
+The `kind` selector and the per-kind semantics are the action's
+contract; the namespacing rule is what lets upper layers
 participate without colliding.
 
-`load`, by contrast, defines `kind` as a closed enum (per target:
-`unmeasured` on `vm`; `measured` / `vmsa` on `sev`;
-`measured` on `cca` and `tdx`). `load` is not extensible. A layer
-that wants new measurement or loading behavior MUST register a new
-action type (point 2), not attempt to extend `load`.
+Future actions MAY define their own extension points (the same
+`kind`-style pattern, or something entirely different), or none at
+all. The spec defining the action decides.
 
-Future actions MAY follow either pattern: open like `fill`, or
-closed like `load`. The spec defining the action decides.
+### 4. New targets (registered only)
+
+A registered prefix MAY define a new launch target — a new
+`.pmi.<target>` PE section whose schema and launch model the
+registered spec defines.
+
+```
+.pmi.<registered>      ; e.g., .pmi.dillo for a hypothetical
+                       ; registered extension named `dillo`
+```
+
+This extension point is reserved for registered prefixes. PE
+section names starting with `.pmi.` are PMI's namespace; allowing
+unregistered prefixes to claim names there would conflict with
+the rule that loaders refuse images they don't understand and
+muddle the discovery model (loaders look for `.pmi.<target>`
+sections by name).
+
+To define a new target, register the prefix per
+[Extension registry](#extension-registry) and have the spec
+follow the [common target shape](#common-target-shape): a
+CBOR map with `version` and `actions`, plus whatever
+per-target firmware-bound fields the new target needs.

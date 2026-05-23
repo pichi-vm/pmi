@@ -1,9 +1,9 @@
 # `tdx` Target
 
 The `tdx` target is the Intel TDX launch path. It is built on
-[`vm`](vm.md): inherits vm's base launch model and the
-[`load`](vm.md#load-action) / [`fill`](vm.md#fill-action) actions with
-TDX-specific kinds.
+[`vm`](vm.md): inherits vm's base launch model and admits the
+[`load`](actions.md#load) and [`fill`](actions.md#fill) actions
+with TDX-specific kinds.
 
 The image carries an in-TD PMI consumer that takes the role TDVF
 plays in non-PMI TDX guests: it occupies the architectural reset
@@ -94,40 +94,32 @@ implementation. Image authors may use any consumer that satisfies the
 contract; PMI consumers for TDX are expected to be lightweight (much
 smaller than TDVF).
 
-## `load` action
+## Actions
 
-`tdx` extends the [base `load` action](vm.md#load-action) with
-TDX-specific kinds; the default kind is `measured`.
+The `tdx` target admits the [`load`](actions.md#load) and
+[`fill`](actions.md#fill) actions defined on the actions page.
 
-### Schema
+### `load`
 
-```cddl
-load = {
-  "type"    => "load",
-  "section" => tstr,                ; PE section name to load
-  ? "kind"  => "measured",  ; default "measured"
-}
-```
+`tdx` defines one `load` kind:
 
-### kind `measured`
+- **`measured`** (default): the VMM submits the PE section's
+  pages via `KVM_TDX_INIT_MEM_REGION` with the
+  `KVM_TDX_MEASURE_MEMORY_REGION` flag set — `TDH.MEM.PAGE.ADD`
+  followed by `TDH.MR.EXTEND` per 256-byte chunk. Both the GPA
+  and the page content contribute to MRTD.
 
-The default kind. The VMM submits the PE section's pages via
-`KVM_TDX_INIT_MEM_REGION` with the `KVM_TDX_MEASURE_MEMORY_REGION`
-flag set — `TDH.MEM.PAGE.ADD` followed by `TDH.MR.EXTEND` per
-256-byte chunk. Both the GPA and the page content contribute to MRTD.
+### `fill`
 
-## `fill` action
+`tdx` defines no `fill` kinds. Upper layers MAY register their
+own through `fill`'s extension point; see
+[Extensions](extensions.md).
 
-`tdx` defines no fill kinds itself. The [base `fill`
-action](vm.md#fill-action) is available for upper layers to use via
-the [Extensions](extensions.md) namespace (e.g.,
-`dillo:dtbo` for a dillo-managed devicetree overlay).
-
-Note: PMI deliberately does not define a `td-hob` fill kind. The TD
-HOB mechanism is TDVF-specific and would allow the host to supply
-unconstrained platform info to the guest. Upper layers that need
-platform-definition delivery use their own namespaced fill kinds
-with their own consumer-validation rules.
+Note: PMI deliberately does not define a `td-hob` fill kind. The
+TD HOB mechanism is TDVF-specific and would allow the host to
+supply unconstrained platform info to the guest. Upper layers
+that need platform-definition delivery use their own namespaced
+fill kinds with their own consumer-validation rules.
 
 ## Status
 

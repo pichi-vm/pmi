@@ -49,7 +49,8 @@ for the full schema.)
 1. Read `.pmi.vm`.
 2. (No CC init for `vm`.)
 3. Process actions in order: `load` `.linux`, `.initrd`, `.cmdline`
-   (vm's only load kind is `unmeasured`, the default).
+   (default kind `measured`, which on `vm` reduces to plain memory
+   loading since `vm` has no measurement).
 4. Apply the spec's `vcpu` register map to the boot vCPU.
 5. Kernel starts.
 

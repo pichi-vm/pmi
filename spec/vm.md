@@ -41,9 +41,9 @@ A VMM executes the launch in five ordered steps:
    launch if it is absent.
 2. **Target initialize.** No-op.
 3. **Process actions.** Process each entry in the `actions` array in
-   order. Each action's `type` selects [`load`](#load-action) or
-   [`fill`](#fill-action); the `kind` field selects the variant within
-   that type.
+   order. Each action's `type` selects [`load`](actions.md#load) or
+   [`fill`](actions.md#fill); the `kind` field selects the variant
+   within that type.
 4. **Target finalize.** Apply the spec's [`vcpu`](#vcpu-field) register
    map to the boot vCPU.
 5. **Start the guest.**
@@ -54,72 +54,29 @@ operations carry their data and actions through the
 [Extensions](extensions.md) namespace; PMI does not
 mandate those checks.
 
-## `load` action
+## Actions
 
-The `load` action loads a PE section's on-disk bytes into guest memory
-at the section's `VirtualAddress`. The VMM reads `VirtualAddress`,
-`SizeOfRawData`, `VirtualSize`, and `PointerToRawData` from the PE
-section header.
+The `vm` target admits the [`load`](actions.md#load) and
+[`fill`](actions.md#fill) actions defined on the actions page.
 
-### Schema
+### `load`
 
-```cddl
-load = {
-  "type"    => "load",
-  "section" => tstr,                ; PE section name to load
-  ? "kind"  => "unmeasured",        ; vm defines one kind; default "unmeasured"
-}
-```
+`vm` defines one `load` kind:
 
-### Section shapes
+- **`measured`** (default): the VMM places the bytes in guest
+  memory per the section shape. Because `vm` is non-CC, no
+  cryptographic measurement happens — `measured` reduces to a
+  plain load here. The kind name is the universal default; it
+  takes on cryptographic semantics on CC targets.
 
-There are three PE-section shapes:
+Other `load` kinds MAY be introduced by registered or unregistered
+extensions per the [namespacing rule](extensions.md).
 
-1. **Data** (`SizeOfRawData > 0`, `VirtualSize == SizeOfRawData`). Load
-   the on-disk data at `VirtualAddress`. The VMM chooses page granularity
-   based on alignment — see [page granularity](pe.md#page-granularity).
-2. **Padded** (`SizeOfRawData > 0`, `VirtualSize > SizeOfRawData`). Load
-   the on-disk data at `VirtualAddress` as in the Data shape above. Then
-   zero-fill from `VirtualAddress + SizeOfRawData` to
-   `VirtualAddress + VirtualSize`. This is standard PE `.bss`-tail
-   behavior — firmware or service modules that need reserved memory
-   beyond their code use this to express it without file backing.
-3. **Zero** (`SizeOfRawData == 0`, `VirtualSize > 0`). The entire region
-   is zero-filled. No disk data is loaded. This is how reserved memory
-   regions are expressed.
+### `fill`
 
-### kind `unmeasured`
-
-The only load kind vm defines. The VMM places the bytes in guest memory
-per the section shape; no measurement happens (vm is non-CC). This is
-the default kind for vm's load and is omitted from the wire format.
-
-Confidential targets that inherit vm's `load` action layer on
-additional kinds with their own measurement and firmware-API semantics.
-See those targets' bindings.
-
-## `fill` action
-
-The `fill` action populates a reserved GPA range at launch with
-kind-specific content. The PE section MUST be a zero section
-(`SizeOfRawData == 0`, `VirtualSize > 0`) — it reserves the address
-range but carries no on-disk data.
-
-### Schema
-
-```cddl
-fill = {
-  "type"    => "fill",
-  "section" => tstr,                ; zero PE section to populate
-  "kind"    => tstr,                ; kind selector (per-target or namespaced)
-}
-```
-
-The fill action MUST include a `kind` value; there is no default.
-`vm` defines no fill kinds itself; CC targets layer firmware-bound
-kinds on top (see [`sev`](sev.md#fill-action) for `secrets` and
-`cpuid`), and upper layers register their own under the
-[Extensions](extensions.md) namespace.
+`vm` defines no `fill` kinds. Upper layers MAY register their own
+through `fill`'s extension point; see
+[Extensions](extensions.md).
 
 ## `vcpu` field
 

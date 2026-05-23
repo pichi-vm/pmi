@@ -9,7 +9,9 @@ when, they appear in all capitals, as shown here.
 
 This document defines the goals PMI is shaped to meet and the
 methods that meet them. The narrative behind these choices is in
-[Motivation](motivation.md); the per-target bindings are in
+[Motivation](motivation.md); the action mechanism is on the
+[Actions](actions.md) page; the extensibility contract is on the
+[Extensions](extensions.md) page; the per-target bindings are in
 [`vm`](vm.md), [`sev`](sev.md), [`cca`](cca.md), and [`tdx`](tdx.md);
 [Examples](examples.md) walks through concrete images.
 
@@ -183,6 +185,12 @@ The currently defined targets are:
 | [`sev`](sev.md) | `.pmi.sev` | AMD SEV 3.0 (SEV-SNP) confidential VMs      |
 | [`tdx`](tdx.md) | `.pmi.tdx` | Intel TDX confidential VMs (working draft)  |
 | [`cca`](cca.md) | `.pmi.cca` | Arm CCA confidential VMs (working draft)    |
+
+Each target is itself a [registered extension](extensions.md#extension-registry):
+it owns its name in the registry and the corresponding
+`.pmi.<target>` PE section. New targets are added through the
+[target extension point](extensions.md#4-new-targets-registered-only)
+and require registration.
 
 [`vm`](vm.md) defines the [base launch model](vm.md#launch-model);
 CC targets inherit it and describe only their firmware-specific
