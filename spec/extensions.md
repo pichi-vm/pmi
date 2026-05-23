@@ -55,6 +55,45 @@ The same strict-rejection rule that already governs unknown PMI
 keys, types, and kinds handles unknown namespaced names with no
 new mechanism.
 
+### Registered vs unregistered extensions
+
+A `<layer>` prefix falls into one of two classes:
+
+- **Registered.** The prefix appears in PMI's
+  [extension registry](#extension-registry) below, which points at
+  the spec defining that layer. Registered prefixes are short,
+  single-segment names (no dots): `dillo`, `acmecorp`, etc. The
+  registry exists so that registered prefixes do not collide and so
+  that any loader can find the authoritative spec for a prefix it
+  encounters.
+- **Unregistered.** A layer that doesn't want to (or hasn't yet)
+  registered with PMI MUST use a collision-resistant prefix in
+  reverse-DNS form, containing at least one dot:
+  `com.example.foo`, `org.openstack.bar`, `urn.uuid.<uuid>`. The
+  dot is what makes it syntactically distinguishable from a
+  registered prefix; the reverse-DNS convention is what makes it
+  collision-resistant in practice.
+
+A loader MAY use the syntactic distinction to choose where to look
+for a layer's spec — registered prefixes in the PMI registry,
+unregistered prefixes in whatever out-of-band documentation the
+layer maintains — but functionally both classes are handled
+identically: recognised names are honored, unrecognised names cause
+launch refusal.
+
+## Extension registry
+
+The following prefixes are registered with PMI. Each entry MUST
+link to the layer's authoritative spec.
+
+| Prefix | Spec |
+| ------ | ---- |
+| _(none yet)_ | |
+
+Prefixes here MUST be single-segment names without dots. To register
+a prefix, open an issue or pull request against the PMI spec
+repository with the proposed prefix and a link to the layer's spec.
+
 ## Three extension points
 
 An upper layer attaches behavior at one of three places in a target
