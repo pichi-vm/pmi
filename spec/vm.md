@@ -8,6 +8,17 @@ The `.pmi.vm` PE section MUST be non-loaded
 (`IMAGE_SCN_MEM_DISCARDABLE`). If absent, the VMM MUST refuse to
 launch.
 
+### Launch model
+
+The VMM executes the launch in five ordered steps:
+
+1. Read the `.pmi.vm` PE section.
+2. Target initialize. No-op.
+3. Process each entry in `actions` in array order.
+4. Apply [`vm:vcpu`](#new-target-attribute-vmvcpu) to the boot
+   vCPU.
+5. Start the guest.
+
 ### Schema
 
 ```cddl
@@ -29,17 +40,6 @@ The VMM MUST refuse to launch on any of:
 - the same PE section name is referenced by more than one action;
 - two action-referenced PE sections have overlapping
   `[VirtualAddress, VirtualAddress + VirtualSize)` ranges.
-
-### Launch model
-
-The VMM executes the launch in five ordered steps:
-
-1. Read the `.pmi.vm` PE section.
-2. Target initialize. No-op.
-3. Process each entry in `actions` in array order.
-4. Apply [`vm:vcpu`](#new-target-attribute-vmvcpu) to the boot
-   vCPU.
-5. Start the guest.
 
 ### `load`
 
