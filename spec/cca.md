@@ -44,7 +44,6 @@ The `cca` target's parameters mapped against PMI's
 | `dtb` field (base DTB bytes)                       | Platform identity  | PMI image      | Names the [base DTB](dtb.md); host MUST be able to satisfy every declared resource                                                  |
 | `vcpu` field (BSP REC parameters)                  | Platform identity  | PMI image      | Applied at step 3 via `RMI_REC_CREATE`; measured into RIM                                                                            |
 | `load` action (kind `measured`)                    | Image identity     | PMI image      | Granule content submitted via `RMI_DATA_CREATE`; hashed and extended into RIM                                                        |
-| `load` action (kind `unmeasured`)                  | Image identity     | PMI image      | Granule placement image-declared via `RMI_DATA_CREATE_UNKNOWN`; content not transferred and not measured                             |
 | `fill` action (kind `dtbo`)                        | Instance accidents | Runtime        | Host-generated DT overlay; not submitted via `RMI_DATA_CREATE` and does not contribute to RIM                                        |
 
 ### RmiRealmParams bit-by-bit
@@ -148,7 +147,7 @@ CCA-specific kinds; the default kind is `measured`.
 load = {
   "type"    => "load",
   "section" => tstr,                ; PE section name to load
-  ? "kind"  => "measured" / "unmeasured",  ; default "measured"
+  ? "kind"  => "measured",  ; default "measured"
 }
 ```
 
@@ -158,15 +157,6 @@ The default kind. The VMM submits the PE section's granules via
 `RMI_DATA_CREATE`. The granule content is copied from a non-secure
 source granule to the destination granule, hashed, and the hash is
 extended into RIM.
-
-### kind `unmeasured`
-
-The VMM submits the PE section's granules via
-`RMI_DATA_CREATE_UNKNOWN`. The granule is added to the realm as
-uninitialized memory — content is not transferred and the granule is
-not extended into RIM. The PE section SHOULD be a Zero section, since
-on-disk data is not used; if a Data or Padded section is used the
-on-disk bytes are ignored.
 
 ## `fill` action
 
