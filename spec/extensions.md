@@ -49,8 +49,9 @@ classes:
   are reserved for PMI itself — the spec defines them in its
   core pages (target shape, `load`, `fill`).
 - **Registered prefixed names** of the form `<layer>:<name>`,
-  where `<layer>` appears in the [Extension registry](#extension-registry)
-  below.
+  where `<layer>` appears in the
+  [extension registry](../README.md#extensions) at the bottom of
+  the project README.
 - **Unregistered prefixed names** of the form `<layer>:<name>`,
   where `<layer>` is a collision-resistant identifier chosen by
   the layer.
@@ -69,10 +70,10 @@ names with no new mechanism.
 ### Registered extensions
 
 A registered `<layer>` prefix appears in the
-[Extension registry](#extension-registry) below, which points at
-the layer's authoritative spec. The registry exists so registered
-prefixes don't collide and so any loader can find the spec for a
-prefix it encounters.
+[extension registry](../README.md#extensions) (bottom of the
+project README), which points at the layer's authoritative spec.
+The registry exists so registered prefixes don't collide and so
+any loader can find the spec for a prefix it encounters.
 
 A layer becomes registered by opening an issue or pull request
 against the PMI spec repository with the proposed prefix and a
@@ -96,27 +97,6 @@ register. They are first-class — a layer-aware loader honors them
 exactly like registered ones — but PMI does not vouch for them and
 provides no discoverability beyond what the layer publishes
 itself.
-
-## Extension registry
-
-The following prefixes are registered with PMI. Each entry links
-to the layer's authoritative spec.
-
-| Prefix  | Spec                          |
-| ------- | ----------------------------- |
-| `vm`    | [spec/vm.md](vm.md) target    |
-| `sev`   | [spec/sev.md](sev.md) target  |
-| `cca`   | [spec/cca.md](cca.md) target  |
-| `tdx`   | [spec/tdx.md](tdx.md) target  |
-
-The four current targets are themselves registered extensions —
-each one owns the `<target>` name in the registry and the
-corresponding `.pmi.<target>` PE section (see the
-[target extension point](#4-new-targets-registered-only) below).
-
-To register a prefix, open an issue or pull request against the
-PMI spec repository with the proposed prefix and a link to the
-layer's spec.
 
 ## Four extension points
 
@@ -224,7 +204,7 @@ muddle the discovery model (loaders look for `.pmi.<target>`
 sections by name).
 
 To define a new target, register the prefix per
-[Extension registry](#extension-registry) and have the spec
+[extension registry](../README.md#extensions) and have the spec
 follow the [common target shape](#common-target-shape): a
 CBOR map with `version` and `actions`, plus whatever
 per-target firmware-bound fields the new target needs.

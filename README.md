@@ -21,14 +21,25 @@ PMI is a working draft. Schemas and semantics may change.
 - [`load`](spec/load.md) — load a PE section's bytes into guest memory
 - [`fill`](spec/fill.md) — populate a reserved GPA range with kind-specific content
 
-### Targets
-
-- [`vm`](spec/vm.md) — non-CC VMs
-- [`sev`](spec/sev.md) — AMD SEV-SNP
-- [`tdx`](spec/tdx.md) — Intel TDX (draft)
-- [`cca`](spec/cca.md) — Arm CCA (draft)
-
 ### Reference
 
 - [PE constraints](spec/pe.md)
 - [Examples](spec/examples.md) — Concrete CBOR walkthroughs
+
+## Extensions
+
+The following prefixes are registered with PMI. Each one is itself a
+registered extension; together they cover the launch targets PMI
+currently defines.
+
+| Prefix  | Spec                | Description                                |
+| ------- | ------------------- | ------------------------------------------ |
+| `vm`    | [spec/vm.md](spec/vm.md)   | Non-CC virtual machine target              |
+| `sev`   | [spec/sev.md](spec/sev.md) | AMD SEV 3.0 (SEV-SNP) confidential VMs     |
+| `tdx`   | [spec/tdx.md](spec/tdx.md) | Intel TDX confidential VMs (draft)         |
+| `cca`   | [spec/cca.md](spec/cca.md) | Arm CCA confidential VMs (draft)           |
+
+To register a new extension, open an issue or pull request against
+the PMI spec repository with the proposed prefix and a link to its
+spec. See [Extensions](spec/extensions.md) for the registered/
+unregistered distinction and the four extension points.
