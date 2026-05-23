@@ -16,13 +16,11 @@ sections themselves are free-form.
 ```cbor-diag
 {
   "version": 1,
-  "dtb": ".dtb.vm",
   "vcpu": {"rip": 0x100000, "rsp": 0x80000, "rflags": 0x2},
   "actions": [
     {"type": "load", "section": ".linux"},
     {"type": "load", "section": ".initrd"},
-    {"type": "load", "section": ".cmdline"},
-    {"type": "fill", "section": ".dtbo",    "kind": "dtbo"}
+    {"type": "load", "section": ".cmdline"}
   ]
 }
 ```
@@ -37,42 +35,43 @@ for the full schema.)
 ```cbor-diag
 {
   "version": 1,
-  "dtb": ".dtb.sev",
   "actions": [
     {"type": "load", "section": ".linux"},
     {"type": "load", "section": ".initrd"},
     {"type": "load", "section": ".cmdline"},
-    {"type": "fill", "section": ".dtbo",    "kind": "dtbo"},
     {"type": "load", "section": ".sev.vms", "kind": "vmsa"}
   ]
 }
 ```
 
-**`vm` launch (steps 1–6):**
+**`vm` launch (steps 1–5):**
 
 1. Read `.pmi.vm`.
-2. Parse `.dtb.vm`; validate host conformance.
-3. (No CC init for `vm`.)
-4. Process actions in order: `load` `.linux`, `.initrd`, `.cmdline`
-   (vm's only load kind is `unmeasured`, the default). `fill` `.dtbo`
-   with the host-decided memory/cpus/NUMA overlay.
-5. Apply the spec's `vcpu` register map to the boot vCPU.
-6. Kernel starts.
+2. (No CC init for `vm`.)
+3. Process actions in order: `load` `.linux`, `.initrd`, `.cmdline`
+   (vm's only load kind is `unmeasured`, the default).
+4. Apply the spec's `vcpu` register map to the boot vCPU.
+5. Kernel starts.
 
-**`sev` launch (steps 1–6):**
+**`sev` launch (steps 1–5):**
 
 1. Read `.pmi.sev`.
-2. Parse `.dtb.sev`; validate host conformance.
-3. `SNP_LAUNCH_START` with the host-supplied launch policy.
-4. Process actions: `SNP_LAUNCH_UPDATE` with `PAGE_TYPE_NORMAL` for
-   `.linux`, `.initrd`, `.cmdline` (default kind `measured`). `fill`
-   `.dtbo` (kind `dtbo`, bypasses firmware). `SNP_LAUNCH_UPDATE` with
-   `PAGE_TYPE_VMSA` for `.sev.vms` (kind `vmsa`).
-5. `SNP_LAUNCH_FINISH` (no `id` in this example).
-6. Kernel starts.
+2. `SNP_LAUNCH_START` with the host-supplied launch policy.
+3. Process actions: `SNP_LAUNCH_UPDATE` with `PAGE_TYPE_NORMAL` for
+   `.linux`, `.initrd`, `.cmdline` (default kind `measured`).
+   `SNP_LAUNCH_UPDATE` with `PAGE_TYPE_VMSA` for `.sev.vms` (kind
+   `vmsa`).
+4. `SNP_LAUNCH_FINISH` (no `id` in this example).
+5. Kernel starts.
 
 **Bare metal:** UEFI executes the EFI stub in `.linux`. All `.pmi.*` and
 other non-loaded PE sections are ignored. Standard UKI boot.
+
+An upper layer (e.g., dillo) that needs a base DTB, host-filled DT
+overlay, or other platform metadata layers them on via the
+[Extensions](overview.md#extensions) namespace (additional PE
+sections, additional CBOR keys prefixed `dillo:`, additional fill
+kinds prefixed `dillo:`). PMI itself does not carry any of those.
 
 ## Serviced SEV with signed ID block
 
@@ -81,7 +80,6 @@ other non-loaded PE sections are ignored. Standard UKI boot.
 ```cbor-diag
 {
   "version": 1,
-  "dtb": ".dtb.sev",
   "id": {"block": ".sev.idb", "auth": ".sev.ida"},
   "actions": [
     {"type": "load", "section": ".sev.svm"},
@@ -90,7 +88,6 @@ other non-loaded PE sections are ignored. Standard UKI boot.
     {"type": "load", "section": ".initrd"},
     {"type": "load", "section": ".cmdline"},
     {"type": "load", "section": ".osrel"},
-    {"type": "fill", "section": ".dtbo",    "kind": "dtbo"},
     {"type": "fill", "section": ".sev.sec", "kind": "secrets"},
     {"type": "fill", "section": ".sev.cpu", "kind": "cpuid"},
     {"type": "load", "section": ".sev.vms", "kind": "vmsa"}
@@ -101,27 +98,25 @@ other non-loaded PE sections are ignored. Standard UKI boot.
 **SEV launch:**
 
 1. Read `.pmi.sev`.
-2. Parse `.dtb.sev`; validate host conformance.
-3. `SNP_LAUNCH_START` with the host-supplied launch policy, verified
+2. `SNP_LAUNCH_START` with the host-supplied launch policy, verified
    compatible with the policy embedded in the signed `.sev.idb`.
-4. Process actions. `SNP_LAUNCH_UPDATE` with `PAGE_TYPE_NORMAL` for
+3. Process actions. `SNP_LAUNCH_UPDATE` with `PAGE_TYPE_NORMAL` for
    `.sev.svm`, `.ovmf` (default load kind `measured`). Skip
    `.linux`/`.initrd`/`.cmdline`/`.osrel` if doing indirect boot (OVMF
-   boots kernel from disk). `fill` `.dtbo` (kind `dtbo`, bypasses
-   firmware). `SNP_LAUNCH_UPDATE` with `PAGE_TYPE_SECRETS` /
-   `PAGE_TYPE_CPUID` / `PAGE_TYPE_VMSA` for `.sev.sec` / `.sev.cpu` /
-   `.sev.vms`.
-5. `SNP_LAUNCH_FINISH` with `id_block` from `.sev.idb` and `id_auth` from
+   boots kernel from disk). `SNP_LAUNCH_UPDATE` with
+   `PAGE_TYPE_SECRETS` / `PAGE_TYPE_CPUID` / `PAGE_TYPE_VMSA` for
+   `.sev.sec` / `.sev.cpu` / `.sev.vms`.
+4. `SNP_LAUNCH_FINISH` with `id_block` from `.sev.idb` and `id_auth` from
    `.sev.ida`.
-6. SVSM starts at VMPL0, initializes vTPM, creates VMPL1 VMSA for OVMF,
+5. SVSM starts at VMPL0, initializes vTPM, creates VMPL1 VMSA for OVMF,
    transitions OVMF. OVMF boots kernel from disk, measures boot via SVSM
    vTPM.
 
 **Non-CC VM:** the image does not carry a `.pmi.vm` section; a VMM
 targeting `vm` refuses to launch this image.
 
-**Bare metal:** UEFI ignores `.pmi.*` and all `.sev.*`, `.ovmf`, `.dtb.sev`
-sections. EFI stub in `.linux` executes normally.
+**Bare metal:** UEFI ignores `.pmi.*` and all `.sev.*`, `.ovmf` sections.
+EFI stub in `.linux` executes normally.
 
 ## Both `vm` and SEV serviced boot in one image
 
@@ -134,9 +129,6 @@ discover target specs; all other names shown are illustrative.
 | `.linux`   | Yes (via stub)  | Kernel                                     |
 | `.initrd`  | Yes (via stub)  | Initial ramdisk                            |
 | `.cmdline` | Yes (via stub)  | Kernel command line                        |
-| `.dtb.vm`  | No              | Base DTB used by the `vm` spec             |
-| `.dtb.sev` | No              | Base DTB used by the `sev` spec            |
-| `.dtbo`    | No              | Host-filled DTB overlay (memory/cpus/numa) |
 | `.ovmf`    | No              | Guest firmware                             |
 | `.sev.svm` | No              | SVSM service module                        |
 | `.sev.vms` | No              | SEV VMSA register state                    |
@@ -150,8 +142,8 @@ discover target specs; all other names shown are illustrative.
 On bare metal, UEFI executes the EFI stub, which boots the kernel from
 `.linux`. All `.pmi.*` and other non-loaded PE sections are ignored.
 
-A VMM targeting `vm` reads `.pmi.vm`, inspects its `dtb`, validates
-conformance, processes its actions, and starts the guest.
+A VMM targeting `vm` reads `.pmi.vm`, processes its actions, and starts
+the guest.
 
 A VMM targeting `sev` reads `.pmi.sev`. Its actions drive the SEV-SNP
 launch APIs (`SNP_LAUNCH_START`, `SNP_LAUNCH_UPDATE`,

@@ -2,8 +2,11 @@
 
 PMI (Portable Machine Image) is a format for low-level virtual machine
 images. One PE binary describes how to launch on bare metal, in a non-CC VM,
-and in a confidential VM across multiple CC targets. The image declares the
-platform layout it requires; the VMM conforms or refuses to launch.
+and in a confidential VM across multiple CC targets. PMI is a narrow
+substrate: a PE container, per-target CBOR launch recipes, and an action
+mechanism that drives the firmware ABIs each target exposes. Platform
+semantics, attestation policy, and host-conformance live in upper-layer
+specs (e.g., dillo) that build on top of PMI.
 
 PMI is a working draft. Schemas and semantics may change.
 
@@ -11,7 +14,7 @@ PMI is a working draft. Schemas and semantics may change.
 
 - [Motivation](spec/motivation.md) — Problem and goals
 - [Overview](spec/overview.md) — Architecture and reading guide
-- [Categories](spec/categories.md) — The six data categories and the topological mapping
+- [Categories](spec/categories.md) — Non-normative design rationale
 
 ### Targets
 
@@ -23,5 +26,4 @@ PMI is a working draft. Schemas and semantics may change.
 ### Reference
 
 - [PE constraints](spec/pe.md)
-- [Base DTB](spec/dtb.md)
 - [Examples](spec/examples.md) — Concrete CBOR walkthroughs

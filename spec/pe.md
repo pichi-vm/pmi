@@ -78,8 +78,10 @@ by strict PE loaders outside the PMI consumption path.
 
 The active target spec is authoritative for what the VMM does with each PE
 section. The spec's `actions` array determines what the VMM loads into guest
-memory or feeds to the target's launch APIs; its `dtb` field names the PE
-section the VMM inspects without loading it into guest memory.
+memory or feeds to the target's launch APIs. Upper layers may add their own
+extension keys (per [Extensions](overview.md#extensions)) that reference
+additional PE sections; the same authoritativeness rule applies to them
+under the layer's own spec.
 
 PE section flags such as `IMAGE_SCN_MEM_DISCARDABLE` govern only UEFI/PE
 loader behavior — they signal to non-PMI loaders that a section should be

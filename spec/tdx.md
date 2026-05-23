@@ -91,16 +91,13 @@ value) with deployer operational choices (leftover).
 | Others | RESERVED       | N/A                     | Architecturally MBZ or vendor-reserved                                                               |
 
 Because `ATTRIBUTES` is measured into MRTD, the value the host
-supplies is bound into the launch measurement. For
-[attestation equivalence](overview.md#attestation-equivalence) two
-conformant VMMs running the same PMI image must produce the same
-MRTD, which means the same `ATTRIBUTES` value — including its
-leftover bits. PMI's path to close this gap is to
-[promote `ATTRIBUTES` to image identity](categories.md#promoting-to-image-identity)
-via a measured fill: the image declares the expected value in a PE
-section, the VMM submits exactly those bytes to `KVM_TDX_INIT_VM`,
-and a VMM that substitutes a different value diverges MRTD. The
-concrete measured fill kind is open spec work.
+supplies is bound into the launch measurement. An upper-layer spec
+(e.g., dillo) that wants two conformant VMMs running the same image
+to produce the same MRTD must declare the expected `ATTRIBUTES`
+value in a measured PE section and require the VMM to submit those
+exact bytes to `KVM_TDX_INIT_VM`. See
+[Promotion via measured load](categories.md#promotion-via-measured-load)
+in the design rationale.
 
 ## Launch model
 
