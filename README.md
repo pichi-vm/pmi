@@ -11,6 +11,7 @@ PMI is a working draft. Schemas and semantics may change.
 
 - [Motivation](spec/motivation.md) — Problem and goals
 - [Overview](spec/overview.md) — Architecture and reading guide
+- [Categories](spec/categories.md) — The six data categories and the topological mapping
 
 ### Targets
 
