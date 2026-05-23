@@ -2,7 +2,7 @@
 
 **Registered prefix:** `vm`.
 
-## Target: `.pmi.vm`
+## New target: `.pmi.vm`
 
 The `.pmi.vm` PE section MUST be non-loaded
 (`IMAGE_SCN_MEM_DISCARDABLE`). If absent, the VMM MUST refuse to
@@ -14,10 +14,8 @@ launch.
 .pmi.vm = {
   "version"   => uint,                       ; schema version (1)
   "vm:vcpu"   => vcpu-x64 / vcpu-aarch64,    ; selected by PE.FileHeader.Machine
-  "actions"   => [+ vm-action],
+  "actions"   => [+ action],
 }
-
-vm-action = load / fill
 ```
 
 The VMM MUST refuse to launch on any of:
@@ -32,35 +30,30 @@ The VMM MUST refuse to launch on any of:
 - two action-referenced PE sections have overlapping
   `[VirtualAddress, VirtualAddress + VirtualSize)` ranges.
 
-## Launch model
+### Launch model
 
 The VMM executes the launch in five ordered steps:
 
 1. Read the `.pmi.vm` PE section.
 2. Target initialize. No-op.
 3. Process each entry in `actions` in array order.
-4. Apply [`vm:vcpu`](#vmvcpu) to the boot vCPU.
+4. Apply [`vm:vcpu`](#new-target-attribute-vmvcpu) to the boot
+   vCPU.
 5. Start the guest.
-
-## Action kinds
 
 ### `load`
 
-`vm` defines no `load` kinds beyond [`measured`](load.md). On
-`vm`, `measured` places the section's bytes in guest memory per
+On `vm`, the [`measured`](load.md#default-kind-measured) kind
+places the section's bytes in guest memory per
 [section shape](load.md#section-shapes); no measurement is
 performed.
 
-### `fill`
-
-`vm` defines no `fill` kinds.
-
-## `vm:vcpu`
+## New target attribute: `vm:vcpu`
 
 `vm:vcpu` is a CBOR map of boot-vCPU register values applied at
-launch step 4. The schema is selected by
-`PE.FileHeader.Machine`: [`vcpu-x64`](#vcpu-x64) for `0x8664`,
-[`vcpu-aarch64`](#vcpu-aarch64) for `0xAA64`.
+launch step 4. The schema is selected by `PE.FileHeader.Machine`:
+[`vcpu-x64`](#vcpu-x64) for `0x8664`, [`vcpu-aarch64`](#vcpu-aarch64)
+for `0xAA64`.
 
 Missing keys default to zero except where noted. The VMM MUST
 reject any unknown key. The VMM MUST reject any value exceeding
