@@ -57,7 +57,7 @@ The `sev` target's parameters mapped against PMI's
 
 The 64-bit POLICY field passed to `SNP_LAUNCH_START` is host-supplied
 in its entirety. Every bit is
-[**deployer policy**](categories.md#deployer-policy): the field
+[**deployer policy**](categories.md#the-categories): the field
 surfaces in the attestation report as a separate value, is not
 measured into the launch digest, and is consumed by a verifier-side
 policy check.
@@ -68,7 +68,7 @@ verifies the runtime POLICY matches the ID-bound POLICY and verifies
 the ID auth signature. In that configuration the POLICY bits derive
 cryptographic binding from the signed wrapping (which is **tenant
 identity**) — see topology **B** in
-[topological mapping of leftover](categories.md#topological-mapping-of-leftover).
+[topological mapping of leftover](categories.md#topological-mapping-the-trace-that-informed-the-split).
 
 | Bits  | Name                           | Category        | Notes                                                                                  |
 | ----- | ------------------------------ | --------------- | -------------------------------------------------------------------------------------- |
@@ -97,9 +97,9 @@ defined by `vm`, with the following SEV-SNP behavior layered on:
 
 | Step          | API                  | Inputs                                                              |
 | ------------- | -------------------- | ------------------------------------------------------------------- |
-| 3. Initialize | `SNP_LAUNCH_START`   | host-supplied launch policy (see [Launch policy](#launch-policy))   |
-| 4. Update     | per action kind      | each action in array order; firmware path and `page_type` derive from the action's kind (see per-kind sections below) |
-| 5. Finalize   | `SNP_LAUNCH_FINISH`  | `id.block` + `id.auth` (if `id` is present); `host_data` is deployer-supplied |
+| 2. Initialize | `SNP_LAUNCH_START`   | host-supplied launch policy (see [Launch policy](#launch-policy))   |
+| 3. Update     | per action kind      | each action in array order; firmware path and `page_type` derive from the action's kind (see per-kind sections below) |
+| 4. Finalize   | `SNP_LAUNCH_FINISH`  | `id.block` + `id.auth` (if `id` is present); `host_data` is deployer-supplied |
 
 Within each step-4 action's PE section the VMM submits pages from the
 lowest GPA to the highest, so the launch digest is deterministic for a
@@ -149,7 +149,7 @@ id = {
 ```
 
 The VMM passes the two sections to `SNP_LAUNCH_FINISH` as `id_block`
-and `id_auth` at step 5.
+and `id_auth` at step 4.
 
 Both PE sections MUST be non-loaded (`IMAGE_SCN_MEM_DISCARDABLE`):
 

@@ -5,7 +5,7 @@ launch path. It is built on [`vm`](vm.md): inherits vm's base launch
 model, extends vm's [`load`](vm.md#load-action) and
 [`fill`](vm.md#fill-action) actions with CCA-specific kinds, and uses
 a `vcpu` top-level field that the VMM applies as the BSP REC
-parameters via `RMI_REC_CREATE` at step 3.
+parameters via `RMI_REC_CREATE` at step 2.
 
 ## PE section
 
@@ -40,7 +40,7 @@ The `cca` target's parameters mapped against PMI's
 
 | Parameter                                          | Category           | Source         | Notes                                                                                                                                |
 | -------------------------------------------------- | ------------------ | -------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| `vcpu` field (BSP REC parameters)                  | Platform identity  | PMI image      | Applied at step 3 via `RMI_REC_CREATE`; measured into RIM                                                                            |
+| `vcpu` field (BSP REC parameters)                  | Platform identity  | PMI image      | Applied at step 2 via `RMI_REC_CREATE`; measured into RIM                                                                            |
 | `load` action (kind `measured`)                    | Image identity     | PMI image      | Granule content submitted via `RMI_DATA_CREATE`; hashed and extended into RIM                                                        |
 
 ### RmiRealmParams bit-by-bit
@@ -50,7 +50,7 @@ identity (liveness requirements measured into RIM), tenant identity
 (the deployer-supplied RPV), and instance accidents (per-deployment
 sizing). Today they are host-supplied via VMM-defined input; the
 platform-identity fields need to be
-[promoted to image identity](categories.md#promoting-to-image-identity)
+[promoted to image identity](categories.md#promotion-via-measured-load)
 so the image can declare them and a VMM that substitutes a different
 value diverges RIM. The concrete measured fill kinds are open spec
 work — see [Status](#status).
@@ -90,9 +90,9 @@ defined by `vm`, with the following Arm CCA behavior layered on:
 
 | Step          | API                                    | Inputs                                                              |
 | ------------- | -------------------------------------- | ------------------------------------------------------------------- |
-| 3. Initialize | `RMI_REALM_CREATE` then `RMI_REC_CREATE` (BSP) | host-supplied realm parameters; spec's `vcpu` field for the BSP REC |
-| 4. Update     | `RMI_DATA_CREATE` / `RMI_DATA_CREATE_UNKNOWN` per action | each action in array order; selection by action kind                |
-| 5. Finalize   | `RMI_REALM_ACTIVATE`                   | locks RIM                                                           |
+| 2. Initialize | `RMI_REALM_CREATE` then `RMI_REC_CREATE` (BSP) | host-supplied realm parameters; spec's `vcpu` field for the BSP REC |
+| 3. Update     | `RMI_DATA_CREATE` / `RMI_DATA_CREATE_UNKNOWN` per action | each action in array order; selection by action kind                |
+| 4. Finalize   | `RMI_REALM_ACTIVATE`                   | locks RIM                                                           |
 
 Within each step-4 action's PE section the VMM submits granules from
 the lowest GPA to the highest, so RIM extension is deterministic for
@@ -124,7 +124,7 @@ incorporates the RPV).
 ## `vcpu` field
 
 The `vcpu` field carries the BSP REC parameters the VMM applies at
-step 3 via `RMI_REC_CREATE`. The schema is vm's
+step 2 via `RMI_REC_CREATE`. The schema is vm's
 [`vcpu-aarch64`](vm.md#vcpu-aarch64); CCA is aarch64 only.
 
 The BSP REC is created with `runnable = RUNNABLE`. Its parameters
@@ -172,7 +172,7 @@ The CCA target binding is a working draft. Open items:
   which RMM 1.0-rel0 includes in RIM only when set).
 - Auxiliary REC granules (count returned by `RMI_REC_AUX_COUNT`):
   per-platform and per-realm, allocated by the VMM. These are
-  [instance accidents](overview.md#categories) — runtime
+  [instance accidents](categories.md#the-categories) — runtime
   allocator output — and by design out of PMI's bindings.
 - REM (Realm Extensible Measurement) initial state: REMs are
   runtime-extended by the realm; whether the spec needs image-side

@@ -127,7 +127,7 @@ The `vcpu` field carries a CBOR-encoded map of register values for the
 boot vCPU, inline in the target spec. The VMM looks up each key in the
 architecture-specific schema selected by the PE header's
 `FileHeader.Machine` field, and applies the corresponding values to the
-boot vCPU at step 5 (finalize) before starting the guest. Other vCPUs
+boot vCPU at step 4 (finalize) before starting the guest. Other vCPUs
 start in their architecture-defined reset state; the boot vCPU is
 responsible for bringing them up.
 

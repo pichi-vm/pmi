@@ -80,10 +80,10 @@ value) with deployer operational choices (leftover).
 
 | Bit  | Name             | Category                | Notes                                                                                                |
 | ---- | ---------------- | ----------------------- | ---------------------------------------------------------------------------------------------------- |
-| 0    | DEBUG            | Measured leftover (topology A) | Operationally a deployer choice, but bound into MRTD by TDX; needs [promotion](categories.md#promoting-to-image-identity) |
+| 0    | DEBUG            | Measured leftover (topology A) | Operationally a deployer choice, but bound into MRTD by TDX; needs [promotion](categories.md#promotion-via-measured-load) |
 | 27   | LASS             | Platform identity       | Linear Address Space Separation; image's use of LASS is gated on this bit                            |
 | 28   | SEPT_VE_DISABLE | Platform identity       | Disables #VE on pending Secure-EPT violations; the image's lazy-acceptance and #VE handling depend on this bit's value |
-| 29   | MIGRATABLE       | Measured leftover (topology A) | Operationally a deployer choice, but bound into MRTD by TDX; needs [promotion](categories.md#promoting-to-image-identity) |
+| 29   | MIGRATABLE       | Measured leftover (topology A) | Operationally a deployer choice, but bound into MRTD by TDX; needs [promotion](categories.md#promotion-via-measured-load) |
 | 30   | PKS              | Platform identity       | Protection Keys for Supervisor; liveness requirement when the image uses PKS                         |
 | 31   | KL               | Platform identity       | Key Locker; liveness requirement when the image uses Key Locker instructions                         |
 | 62   | TPA              | Platform identity       | TD Partitioning Architecture; liveness requirement when the image relies on partitioning             |
@@ -106,9 +106,9 @@ defined by `vm`, with the following Intel TDX behavior layered on:
 
 | Step          | API                                       | Inputs                                                                |
 | ------------- | ----------------------------------------- | --------------------------------------------------------------------- |
-| 3. Initialize | `KVM_TDX_INIT_VM` then `KVM_TDX_INIT_VCPU` | host-supplied TD parameters                                            |
-| 4. Update     | `KVM_TDX_INIT_MEM_REGION` per action       | each action in array order; `KVM_TDX_MEASURE_MEMORY_REGION` flag set per the action's kind |
-| 5. Finalize   | `KVM_TDX_FINALIZE_VM`                      | locks MRTD                                                            |
+| 2. Initialize | `KVM_TDX_INIT_VM` then `KVM_TDX_INIT_VCPU` | host-supplied TD parameters                                            |
+| 3. Update     | `KVM_TDX_INIT_MEM_REGION` per action       | each action in array order; `KVM_TDX_MEASURE_MEMORY_REGION` flag set per the action's kind |
+| 4. Finalize   | `KVM_TDX_FINALIZE_VM`                      | locks MRTD                                                            |
 
 Within each step-4 action's PE section the VMM submits pages from the
 lowest GPA to the highest, so MRTD extension is deterministic for a
@@ -121,7 +121,7 @@ VMM-defined input (CLI flag, config file, etc.) and passes them to
 `KVM_TDX_INIT_VM`. The fields and their PMI category mapping are
 enumerated in [TD_PARAMS](#td_params) above. Fields that are
 platform identity (liveness requirements measured into MRTD) need
-to be [promoted to image identity](categories.md#promoting-to-image-identity)
+to be [promoted to image identity](categories.md#promotion-via-measured-load)
 so the image can declare them; the concrete measured fill kinds are
 open spec work — see [Status](#status).
 
