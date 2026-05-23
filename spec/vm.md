@@ -9,10 +9,10 @@ exercises three of the [four extension points](extensions.md#four-extension-poin
 
 | Extension point                | What `vm` adds                                                                 |
 | ------------------------------ | ------------------------------------------------------------------------------ |
-| 1. Target attributes           | [`vm:vcpu`](#vmvcpu) — boot vCPU register map                                  |
-| 2. New actions                 | none                                                                           |
-| 3. Action-defined extensions   | no new kinds for `load` or `fill`                                              |
-| 4. New target                  | `.pmi.vm` — the vm target                                                      |
+| 1. New target                  | `.pmi.vm` — the vm target                                                      |
+| 2. Target attributes           | [`vm:vcpu`](#vmvcpu) — boot vCPU register map                                  |
+| 3. New actions                 | none                                                                           |
+| 4. Action-defined extensions   | no new kinds for `load` or `fill`                                              |
 
 ## Target: `.pmi.vm`
 

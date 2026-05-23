@@ -45,12 +45,7 @@ There are three PE-section shapes:
 
 The default kind for `load` is `measured`. If `kind` is omitted,
 `measured` is assumed. Each target defines what `measured` means
-for that target's launch — typically "perform the target's
-standard measured-load operation against the firmware ABI." On
-the non-CC `vm` target `measured` reduces to placing the bytes in
-guest memory with no measurement step (vm has none).
-
-The per-target chapter is authoritative for the exact firmware
-sequence each kind drives. The action's contract here is the wire
-format: declare `load` with a section and an optional kind; the
-active target binds it to its native ABI.
+for that target's launch; the per-target chapter is authoritative.
+The action's contract here is the wire format: declare `load`
+with a section and an optional kind; the active target binds it to
+its native ABI.

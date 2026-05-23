@@ -190,7 +190,7 @@ The currently defined targets are:
 Each target is itself a [registered extension](extensions.md#extension-registry):
 it owns its name in the registry and the corresponding
 `.pmi.<target>` PE section. New targets are added through the
-[target extension point](extensions.md#4-new-targets-registered-only)
+[target extension point](extensions.md#1-new-targets-registered-only)
 and require registration.
 
 [`vm`](vm.md) defines the [base launch model](vm.md#launch-model);

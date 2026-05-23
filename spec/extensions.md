@@ -101,10 +101,34 @@ itself.
 ## Four extension points
 
 A prefix attaches behavior to a PMI image at one of four places.
-Points 1–3 work for both registered and unregistered prefixes;
-point 4 is reserved for registered prefixes only.
+Point 1 is reserved for registered prefixes only; points 2–4 work
+for both registered and unregistered prefixes.
 
-### 1. Target attributes (top-level keys)
+### 1. New targets (registered only)
+
+A registered prefix MAY define a new launch target — a new
+`.pmi.<target>` PE section whose schema and launch model the
+registered spec defines.
+
+```
+.pmi.<registered>      ; e.g., .pmi.dillo for a hypothetical
+                       ; registered extension named `dillo`
+```
+
+This extension point is reserved for registered prefixes. PE
+section names starting with `.pmi.` are PMI's namespace; allowing
+unregistered prefixes to claim names there would conflict with
+the rule that loaders refuse images they don't understand and
+muddle the discovery model (loaders look for `.pmi.<target>`
+sections by name).
+
+To define a new target, register the prefix per
+[extension registry](../README.md#extensions) and have the spec
+follow the [common target shape](#common-target-shape): a CBOR
+map with `version` and `actions`, plus whatever per-target
+firmware-bound fields the new target needs.
+
+### 2. Target attributes (top-level keys)
 
 A namespaced top-level CBOR key adds a piece of metadata the upper
 layer needs to know about, independent of any action.
@@ -114,8 +138,8 @@ layer needs to know about, independent of any action.
   "version": 1,
   "actions": [ ... ],
 
-  "registered:platform":    <layer-defined value>,
-  "unregistered:config": <layer-defined value>
+  "registered:platform":  <layer-defined value>,
+  "unregistered:config":  <layer-defined value>
 }
 ```
 
@@ -123,7 +147,7 @@ The value can be any CBOR type the upper layer specifies. PMI
 ignores everything under a prefix it doesn't own; a layer-aware
 loader reads its own `<layer>:*` keys per the layer's spec.
 
-### 2. New actions
+### 3. New actions
 
 A namespaced `type` value adds a new kind of operation the upper
 layer wants performed at launch, alongside PMI's own actions.
@@ -149,7 +173,7 @@ it chooses its own fields and defines what the action does — what
 the VMM submits, what firmware or VMM calls happen, what
 measurement (if any) the operation contributes to.
 
-### 3. Action-defined extension points
+### 4. Action-defined extension points
 
 An individual action's schema may declare its own extension point.
 This is not a generic PMI mechanism — it is a property of specific
@@ -184,27 +208,3 @@ participate without colliding.
 Future actions MAY define their own extension points (the same
 `kind`-style pattern, or something entirely different), or none at
 all. The spec defining the action decides.
-
-### 4. New targets (registered only)
-
-A registered prefix MAY define a new launch target — a new
-`.pmi.<target>` PE section whose schema and launch model the
-registered spec defines.
-
-```
-.pmi.<registered>      ; e.g., .pmi.dillo for a hypothetical
-                       ; registered extension named `dillo`
-```
-
-This extension point is reserved for registered prefixes. PE
-section names starting with `.pmi.` are PMI's namespace; allowing
-unregistered prefixes to claim names there would conflict with
-the rule that loaders refuse images they don't understand and
-muddle the discovery model (loaders look for `.pmi.<target>`
-sections by name).
-
-To define a new target, register the prefix per
-[extension registry](../README.md#extensions) and have the spec
-follow the [common target shape](#common-target-shape): a
-CBOR map with `version` and `actions`, plus whatever
-per-target firmware-bound fields the new target needs.
