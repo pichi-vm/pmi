@@ -157,14 +157,17 @@ it chooses its own fields and defines what the action does — what
 the VMM submits, what firmware or VMM calls happen, what
 measurement (if any) the operation contributes to.
 
-### 3. Action customization (per-action kind)
+### 3. Action-defined extension points
 
-For actions whose schema has a `kind` field — `load`, `fill`, and
-future actions following the same pattern — a namespaced `kind`
-value adds a new variant of that action without inventing a new
-action type. This is the natural extension point for behavior that
-fits an existing action's structure but means something
-layer-specific.
+An individual action's schema may declare its own extension point.
+This is not a generic PMI mechanism — it is a property of specific
+actions whose specs opt into it. The shape of the extension point
+is whatever that action's spec defines.
+
+`fill` is the canonical example. `fill`'s schema declares its
+`kind` field as a free-form text string, explicitly admitting
+namespaced values alongside the kinds the spec enumerates
+(`secrets`, `cpuid`):
 
 ```cbor-diag
 {
@@ -182,11 +185,15 @@ layer-specific.
 }
 ```
 
-`fill` is the canonical example: its `kind` field selects between
-firmware-bound operations PMI defines (`secrets`, `cpuid`) and
-namespaced kinds upper layers register or define out-of-band. The
-`kind` selector is PMI's mechanism; the per-kind semantics are the
-upper layer's spec.
+The `kind` selector and the per-kind semantics are entirely
+`fill`'s contract; the namespacing rule is what lets upper layers
+participate without colliding.
 
-`load` admits the same pattern, though PMI's own load kinds today
-(`measured`, `unmeasured`, `vmsa`) cover the firmware-bound cases.
+`load`, by contrast, defines `kind` as a closed enum (per target:
+`unmeasured` on `vm`; `measured` / `vmsa` on `sev`;
+`measured` on `cca` and `tdx`). `load` is not extensible. A layer
+that wants new measurement or loading behavior MUST register a new
+action type (point 2), not attempt to extend `load`.
+
+Future actions MAY follow either pattern: open like `fill`, or
+closed like `load`. The spec defining the action decides.
