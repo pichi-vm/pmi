@@ -40,67 +40,6 @@ There is no `vcpu` field: TDX vCPU initial register state is set by
 the TDX module per the TDX architecture (see [Boot vCPU
 initialization](#boot-vcpu-initialization) below).
 
-## Parameters
-
-The following analysis maps the `tdx` target's parameters against
-the non-normative [categories framework](categories.md), as
-reference for upper-layer specs reasoning about what flows where:
-
-| Parameter                                          | Category           | Source     | Notes                                                                                                                |
-| -------------------------------------------------- | ------------------ | ---------- | -------------------------------------------------------------------------------------------------------------------- |
-| `load` action (kind `measured`)                    | Image identity     | PMI image  | Page bytes contribute to MRTD via `TDH.MR.EXTEND`; the PMI consumer (reset-vector occupant) is itself a measured load |
-| EPTP controls                                      | Instance accidents | Runtime    | VMM-internal; not visible to the guest as hardware shape                                                             |
-
-### TD_PARAMS
-
-The `TD_PARAMS` structure passed to `KVM_TDX_INIT_VM` is
-host-supplied; PMI does not carry it. Several of its fields name
-liveness requirements the image depends on (platform identity) and
-will need an upper-layer carriage mechanism via PMI's measured load
-plus the [Extensions](overview.md#extensions) namespace. Other
-fields are deployer-bound (tenant identity) or operationally-bound
-(leftover).
-
-| Field                                              | Category           | Source     | Notes                                                                                                                |
-| -------------------------------------------------- | ------------------ | ---------- | -------------------------------------------------------------------------------------------------------------------- |
-| `ATTRIBUTES` (see [bit-by-bit](#attributes-bit-by-bit)) | (mixed)            | Runtime    | Measured into MRTD; bits split between platform identity and leftover                                                |
-| `XFAM` (extended-feature mask)                     | Platform identity  | Runtime    | Authorizes XCR0/XSS bits the TD may set; enabled bits are liveness requirements (the image uses SVE/AVX/etc.)        |
-| CPUID configuration                                | (mixed)            | Runtime    | TDX-module validated against the actual processor; image-relevant bits are platform identity, host-curated bits are leftover (analogous to [SEV `cpuid`](sev.md#kind-cpuid)) |
-| `MRCONFIGID` (48 bytes)                            | Tenant identity    | Runtime    | Not measured into MRTD; surfaced in TDREPORT                                                                          |
-| `MROWNER` (48 bytes)                               | Tenant identity    | Runtime    | Not measured into MRTD; surfaced in TDREPORT                                                                          |
-| `MROWNERCONFIG` (48 bytes)                         | Tenant identity    | Runtime    | Not measured into MRTD; surfaced in TDREPORT                                                                          |
-
-There is no signed launch identity equivalent to SEV's `id` block and
-no host-identity channel equivalent to SEV's `HOST_DATA`.
-
-### ATTRIBUTES bit-by-bit
-
-The 64-bit `ATTRIBUTES` field passed to `KVM_TDX_INIT_VM` is
-measured into MRTD and mixes liveness requirements (platform
-identity — the image won't run correctly without the bit's named
-value) with deployer operational choices (leftover).
-
-| Bit  | Name             | Category                | Notes                                                                                                |
-| ---- | ---------------- | ----------------------- | ---------------------------------------------------------------------------------------------------- |
-| 0    | DEBUG            | Measured leftover (topology A) | Operationally a deployer choice, but bound into MRTD by TDX; needs [promotion](categories.md#promotion-via-measured-load) |
-| 27   | LASS             | Platform identity       | Linear Address Space Separation; image's use of LASS is gated on this bit                            |
-| 28   | SEPT_VE_DISABLE | Platform identity       | Disables #VE on pending Secure-EPT violations; the image's lazy-acceptance and #VE handling depend on this bit's value |
-| 29   | MIGRATABLE       | Measured leftover (topology A) | Operationally a deployer choice, but bound into MRTD by TDX; needs [promotion](categories.md#promotion-via-measured-load) |
-| 30   | PKS              | Platform identity       | Protection Keys for Supervisor; liveness requirement when the image uses PKS                         |
-| 31   | KL               | Platform identity       | Key Locker; liveness requirement when the image uses Key Locker instructions                         |
-| 62   | TPA              | Platform identity       | TD Partitioning Architecture; liveness requirement when the image relies on partitioning             |
-| 63   | PERFMON          | Platform identity       | Performance Monitoring; liveness requirement when the image uses PMU                                 |
-| Others | RESERVED       | N/A                     | Architecturally MBZ or vendor-reserved                                                               |
-
-Because `ATTRIBUTES` is measured into MRTD, the value the host
-supplies is bound into the launch measurement. An upper-layer spec
-(e.g., dillo) that wants two conformant VMMs running the same image
-to produce the same MRTD must declare the expected `ATTRIBUTES`
-value in a measured PE section and require the VMM to submit those
-exact bytes to `KVM_TDX_INIT_VM`. See
-[Promotion via measured load](categories.md#promotion-via-measured-load)
-in the design rationale.
-
 ## Launch model
 
 The `tdx` target follows the [base launch model](vm.md#launch-model)
@@ -118,16 +57,17 @@ given action ordering.
 
 ## TD parameters
 
-TD parameters are **host-supplied** — the VMM accepts them via
-VMM-defined input (CLI flag, config file, etc.) and passes them to
-`KVM_TDX_INIT_VM`. The fields and their classification under the
-non-normative categories framework are enumerated in
-[TD_PARAMS](#td_params) above. Fields that classify as platform
-identity (liveness requirements measured into MRTD) are candidates
-an upper-layer spec can
-[promote to image identity](categories.md#promotion-via-measured-load)
-via PMI's measured load plus the
-[Extensions](overview.md#extensions) namespace.
+`TD_PARAMS` (including `ATTRIBUTES`, `XFAM`, CPUID configuration,
+and the `MRCONFIGID` / `MROWNER` / `MROWNERCONFIG` deployer fields)
+is **host-supplied** — the VMM accepts it via VMM-defined input
+(CLI flag, config file, etc.) and passes it to `KVM_TDX_INIT_VM`.
+PMI does not carry it. Upper layers that need to bind specific
+`TD_PARAMS` fields to the image can declare the expected bytes in
+measured PE sections via the [Extensions](overview.md#extensions)
+namespace and require the VMM to submit them verbatim. Because
+`TD_PARAMS` is measured into MRTD, that binding is enforced
+cryptographically — a VMM that substitutes a different value
+diverges MRTD.
 
 ## Boot vCPU initialization
 
