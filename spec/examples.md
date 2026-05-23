@@ -69,7 +69,7 @@ other non-loaded PE sections are ignored. Standard UKI boot.
 
 An upper layer (e.g., dillo) that needs a base DTB, host-filled DT
 overlay, or other platform metadata layers them on via the
-[Extensions](overview.md#extensions) namespace (additional PE
+[Extensions](extensions.md) namespace (additional PE
 sections, additional CBOR keys prefixed `dillo:`, additional fill
 kinds prefixed `dillo:`). PMI itself does not carry any of those.
 

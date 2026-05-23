@@ -63,7 +63,7 @@ is **host-supplied** — the VMM accepts it via VMM-defined input
 (CLI flag, config file, etc.) and passes it to `KVM_TDX_INIT_VM`.
 PMI does not carry it. Upper layers that need to bind specific
 `TD_PARAMS` fields to the image can declare the expected bytes in
-measured PE sections via the [Extensions](overview.md#extensions)
+measured PE sections via the [Extensions](extensions.md)
 namespace and require the VMM to submit them verbatim. Because
 `TD_PARAMS` is measured into MRTD, that binding is enforced
 cryptographically — a VMM that substitutes a different value
@@ -86,7 +86,7 @@ and hands off to the kernel. The PMI consumer is loaded as a
 (MRTD). Upper layers that need additional reset-vector
 responsibilities — platform-metadata inspection, host-data merge,
 consumer validation against host-supplied bytes — layer them onto
-the PMI consumer via the [Extensions](overview.md#extensions)
+the PMI consumer via the [Extensions](extensions.md)
 namespace.
 
 This spec describes the consumer's contract but does not mandate an
@@ -120,7 +120,7 @@ flag set — `TDH.MEM.PAGE.ADD` followed by `TDH.MR.EXTEND` per
 
 `tdx` defines no fill kinds itself. The [base `fill`
 action](vm.md#fill-action) is available for upper layers to use via
-the [Extensions](overview.md#extensions) namespace (e.g.,
+the [Extensions](extensions.md) namespace (e.g.,
 `dillo:dtbo` for a dillo-managed devicetree overlay).
 
 Note: PMI deliberately does not define a `td-hob` fill kind. The TD

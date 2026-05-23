@@ -79,7 +79,7 @@ by strict PE loaders outside the PMI consumption path.
 The active target spec is authoritative for what the VMM does with each PE
 section. The spec's `actions` array determines what the VMM loads into guest
 memory or feeds to the target's launch APIs. Upper layers may add their own
-extension keys (per [Extensions](overview.md#extensions)) that reference
+extension keys (per [Extensions](extensions.md)) that reference
 additional PE sections; the same authoritativeness rule applies to them
 under the layer's own spec.
 

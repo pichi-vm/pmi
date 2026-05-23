@@ -51,7 +51,7 @@ A VMM executes the launch in five ordered steps:
 Upper layers that need host-conformance checks, platform metadata
 inspection, or other launch-time hooks beyond firmware-bound
 operations carry their data and actions through the
-[Extensions](overview.md#extensions) namespace; PMI does not
+[Extensions](extensions.md) namespace; PMI does not
 mandate those checks.
 
 ## `load` action
@@ -119,7 +119,7 @@ The fill action MUST include a `kind` value; there is no default.
 `vm` defines no fill kinds itself; CC targets layer firmware-bound
 kinds on top (see [`sev`](sev.md#fill-action) for `secrets` and
 `cpuid`), and upper layers register their own under the
-[Extensions](overview.md#extensions) namespace.
+[Extensions](extensions.md) namespace.
 
 ## `vcpu` field
 

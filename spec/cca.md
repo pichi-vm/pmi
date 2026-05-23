@@ -56,7 +56,7 @@ via VMM-defined input (CLI flag, config file, etc.) and passes them
 to `RMI_REALM_CREATE`. PMI does not carry them. Upper layers that
 need to bind specific realm parameters to the image can declare the
 expected bytes in measured PE sections via the
-[Extensions](overview.md#extensions) namespace and require the VMM
+[Extensions](extensions.md) namespace and require the VMM
 to submit them verbatim.
 
 CCA does not currently define a signed launch identity equivalent
@@ -101,7 +101,7 @@ extended into RIM.
 
 `cca` defines no fill kinds itself. The [base `fill`
 action](vm.md#fill-action) is available for upper layers to use via
-the [Extensions](overview.md#extensions) namespace (e.g.,
+the [Extensions](extensions.md) namespace (e.g.,
 `dillo:dtbo` for a dillo-managed devicetree overlay).
 
 ## Status
