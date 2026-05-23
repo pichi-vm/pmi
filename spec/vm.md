@@ -2,25 +2,11 @@
 
 **Registered prefix:** `vm`.
 
-The `vm` extension defines the `vm` launch target: a non-CC
-virtual machine path that is also the base PMI ships against the
-[common target skeleton](extensions.md#1-new-targets-registered-only).
-It exercises three of the [four extension
-points](extensions.md#four-extension-points):
-
-| Extension point                | What `vm` adds                                                                 |
-| ------------------------------ | ------------------------------------------------------------------------------ |
-| 1. New target                  | `.pmi.vm` — the vm target                                                      |
-| 2. Target attributes           | [`vm:vcpu`](#vmvcpu) — boot vCPU register map                                  |
-| 3. New actions                 | none                                                                           |
-| 4. Action-defined extensions   | no new kinds for `load` or `fill`                                              |
-
 ## Target: `.pmi.vm`
 
-A VMM targeting `vm` reads the `.pmi.vm` PE section. The section
-MUST be non-loaded (`IMAGE_SCN_MEM_DISCARDABLE`). If the section
-is absent, the image does not support `vm` and the VMM MUST refuse
-to launch.
+The `.pmi.vm` PE section MUST be non-loaded
+(`IMAGE_SCN_MEM_DISCARDABLE`). If absent, the VMM MUST refuse to
+launch.
 
 ### Schema
 
@@ -28,83 +14,59 @@ to launch.
 .pmi.vm = {
   "version"   => uint,                       ; schema version (1)
   "vm:vcpu"   => vcpu-x64 / vcpu-aarch64,    ; selected by PE.FileHeader.Machine
-  "actions"   => [+ vm-action],              ; ordered launch recipe
+  "actions"   => [+ vm-action],
 }
 
 vm-action = load / fill
 ```
 
-VMMs MUST reject sections with an unrecognized `version`, an
-unknown key in any defined CBOR map (top-level or nested), an
-unknown action `type` value, or an unknown action `kind` value.
+The VMM MUST refuse to launch on any of:
 
-VMMs MUST additionally refuse to launch if:
-
+- unrecognized `version`;
+- unknown key in any defined CBOR map (top-level or nested);
+- unknown action `type`;
+- unknown action `kind`;
 - any action's `section` does not name a PE section present in
   the image;
 - the same PE section name is referenced by more than one action;
-  or
 - two action-referenced PE sections have overlapping
   `[VirtualAddress, VirtualAddress + VirtualSize)` ranges.
 
 ## Launch model
 
-A VMM executes the launch in five ordered steps:
+The VMM executes the launch in five ordered steps:
 
-1. **Select target.** Read the `.pmi.vm` PE section. Refuse to
-   launch if it is absent.
-2. **Target initialize.** No-op.
-3. **Process actions.** Process each entry in the `actions` array
-   in order. Each action's `type` selects [`load`](load.md) or
-   [`fill`](fill.md); the `kind` field selects the variant within
-   that type.
-4. **Target finalize.** Apply the spec's [`vm:vcpu`](#vmvcpu)
-   register map to the boot vCPU.
-5. **Start the guest.**
-
-Upper layers that need host-conformance checks, platform-metadata
-inspection, or other launch-time hooks beyond firmware-bound
-operations carry their data and actions through the
-[Extensions](extensions.md) namespace; PMI does not mandate those
-checks.
+1. Read the `.pmi.vm` PE section.
+2. Target initialize. No-op.
+3. Process each entry in `actions` in array order.
+4. Apply [`vm:vcpu`](#vmvcpu) to the boot vCPU.
+5. Start the guest.
 
 ## Action kinds
 
 ### `load`
 
-`vm` defines no additional `load` kinds. The default
-[`measured`](load.md#default-kind-measured) is the only kind it
-supports, and on `vm` it reduces to placing the bytes in guest
-memory per the section shape — no measurement happens (vm is
-non-CC).
+`vm` defines no `load` kinds beyond [`measured`](load.md). On
+`vm`, `measured` places the section's bytes in guest memory per
+[section shape](load.md#section-shapes); no measurement is
+performed.
 
 ### `fill`
 
-`vm` defines no `fill` kinds. Upper layers MAY register their own
-through `fill`'s extension point; see
-[Extensions](extensions.md).
+`vm` defines no `fill` kinds.
 
 ## `vm:vcpu`
 
-The `vm:vcpu` target attribute carries a CBOR-encoded map of
-register values for the boot vCPU, inline in the target spec. The
-VMM looks up each key in the architecture-specific schema selected
-by the PE header's `FileHeader.Machine` field, and applies the
-corresponding values to the boot vCPU at step 4 (finalize) before
-starting the guest. Other vCPUs start in their architecture-defined
-reset state; the boot vCPU is responsible for bringing them up.
+`vm:vcpu` is a CBOR map of boot-vCPU register values applied at
+launch step 4. The schema is selected by
+`PE.FileHeader.Machine`: [`vcpu-x64`](#vcpu-x64) for `0x8664`,
+[`vcpu-aarch64`](#vcpu-aarch64) for `0xAA64`.
 
-Missing keys in the register map default to zero (with the
-per-architecture exceptions noted below). The VMM MUST reject
-unknown keys.
-
-The VMM MUST reject a `vm:vcpu` register map where any value
-exceeds the field width defined by the architecture schema (e.g.,
-a `selector` value greater than `0xFFFF`).
+Missing keys default to zero except where noted. The VMM MUST
+reject any unknown key. The VMM MUST reject any value exceeding
+the field width defined by the architecture schema.
 
 ### `vcpu-x64`
-
-Used when `PE.FileHeader.Machine == 0x8664`.
 
 ```cddl
 vcpu-x64 = {
@@ -136,38 +98,23 @@ dtr = {
 }
 ```
 
-GPR, control-register, RIP/RSP/RFLAGS, segment-register, and
-descriptor-table-register keys correspond to the architecture-named
-registers. CR2, TR, LDTR, debug registers, floating-point state,
-and MSRs other than EFER are not specified by `vm:vcpu` and start
-in their architecture-defined reset state. The guest is
-responsible for initializing them as needed.
-
-`rflags` defaults to `0x2` if omitted (bit 1 set, all other bits
-clear). If specified, bit 1 MUST be 1.
+`rflags` defaults to `0x2`. If specified, bit 1 MUST be 1.
 
 #### Segment-register attributes encoding
 
 | Bits    | Meaning                                                     |
 | ------- | ----------------------------------------------------------- |
-| `0–3`   | Type (see Intel SDM Vol. 3 §3.4.5.1 / AMD APM Vol. 2 §4.7). |
-| `4`     | S — descriptor class: 0 = system, 1 = code/data.            |
-| `5–6`   | DPL — descriptor privilege level (0–3).                     |
-| `7`     | P — present.                                                |
-| `8`     | AVL — available for software use.                           |
+| `0–3`   | Type (Intel SDM Vol. 3 §3.4.5.1 / AMD APM Vol. 2 §4.7).     |
+| `4`     | S — 0 = system, 1 = code/data.                              |
+| `5–6`   | DPL — 0–3.                                                  |
+| `7`     | P.                                                          |
+| `8`     | AVL.                                                        |
 | `9`     | L — 64-bit code segment (CS only; ignored elsewhere).       |
-| `10`    | D/B — default operation size (0 = 16/64-bit, 1 = 32-bit).   |
-| `11`    | G — granularity: 0 = byte, 1 = 4 KiB.                       |
+| `10`    | D/B — 0 = 16/64-bit, 1 = 32-bit.                            |
+| `11`    | G — 0 = byte, 1 = 4 KiB.                                    |
 | `12–15` | Reserved. MUST be zero.                                     |
 
-A typical 64-bit code segment has `attributes = 0x209B`: type =
-`0xB` (code, readable, accessed), S = 1, DPL = 0, P = 1, L = 1. A
-typical 64-bit data segment has `attributes = 0x0093`: type =
-`0x3` (data, writable, accessed), S = 1, DPL = 0, P = 1.
-
 ### `vcpu-aarch64`
-
-Used when `PE.FileHeader.Machine == 0xAA64`.
 
 ```cddl
 vcpu-aarch64 = {
@@ -181,7 +128,7 @@ vcpu-aarch64 = {
   ? "x28" => uint, ? "x29" => uint, ? "x30" => uint,
   ? "sp_el1" => uint,                     ; u64
   ? "pc"     => uint,                     ; u64
-  ? "pstate" => uint,                     ; u64; SPSR encoding (see below)
+  ? "pstate" => uint,                     ; u64; SPSR encoding below
   ? "sctlr_el1" => uint, ? "tcr_el1"   => uint,
   ? "ttbr0_el1" => uint, ? "ttbr1_el1" => uint,
   ? "mair_el1"  => uint, ? "vbar_el1"  => uint,
@@ -189,23 +136,11 @@ vcpu-aarch64 = {
 }
 ```
 
-GPR, PC, and SP_EL1 keys correspond to the architecture-named
-registers. The system-register keys (`sctlr_el1` through
-`cpacr_el1`) follow the encodings defined in the Arm Architecture
-Reference Manual for ARMv8-A and later. The image MAY omit them,
-in which case the guest enters with MMU disabled and the kernel
-configures them — this matches the Linux aarch64 boot protocol.
-
-Debug registers, FPU/SIMD state, system registers other than those
-listed above (including `spsr_el1`, `elr_el1`, `tpidr_el*`,
-`cntv_*`, pointer-authentication keys, and read-only ID registers)
-are not specified by `vm:vcpu` and start in their architecture-
-defined reset state. The guest is responsible for initializing
-them as needed.
+System-register keys (`sctlr_el1` through `cpacr_el1`) follow the
+encodings in the Arm Architecture Reference Manual for ARMv8-A
+and later.
 
 #### pstate
-
-`pstate` uses the standard AArch64 SPSR encoding:
 
 | Bits    | Meaning                                                                 |
 | ------- | ----------------------------------------------------------------------- |
@@ -215,12 +150,7 @@ them as needed.
 | `7`     | I — IRQ mask.                                                           |
 | `8`     | A — SError mask.                                                        |
 | `9`     | D — debug mask.                                                         |
-| `28–31` | NZCV condition flags.                                                   |
+| `28–31` | NZCV.                                                                   |
 
-Other PSTATE bits follow the Arm ARM. A typical kernel-entry value
-is `0x3C5` (EL1h, all DAIF masked, condition flags clear).
-
-The VMM MUST reject a `vm:vcpu` whose `pstate` selects an EL other
-than EL1. EL2 entry is not supported by `vm:vcpu` v1; HVF on Apple
-Silicon does not expose EL2 to guests, and EL1 entry works on KVM
-as well.
+The VMM MUST reject a `vm:vcpu` whose `pstate` selects an EL
+other than EL1.
