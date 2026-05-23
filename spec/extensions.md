@@ -22,16 +22,21 @@ target = {
 }
 
 action = {
-  "type"     => tstr,                      ; selects load / fill / ...
-  "section"  => tstr,                      ; PE section the action applies to
-  ; per-type fields (e.g., `kind` for load and fill)
+  "type" => tstr,                          ; selects load / fill / ...
+  ; per-type fields
 }
 ```
 
+`type` is the only universal action field. Everything else — even
+`section`, which appears in both `load` and `fill` — is defined per
+action type. A new action a layer registers MAY use `section` if it
+operates on a PE section; MAY use entirely different fields if it
+doesn't.
+
 Across `vm`, `sev`, `cca`, and `tdx` the shape never changes; only
-the type-specific kinds, the firmware-bound side fields, and the
-ABI the actions drive change. An upper layer extends this shape
-without re-specifying it.
+the per-target firmware-bound side fields, the action types each
+target admits, and the ABI those actions drive change. An upper
+layer extends this shape without re-specifying it.
 
 ## Namespacing rule
 
@@ -89,22 +94,25 @@ layer wants performed at launch, alongside PMI's own `load` and
 ```cbor-diag
 {
   "type": "dillo:configure",
-  "section": ".dillo.cfg",
   ; per-action fields the upper layer defines
 }
 ```
 
 PMI executes actions in array order; an upper-layer action runs at
-its array position relative to PMI's actions. The upper layer's
-spec defines what the action does — what bytes (if any) the VMM
-loads, what firmware or VMM calls happen, what measurement the
-operation contributes to (if any).
+its array position relative to PMI's actions. Beyond `type`, the
+shape of an upper-layer action is entirely the upper layer's spec:
+it may use `section` (to operate on a PE section, like `load` and
+`fill` do), it may take inline parameters, or it may carry nothing
+beyond its `type`. The upper layer also defines what the action
+does — what bytes (if any) the VMM loads, what firmware or VMM
+calls happen, what measurement the operation contributes to (if
+any).
 
-The action's `section` follows the same rules as PMI actions: it
-MUST name a PE section, MUST NOT duplicate another action's
-section, and MUST NOT overlap another loaded section in guest
-memory. The upper layer's spec defines any additional per-action
-constraints.
+If an upper-layer action does name a PE section, the spec SHOULD
+require the section be referenced by at most one action and not
+overlap any loaded section in guest memory, matching the
+constraints PMI applies to its own actions. PMI itself enforces
+these constraints only for action types it knows about.
 
 ### 3. Action customization (per-action kind)
 
