@@ -9,11 +9,12 @@ when, they appear in all capitals, as shown here.
 
 This document defines the goals PMI is shaped to meet and the
 methods that meet them. The narrative behind these choices is in
-[Motivation](motivation.md); the action mechanism is on the
-[Actions](actions.md) page; the extensibility contract is on the
-[Extensions](extensions.md) page; the per-target bindings are in
-[`vm`](vm.md), [`sev`](sev.md), [`cca`](cca.md), and [`tdx`](tdx.md);
-[Examples](examples.md) walks through concrete images.
+[Motivation](motivation.md); the actions are defined per page —
+[`load`](load.md) and [`fill`](fill.md); the extensibility contract
+is on the [Extensions](extensions.md) page; the per-target bindings
+are in [`vm`](vm.md), [`sev`](sev.md), [`cca`](cca.md), and
+[`tdx`](tdx.md); [Examples](examples.md) walks through concrete
+images.
 
 PMI is intentionally narrow. It is a substrate: a PE-based container
 format, per-target CBOR launch recipes, and an action mechanism that

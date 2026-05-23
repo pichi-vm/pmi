@@ -2,8 +2,8 @@
 
 The `cca` target is the Arm CCA (Confidential Compute Architecture)
 launch path. It is built on [`vm`](vm.md): inherits vm's base
-launch model and admits the [`load`](actions.md#load) and
-[`fill`](actions.md#fill) actions with CCA-specific kinds. It uses
+launch model and admits the [`load`](load.md) and
+[`fill`](fill.md) actions with CCA-specific kinds. It uses
 a `vcpu` top-level field that the VMM applies as the BSP REC
 parameters via `RMI_REC_CREATE` at step 2.
 
@@ -77,8 +77,8 @@ runtime by the realm via `PSCI_CPU_ON`.
 
 ## Actions
 
-The `cca` target admits the [`load`](actions.md#load) and
-[`fill`](actions.md#fill) actions defined on the actions page.
+The `cca` target admits the [`load`](load.md) and
+[`fill`](fill.md) actions.
 
 ### `load`
 

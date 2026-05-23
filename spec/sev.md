@@ -1,8 +1,8 @@
 # `sev` Target
 
 The `sev` target is built on [`vm`](vm.md): inherits vm's base
-launch model and admits the [`load`](actions.md#load) and
-[`fill`](actions.md#fill) actions with SEV-SNP-specific kinds. It
+launch model and admits the [`load`](load.md) and
+[`fill`](fill.md) actions with SEV-SNP-specific kinds. It
 replaces vm's [`vcpu`](vm.md#vcpu-field) field with a `vmsa` load
 kind for the BSP register state, and adds an optional `id` field
 for signed launches.
@@ -117,8 +117,8 @@ contains only one.
 
 ## Actions
 
-The `sev` target admits the [`load`](actions.md#load) and
-[`fill`](actions.md#fill) actions defined on the actions page.
+The `sev` target admits the [`load`](load.md) and
+[`fill`](fill.md) actions.
 
 ### `load`
 

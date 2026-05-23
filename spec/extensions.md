@@ -11,7 +11,8 @@ PMI exposes a single extensibility contract: a namespacing
 convention that admits two classes of extension — **registered**
 extensions defined within the PMI spec, and **unregistered**
 extensions any layer can use without coordinating with PMI. Both
-classes feed into the same three extension points on a target spec.
+classes feed into a set of four extension points; one of those is
+registered-only.
 
 ## Common target shape
 
@@ -50,7 +51,8 @@ classes:
   where `<layer>` appears in the [Extension registry](#extension-registry)
   below.
 - **Unregistered prefixed names** of the form `<layer>:<name>`,
-  where `<layer>` is a collision-resistant reverse-DNS identifier.
+  where `<layer>` is a collision-resistant identifier chosen by
+  the layer.
 
 The prefix names the **consumer** — typically a hypervisor or
 in-guest stub — not the producer. Multiple image tools may emit
@@ -173,8 +175,8 @@ This is not a generic PMI mechanism — it is a property of specific
 actions whose specs opt into it. The shape of the extension point
 is whatever that action's spec defines.
 
-PMI's two built-in actions — [`load`](actions.md#load) and
-[`fill`](actions.md#fill) — both declare their `kind` field as a
+PMI's two built-in actions — [`load`](load.md) and
+[`fill`](fill.md) — both declare their `kind` field as a
 free-form text string, explicitly admitting namespaced values
 alongside the per-target kinds the target chapters enumerate:
 

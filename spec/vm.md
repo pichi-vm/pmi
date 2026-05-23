@@ -41,8 +41,8 @@ A VMM executes the launch in five ordered steps:
    launch if it is absent.
 2. **Target initialize.** No-op.
 3. **Process actions.** Process each entry in the `actions` array in
-   order. Each action's `type` selects [`load`](actions.md#load) or
-   [`fill`](actions.md#fill); the `kind` field selects the variant
+   order. Each action's `type` selects [`load`](load.md) or
+   [`fill`](fill.md); the `kind` field selects the variant
    within that type.
 4. **Target finalize.** Apply the spec's [`vcpu`](#vcpu-field) register
    map to the boot vCPU.
@@ -56,8 +56,8 @@ mandate those checks.
 
 ## Actions
 
-The `vm` target admits the [`load`](actions.md#load) and
-[`fill`](actions.md#fill) actions defined on the actions page.
+The `vm` target admits the [`load`](load.md) and
+[`fill`](fill.md) actions.
 
 ### `load`
 

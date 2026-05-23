@@ -2,7 +2,7 @@
 
 The `tdx` target is the Intel TDX launch path. It is built on
 [`vm`](vm.md): inherits vm's base launch model and admits the
-[`load`](actions.md#load) and [`fill`](actions.md#fill) actions
+[`load`](load.md) and [`fill`](fill.md) actions
 with TDX-specific kinds.
 
 The image carries an in-TD PMI consumer that takes the role TDVF
@@ -96,8 +96,8 @@ smaller than TDVF).
 
 ## Actions
 
-The `tdx` target admits the [`load`](actions.md#load) and
-[`fill`](actions.md#fill) actions defined on the actions page.
+The `tdx` target admits the [`load`](load.md) and
+[`fill`](fill.md) actions.
 
 ### `load`
 
