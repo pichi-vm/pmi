@@ -2,13 +2,12 @@
 
 PMI is a substrate. The PE container, the per-target CBOR launch
 recipes, and the action mechanism cover the firmware-bound mechanics
-of every launch — and stop there. Upper layers (hypervisor specs
-like dillo, image schemas, in-guest stubs) need to attach
-layer-specific data to PMI images and have a VMM that understands
-them do something with it. PMI exposes a single extensibility
-contract — a namespacing convention — and three extension points
-that bolt new behavior onto a target spec without changing PMI's
-core shape.
+of every launch — and stop there. Upper layers (hypervisor specs,
+in-guest stubs, image schemas) need to attach layer-specific data to
+PMI images and have a VMM that understands them do something with
+it. PMI exposes a single extensibility contract — a namespacing
+convention — and three extension points that bolt new behavior onto
+a target spec without changing PMI's core shape.
 
 ## Common target shape
 
@@ -27,11 +26,9 @@ action = {
 }
 ```
 
-`type` is the only universal action field. Everything else — even
-`section`, which appears in both `load` and `fill` — is defined per
-action type. A new action a layer registers MAY use `section` if it
-operates on a PE section; MAY use entirely different fields if it
-doesn't.
+`type` is the only universal action field. Everything else is
+defined per action type. A new action a layer registers chooses its
+own fields independent of what PMI's existing actions use.
 
 Across `vm`, `sev`, `cca`, and `tdx` the shape never changes; only
 the per-target firmware-bound side fields, the action types each
@@ -45,15 +42,14 @@ names that appear in the wire format.
 
 - **Unprefixed names** (e.g., `version`, `actions`, `secrets`,
   `cpuid`) are reserved for PMI.
-- **Prefixed names** of the form `<layer>:<name>` (e.g.,
-  `dillo:dtb`, `dillo:dtbo`, `dillo:configure`) belong to the named
-  upper layer.
+- **Prefixed names** of the form `<layer>:<name>` belong to the
+  named upper layer.
 - The prefix names the **consumer** — typically a hypervisor or
   in-guest stub — not the producer. Multiple image tools may emit
   the same prefix for the same consumer.
 - Loaders MUST reject any name they do not understand. A pure PMI
-  loader presented with any `dillo:*` name refuses to launch; a
-  `dillo`-aware loader handles it per dillo's spec.
+  loader presented with any `<layer>:*` name refuses to launch; a
+  layer-aware loader handles it per the layer's spec.
 
 The same strict-rejection rule that already governs unknown PMI
 keys, types, and kinds handles unknown namespaced names with no
@@ -73,27 +69,23 @@ layer needs to know about, independent of any action.
 {
   "version": 1,
   "actions": [ ... ],
-  "dillo:dtb": ".dillo.dtb",      ; extension: names a PE section
-  "dillo:platform": ".dillo.cfg"  ; extension: more layer-specific metadata
+  "<layer>:platform":  <layer-defined value>,
+  "<layer>:something": <layer-defined value>
 }
 ```
 
-The value can be any CBOR type the upper layer specifies. When it
-points at a PE section (the common case for binary blobs), the
-upper layer documents the section's expected contents.
-
-PMI ignores everything under a prefix it doesn't own; a
-dillo-aware loader reads `dillo:*` keys per dillo's spec.
+The value can be any CBOR type the upper layer specifies. PMI
+ignores everything under a prefix it doesn't own; a layer-aware
+loader reads its own `<layer>:*` keys per the layer's spec.
 
 ### 2. New actions
 
 A namespaced `type` value adds a new kind of operation the upper
-layer wants performed at launch, alongside PMI's own `load` and
-`fill` actions.
+layer wants performed at launch, alongside PMI's own actions.
 
 ```cbor-diag
 {
-  "type": "dillo:configure",
+  "type": "<layer>:configure",
   ; per-action fields the upper layer defines
 }
 ```
@@ -101,18 +93,9 @@ layer wants performed at launch, alongside PMI's own `load` and
 PMI executes actions in array order; an upper-layer action runs at
 its array position relative to PMI's actions. Beyond `type`, the
 shape of an upper-layer action is entirely the upper layer's spec:
-it may use `section` (to operate on a PE section, like `load` and
-`fill` do), it may take inline parameters, or it may carry nothing
-beyond its `type`. The upper layer also defines what the action
-does — what bytes (if any) the VMM loads, what firmware or VMM
-calls happen, what measurement the operation contributes to (if
-any).
-
-If an upper-layer action does name a PE section, the spec SHOULD
-require the section be referenced by at most one action and not
-overlap any loaded section in guest memory, matching the
-constraints PMI applies to its own actions. PMI itself enforces
-these constraints only for action types it knows about.
+it chooses its own fields and defines what the action does — what
+the VMM submits, what firmware or VMM calls happen, what
+measurement (if any) the operation contributes to.
 
 ### 3. Action customization (per-action kind)
 
@@ -126,69 +109,15 @@ layer-specific.
 ```cbor-diag
 {
   "type": "fill",
-  "section": ".dillo.dtbo",
-  "kind": "dillo:dtbo"            ; extension: dillo-specific fill semantics
+  ...,
+  "kind": "<layer>:<name>"
 }
 ```
 
-`fill` is the canonical example. PMI's own fill kinds (`secrets`,
-`cpuid`) name firmware-bound operations the PSP performs; a
-`dillo:dtbo` kind names a dillo-defined operation (the VMM
-populates the section's GPA range with a host-decided devicetree
-overlay per dillo's rules). The PE section and `kind` selector are
+`fill` is the canonical example: its `kind` field selects between
+firmware-bound operations PMI defines (`secrets`, `cpuid`) and
+namespaced kinds upper layers register. The `kind` selector is
 PMI's mechanism; the per-kind semantics are the upper layer's spec.
 
-`load` admits the same pattern — a namespaced `kind` defines a new
-load variant — though PMI's own load kinds today
+`load` admits the same pattern, though PMI's own load kinds today
 (`measured`, `unmeasured`, `vmsa`) cover the firmware-bound cases.
-
-## Companion PE sections
-
-Upper layers commonly carry their data in PE sections named with
-the same prefix convention (e.g., `.dillo.dtb`, `.dillo.cfg`). PE
-section names are file-format-level — not part of PMI's CBOR
-schemas — but the same `<layer>.<...>` convention keeps the layer's
-sections recognisable and distinct from PMI-referenced and
-image-author-chosen sections.
-
-PMI's only normative role for PE section names is naming the PE
-sections used by PMI's own actions and the target-spec sections
-(`.pmi.<target>`).
-
-## Example: how a dillo image uses the three points
-
-A `.pmi.sev` spec carrying dillo extensions might look like:
-
-```cbor-diag
-{
-  "version": 1,
-  "id": {"block": ".sev.idb", "auth": ".sev.ida"},
-  "actions": [
-    {"type": "load", "section": ".linux"},
-    {"type": "load", "section": ".dillo.stub"},
-    {"type": "load", "section": ".dillo.dtb"},
-    {"type": "fill", "section": ".dillo.dtbo", "kind": "dillo:dtbo"},
-    {"type": "fill", "section": ".sev.sec",    "kind": "secrets"},
-    {"type": "load", "section": ".sev.vms",    "kind": "vmsa"}
-  ],
-  "dillo:dtb":  ".dillo.dtb",
-  "dillo:dtbo": ".dillo.dtbo"
-}
-```
-
-This image uses all three extension points:
-
-- **Target attributes:** `dillo:dtb` and `dillo:dtbo` tell a
-  dillo-aware VMM which PE sections carry the base DTB and the
-  dtbo region.
-- **Action customization:** the `dillo:dtbo` fill kind tells a
-  dillo-aware VMM to populate the section's GPA range per dillo's
-  overlay rules (PMI itself has no opinion on the content).
-- **New actions:** this example doesn't use any; if dillo needed a
-  separate launch-time operation that didn't fit `load` or `fill`,
-  it would register a `dillo:<name>` action type.
-
-A pure PMI loader sees the `dillo:*` names, doesn't recognise
-them, and refuses to launch — correct, because it can't fulfill
-the image's contract. A dillo-aware loader recognises every
-namespaced name and processes accordingly.
