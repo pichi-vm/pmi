@@ -53,7 +53,6 @@ The `tdx` target's parameters mapped against PMI's
 | -------------------------------------------------- | ------------------ | ---------- | -------------------------------------------------------------------------------------------------------------------- |
 | `dtb` field (base DTB bytes)                       | Platform identity  | PMI image  | Names the [base DTB](dtb.md); host MUST be able to satisfy every declared resource                                  |
 | `load` action (kind `measured`)                    | Image identity     | PMI image  | Page bytes contribute to MRTD via `TDH.MR.EXTEND`; the PMI consumer (reset-vector occupant) is itself a measured load |
-| `load` action (kind `unmeasured`)                  | Image identity     | PMI image  | Bytes are image-declared; the GPA always enters MRTD even though content does not (`TDH.MEM.PAGE.ADD` only)         |
 | `fill` action (kind `dtbo`)                        | Instance accidents | Runtime    | Host-generated DT overlay; not submitted via `KVM_TDX_INIT_MEM_REGION` and does not contribute to MRTD              |
 | EPTP controls                                      | Instance accidents | Runtime    | VMM-internal; not visible to the guest as hardware shape                                                             |
 
@@ -177,7 +176,7 @@ TDX-specific kinds; the default kind is `measured`.
 load = {
   "type"    => "load",
   "section" => tstr,                ; PE section name to load
-  ? "kind"  => "measured" / "unmeasured",  ; default "measured"
+  ? "kind"  => "measured",  ; default "measured"
 }
 ```
 
@@ -187,18 +186,6 @@ The default kind. The VMM submits the PE section's pages via
 `KVM_TDX_INIT_MEM_REGION` with the `KVM_TDX_MEASURE_MEMORY_REGION`
 flag set — `TDH.MEM.PAGE.ADD` followed by `TDH.MR.EXTEND` per
 256-byte chunk. Both the GPA and the page content contribute to MRTD.
-
-### kind `unmeasured`
-
-The VMM submits the PE section's pages via `KVM_TDX_INIT_MEM_REGION`
-without the `KVM_TDX_MEASURE_MEMORY_REGION` flag — `TDH.MEM.PAGE.ADD`
-only. The GPA is inserted into MRTD but the page content is not
-extended.
-
-Note: TDX always inserts the GPA of every initial page into MRTD, so
-this kind is "content-unmeasured" rather than "fully unmeasured";
-there is no TDX equivalent of SEV-SNP's `PAGE_TYPE_UNMEASURED`, which
-omits the page from the digest entirely.
 
 ## `fill` action
 
