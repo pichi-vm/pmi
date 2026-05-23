@@ -12,11 +12,9 @@ namespacing convention for names that appear in the wire format.
 | Registered   | `<layer>:<name>`    | `vm:vcpu`                           | spec linked from the [registry](../README.md#extensions)            |
 | Unregistered | `<layer>:<name>`    | layer's choice                      | wherever the layer publishes                                        |
 
-The prefix names the **consumer** (a hypervisor or in-guest stub),
-not the producer. Loaders MUST reject any name they do not
-understand; a pure PMI loader sees a prefixed name and refuses to
-launch, a layer-aware loader handles the prefixes its spec covers
-and refuses the rest.
+Loaders MUST reject any name they do not understand; a pure PMI
+loader sees a prefixed name and refuses to launch, a layer-aware
+loader handles the prefixes its spec covers and refuses the rest.
 
 **Registered prefixes** appear in the
 [registry](../README.md#extensions). To register, open a PR
