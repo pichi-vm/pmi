@@ -47,7 +47,6 @@ The `sev` target's parameters mapped against PMI's
 | ------------------------------------------ | --------------------------------------------------------- | ---------- | ---------------------------------------------------------------------------------------------------------------------- |
 | `dtb` field (base DTB bytes)               | Platform identity                                         | PMI image  | Names the [base DTB](dtb.md); the host MUST be able to satisfy every declared resource                                 |
 | `load` action (kind `measured`)            | Image identity                                            | PMI image  | Page bytes contribute to the launch digest                                                                             |
-| `load` action (kind `unmeasured`)          | Image identity                                            | PMI image  | Bytes are image-declared; not bound to the digest, used for verifier-irrelevant data                                   |
 | `load` action (kind `vmsa`)                | Platform identity                                         | PMI image  | BSP register state at launch (VMPL0 VMSA); typed-page measurement binds GPA + page type, content binds via measurement |
 | `fill` action (kind `dtbo`)                | Instance accidents                                        | Runtime    | Host-generated resource allocation; bypasses `SNP_LAUNCH_UPDATE` and does not contribute to the digest                 |
 | `fill` action (kind `secrets`)             | Platform identity (placement); firmware-supplied (content) | PMI image  | PSP populates the page at launch; GPA + page type bound in digest, content is not                                      |
@@ -179,7 +178,7 @@ additional kinds; the default kind for sev's load is `measured`.
 load = {
   "type"    => "load",
   "section" => tstr,                ; PE section name to load
-  ? "kind"  => "measured" / "unmeasured" / "vmsa",  ; default "measured"
+  ? "kind"  => "measured" / "vmsa",  ; default "measured"
 }
 ```
 
@@ -197,13 +196,6 @@ The default kind. The VMM submits the PE section's pages via
 
 VMM implementations MUST NOT substitute data-page operations for
 zero-page operations or vice versa.
-
-### kind `unmeasured`
-
-The VMM submits the PE section's pages via `SNP_LAUNCH_UPDATE` with
-`PAGE_TYPE_UNMEASURED`. The bytes land in guest memory but do not
-contribute to the launch digest. Used for VMM-supplied data the
-verifier does not need to bind to.
 
 ### kind `vmsa`
 
