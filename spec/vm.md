@@ -34,11 +34,9 @@ The VMM MUST refuse to launch on any of:
 - unrecognized `version`;
 - unknown key in any defined CBOR map (top-level or nested);
 - unknown action `type`;
-- unknown action `kind`;
 - any action's `section` does not name a PE section present in
   the image;
-- the same PE section name is referenced by more than one action;
-- two action-referenced PE sections have overlapping
+- two distinct action-referenced PE sections have overlapping
   `[VirtualAddress, VirtualAddress + VirtualSize)` ranges.
 
 ### `load`
