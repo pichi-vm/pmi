@@ -18,9 +18,8 @@ the image does not support `sev` and the VMM MUST refuse to launch.
 ```cddl
 sev = {
   "version" => uint,                     ; schema version (1)
-  "dtb"     => tstr,                     ; PE section name; see dtb.md
   ? "id"    => id,                       ; signed launch identity; see id below
-  "actions" => [+ sev-action],           ; ordered launch recipe (step 4)
+  "actions" => [+ sev-action],           ; ordered launch recipe
 }
 
 id = {
@@ -45,7 +44,6 @@ The `sev` target's parameters mapped against PMI's
 
 | Parameter                                  | Category                                                  | Source     | Notes                                                                                                                  |
 | ------------------------------------------ | --------------------------------------------------------- | ---------- | ---------------------------------------------------------------------------------------------------------------------- |
-| `dtb` field (base DTB bytes)               | Platform identity                                         | PMI image  | Names the [base DTB](dtb.md); the host MUST be able to satisfy every declared resource                                 |
 | `load` action (kind `measured`)            | Image identity                                            | PMI image  | Page bytes contribute to the launch digest                                                                             |
 | `load` action (kind `vmsa`)                | Platform identity                                         | PMI image  | BSP register state at launch (VMPL0 VMSA); typed-page measurement binds GPA + page type, content binds via measurement |
 | `fill` action (kind `dtbo`)                | Instance accidents                                        | Runtime    | Host-generated resource allocation; bypasses `SNP_LAUNCH_UPDATE` and does not contribute to the digest                 |

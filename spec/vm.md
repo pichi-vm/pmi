@@ -14,9 +14,8 @@ does not support `vm` and the VMM MUST refuse to launch.
 ```cddl
 vm = {
   "version"  => uint,                  ; schema version (1)
-  "dtb"      => tstr,                  ; PE section name; see dtb.md
   "vcpu"     => vcpu-x64 / vcpu-aarch64, ; selected by PE.FileHeader.Machine
-  "actions"  => [+ vm-action],         ; ordered launch recipe (step 4)
+  "actions"  => [+ vm-action],         ; ordered launch recipe (step 3)
 }
 
 vm-action = load / fill
@@ -34,41 +33,26 @@ VMMs MUST additionally refuse to launch if:
 - two action-referenced PE sections have overlapping
   `[VirtualAddress, VirtualAddress + VirtualSize)` ranges.
 
-## Parameters
-
-`vm` has no cryptographic launch measurement and no attestation
-report, so PMI's [identity categories](categories.md) do not apply
-directly: there is no verifier to bind anything to. `vm` defines the
-*mechanisms* (the `dtb` field, the `vcpu` field, the `load` and
-`fill` actions, the `dtbo` overlay shape) that the CC targets
-inherit and overlay with measurement semantics. The mechanisms pick
-up category meaning in each CC target's chapter; see
-[`sev`](sev.md#parameters), [`cca`](cca.md#parameters), and
-[`tdx`](tdx.md#parameters) for the per-target enumerations.
-
-Under `vm`, the image's declarations drive the VMM's operational
-[host-conformance check](dtb.md#host-conformance): the host either
-satisfies every declared resource or fails the launch. Resource
-allocation flows through the same [`dtbo`](#dtbo-overlay)
-fill mechanism, but with no measurement involved.
-
 ## Launch model
 
-A VMM executes the launch in six ordered steps:
+A VMM executes the launch in five ordered steps:
 
 1. **Select target.** Read the `.pmi.<target>` PE section. Refuse to
    launch if it is absent.
-2. **Inspect DTB.** Parse the FDT named by the spec's [`dtb`](dtb.md)
-   field and validate that the host can satisfy every hardware capability
-   it declares. Fail the launch if any declaration cannot be satisfied.
-3. **Target initialize.** No-op.
-4. **Process actions.** Process each entry in the `actions` array in
+2. **Target initialize.** No-op.
+3. **Process actions.** Process each entry in the `actions` array in
    order. Each action's `type` selects [`load`](#load-action) or
    [`fill`](#fill-action); the `kind` field selects the variant within
    that type.
-5. **Target finalize.** Apply the spec's [`vcpu`](#vcpu-field) register
+4. **Target finalize.** Apply the spec's [`vcpu`](#vcpu-field) register
    map to the boot vCPU.
-6. **Start the guest.**
+5. **Start the guest.**
+
+Upper layers that need host-conformance checks, platform metadata
+inspection, or other launch-time hooks beyond firmware-bound
+operations carry their data and actions through the
+[Extensions](overview.md#extensions) namespace; PMI does not
+mandate those checks.
 
 ## `load` action
 

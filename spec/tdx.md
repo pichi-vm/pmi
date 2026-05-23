@@ -26,8 +26,7 @@ launch.
 ```cddl
 tdx = {
   "version" => uint,                     ; schema version (1)
-  "dtb"     => tstr,                     ; PE section name; see dtb.md
-  "actions" => [+ tdx-action],           ; ordered launch recipe (step 4)
+  "actions" => [+ tdx-action],           ; ordered launch recipe
 }
 
 tdx-action = load / fill
@@ -51,7 +50,6 @@ The `tdx` target's parameters mapped against PMI's
 
 | Parameter                                          | Category           | Source     | Notes                                                                                                                |
 | -------------------------------------------------- | ------------------ | ---------- | -------------------------------------------------------------------------------------------------------------------- |
-| `dtb` field (base DTB bytes)                       | Platform identity  | PMI image  | Names the [base DTB](dtb.md); host MUST be able to satisfy every declared resource                                  |
 | `load` action (kind `measured`)                    | Image identity     | PMI image  | Page bytes contribute to MRTD via `TDH.MR.EXTEND`; the PMI consumer (reset-vector occupant) is itself a measured load |
 | `fill` action (kind `dtbo`)                        | Instance accidents | Runtime    | Host-generated DT overlay; not submitted via `KVM_TDX_INIT_MEM_REGION` and does not contribute to MRTD              |
 | EPTP controls                                      | Instance accidents | Runtime    | VMM-internal; not visible to the guest as hardware shape                                                             |

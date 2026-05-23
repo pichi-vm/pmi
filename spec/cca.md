@@ -19,9 +19,8 @@ launch.
 ```cddl
 cca = {
   "version" => uint,                     ; schema version (1)
-  "dtb"     => tstr,                     ; PE section name; see dtb.md
   "vcpu"    => vcpu-aarch64,             ; BSP REC params; CCA is aarch64 only
-  "actions" => [+ cca-action],           ; ordered launch recipe (step 4)
+  "actions" => [+ cca-action],           ; ordered launch recipe
 }
 
 cca-action = load / fill
@@ -41,7 +40,6 @@ The `cca` target's parameters mapped against PMI's
 
 | Parameter                                          | Category           | Source         | Notes                                                                                                                                |
 | -------------------------------------------------- | ------------------ | -------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| `dtb` field (base DTB bytes)                       | Platform identity  | PMI image      | Names the [base DTB](dtb.md); host MUST be able to satisfy every declared resource                                                  |
 | `vcpu` field (BSP REC parameters)                  | Platform identity  | PMI image      | Applied at step 3 via `RMI_REC_CREATE`; measured into RIM                                                                            |
 | `load` action (kind `measured`)                    | Image identity     | PMI image      | Granule content submitted via `RMI_DATA_CREATE`; hashed and extended into RIM                                                        |
 | `fill` action (kind `dtbo`)                        | Instance accidents | Runtime        | Host-generated DT overlay; not submitted via `RMI_DATA_CREATE` and does not contribute to RIM                                        |
