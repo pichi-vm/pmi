@@ -30,17 +30,13 @@ Point 1 is registered-only; points 2–4 are open to both classes.
 
 ### 1. New targets (registered only)
 
-A new launch target — a `.pmi.<target>` PE section with its own
-schema and launch model. A target's CBOR map MUST follow this
-skeleton; the target extends it through the other three extension
-points.
-
-```cddl
-target = { "version" => uint, "actions" => [+ action] }
-action = { "type" => tstr, * tstr => any }
-```
-
-`.pmi.` is PMI's PE-section namespace, hence registered-only.
+A registered prefix MAY define a new launch target — a
+`.pmi.<prefix>` PE section carrying a CBOR spec that follows the
+[common target shape](targets.md). PE section names starting with
+`.pmi.` are PMI's namespace, hence registered-only: allowing
+unregistered prefixes there would conflict with strict rejection
+and muddle the discovery model (loaders look for `.pmi.<target>`
+sections by name).
 
 ### 2. Target attributes (top-level keys)
 
