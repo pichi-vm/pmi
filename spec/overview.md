@@ -187,7 +187,7 @@ The currently defined targets are:
 | [`tdx`](tdx.md) | `.pmi.tdx` | Intel TDX confidential VMs (working draft)  |
 | [`cca`](cca.md) | `.pmi.cca` | Arm CCA confidential VMs (working draft)    |
 
-Each target is itself a [registered extension](extensions.md#extension-registry):
+Each target is itself a [registered extension](../README.md#extensions):
 it owns its name in the registry and the corresponding
 `.pmi.<target>` PE section. New targets are added through the
 [target extension point](extensions.md#1-new-targets-registered-only)

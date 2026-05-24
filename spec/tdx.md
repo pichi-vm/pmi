@@ -82,7 +82,7 @@ and the PMI consumer MUST NOT depend on them.
 The image MUST carry a **PMI consumer**: a measured component that
 occupies the architectural reset vector, performs vCPU rendezvous,
 and hands off to the kernel. The PMI consumer is loaded as a
-`measured` load action and is therefore part of the launch identity
+`default` load action and is therefore part of the launch identity
 (MRTD). Upper layers that need additional reset-vector
 responsibilities — platform-metadata inspection, host-data merge,
 consumer validation against host-supplied bytes — layer them onto
@@ -103,8 +103,8 @@ The `tdx` target admits the [`load`](load.md) and
 
 `tdx` defines one `load` kind:
 
-- **`measured`** (default): the VMM submits the PE section's
-  pages via `KVM_TDX_INIT_MEM_REGION` with the
+- **`default`**: the VMM submits the PE section's pages via
+  `KVM_TDX_INIT_MEM_REGION` with the
   `KVM_TDX_MEASURE_MEMORY_REGION` flag set — `TDH.MEM.PAGE.ADD`
   followed by `TDH.MR.EXTEND` per 256-byte chunk. Both the GPA
   and the page content contribute to MRTD.

@@ -24,7 +24,7 @@ The fill action MUST include a `kind` value; there is no default.
 PMI itself defines no `fill` kinds. Every `fill` kind is
 namespaced — the kinds the active target itself adds use the
 target name as the prefix (each target is a
-[registered extension](extensions.md#extension-registry)), and
+[registered extension](../README.md#extensions)), and
 any further kinds come from other registered or unregistered
 extensions. The per-kind contract — what the VMM writes into the
 region and whether the operation contributes to measurement —

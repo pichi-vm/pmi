@@ -49,8 +49,8 @@ for the full schema.)
 1. Read `.pmi.vm`.
 2. (No CC init for `vm`.)
 3. Process actions in order: `load` `.linux`, `.initrd`, `.cmdline`
-   (default kind `measured`, which on `vm` reduces to plain memory
-   loading since `vm` has no measurement).
+   (kind `default`, which on `vm` reduces to plain memory loading
+   since `vm` has no measurement).
 4. Apply the spec's `vcpu` register map to the boot vCPU.
 5. Kernel starts.
 
@@ -59,7 +59,7 @@ for the full schema.)
 1. Read `.pmi.sev`.
 2. `SNP_LAUNCH_START` with the host-supplied launch policy.
 3. Process actions: `SNP_LAUNCH_UPDATE` with `PAGE_TYPE_NORMAL` for
-   `.linux`, `.initrd`, `.cmdline` (default kind `measured`).
+   `.linux`, `.initrd`, `.cmdline` (kind `default`).
    `SNP_LAUNCH_UPDATE` with `PAGE_TYPE_VMSA` for `.sev.vms` (kind
    `sev:vmsa`).
 4. `SNP_LAUNCH_FINISH` (no `id` in this example).
@@ -102,7 +102,7 @@ kinds prefixed `dillo:`). PMI itself does not carry any of those.
 2. `SNP_LAUNCH_START` with the host-supplied launch policy, verified
    compatible with the policy embedded in the signed `.sev.idb`.
 3. Process actions. `SNP_LAUNCH_UPDATE` with `PAGE_TYPE_NORMAL` for
-   `.sev.svm`, `.ovmf` (default load kind `measured`). Skip
+   `.sev.svm`, `.ovmf` (kind `default`). Skip
    `.linux`/`.initrd`/`.cmdline`/`.osrel` if doing indirect boot (OVMF
    boots kernel from disk). `SNP_LAUNCH_UPDATE` with
    `PAGE_TYPE_SECRETS` / `PAGE_TYPE_CPUID` / `PAGE_TYPE_VMSA` for

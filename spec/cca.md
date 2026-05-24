@@ -84,10 +84,10 @@ The `cca` target admits the [`load`](load.md) and
 
 `cca` defines one `load` kind:
 
-- **`measured`** (default): the VMM submits the PE section's
-  granules via `RMI_DATA_CREATE`. The granule content is copied
-  from a non-secure source granule to the destination granule,
-  hashed, and the hash is extended into RIM.
+- **`default`**: the VMM submits the PE section's granules via
+  `RMI_DATA_CREATE`. The granule content is copied from a
+  non-secure source granule to the destination granule, hashed,
+  and the hash is extended into RIM.
 
 ### `fill`
 

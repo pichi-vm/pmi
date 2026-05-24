@@ -52,8 +52,8 @@ The VMM MUST refuse to launch on any of:
 
 ### `load`
 
-On `vm`, the [`measured`](load.md#default-kind-measured) kind
-places the section's bytes in guest memory per
+On `vm`, the [`default`](load.md#default-kind-default) kind places
+the section's bytes in guest memory per
 [section shape](load.md#section-shapes); no measurement is
 performed.
 

@@ -8,7 +8,7 @@ namespacing convention for names that appear in the wire format.
 
 | Class        | Form                | Examples                            | Defined in                                                          |
 | ------------ | ------------------- | ----------------------------------- | ------------------------------------------------------------------- |
-| Unprefixed   | `name`              | `version`, `actions`, `measured`    | PMI itself (target shape, [`load`](load.md), [`fill`](fill.md))     |
+| Unprefixed   | `name`              | `version`, `actions`, `default`     | PMI itself (target shape, [`load`](load.md), [`fill`](fill.md))     |
 | Registered   | `<layer>:<name>`    | `vm:vcpu`                           | spec linked from the [registry](../README.md#extensions)            |
 | Unregistered | `<layer>:<name>`    | layer's choice                      | wherever the layer publishes                                        |
 

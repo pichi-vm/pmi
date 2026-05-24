@@ -84,8 +84,8 @@ the host launch policy. Image authors who require policy
 reproducibility in attestation MUST include the `id` block, which
 binds the host policy under the signed ID key.
 
-Upper layers that add their own measured loads via PMI's actions
-participate in the digest on the same deterministic terms.
+Upper layers that add their own loads via PMI's actions participate
+in the digest on the same deterministic terms.
 
 ## `id` field
 
@@ -124,7 +124,7 @@ The `sev` target admits the [`load`](load.md) and
 
 `sev` defines two `load` kinds:
 
-- **`measured`** (default): the VMM submits the PE section's pages
+- **`default`**: the VMM submits the PE section's pages
   via `SNP_LAUNCH_UPDATE`:
   - For the data portion of a Data or Padded section,
     `PAGE_TYPE_NORMAL` (loaded bytes contribute to the launch
