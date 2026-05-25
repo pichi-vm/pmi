@@ -47,9 +47,9 @@ defined by `vm`, with the following Intel TDX behavior layered on:
 | 3. Update     | `KVM_TDX_INIT_MEM_REGION` per action       | each action in array order; `KVM_TDX_MEASURE_MEMORY_REGION` flag set per the action's kind |
 | 4. Finalize   | `KVM_TDX_FINALIZE_VM`                      | locks MRTD                                                            |
 
-Within each step-3 action's PE section the VMM submits pages from the
-lowest GPA to the highest, so MRTD extension is deterministic for a
-given action ordering.
+MRTD extension is reproducible from the image bytes per the page-submission
+ordering fixed by the core [`load`](core.md#load) and [`fill`](core.md#fill)
+procedures.
 
 ## TD parameters
 

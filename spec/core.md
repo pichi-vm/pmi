@@ -95,6 +95,11 @@ The `load` action MAY include a `kind` value.
    guest physical address (GPA) and size, respectively. Note that the specific
    behavior of this operation is dictated by the `kind` value.
 
+   The VMM MAY break the section into a series of page-sized operations (for
+   example, to load each page through a target API). When it does, it MUST
+   process them from the lowest GPA to the highest, so that any order-sensitive
+   target measurement is reproducible from the image bytes.
+
 #### Section Shapes
 
 There are three PE-section shapes:
@@ -153,6 +158,10 @@ The `fill` action MUST include a `kind` value.
 
 4. The VMM maps or copies the memory into the guest as the `VirtualAddress`
    (understood as GPA) location as defined by the `kind` value.
+
+The VMM MAY break the range into a series of page-sized operations. When it does,
+it MUST process them from the lowest GPA to the highest, so that any
+order-sensitive target measurement is reproducible from the image bytes.
 
 #### `kind`
 

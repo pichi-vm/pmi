@@ -38,9 +38,10 @@ PMI can be extended in four different ways.
 ### 1. New targets (registered only)
 
 A registered prefix MAY define a new launch target — a `.pmi.<prefix>` PE
-section carrying a CBOR spec that follows the [common target shape](core.md#shape). PE
-section names starting with `.pmi.` are PMI's namespace. Therefore, new targets
-may only be defined by registered extensions.
+section carrying a CBOR spec that follows the [common target shape](core.md#shape).
+A new target MUST define the accepted `version` value(s). PE section names
+starting with `.pmi.` are PMI's namespace. Therefore, new targets may only be
+defined by registered extensions.
 
 ### 2. Target attributes (top-level keys)
 

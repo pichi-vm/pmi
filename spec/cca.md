@@ -40,9 +40,9 @@ defined by `vm`, with the following Arm CCA behavior layered on:
 | 3. Update     | `RMI_DATA_CREATE` / `RMI_DATA_CREATE_UNKNOWN` per action | each action in array order; selection by action kind                |
 | 4. Finalize   | `RMI_REALM_ACTIVATE`                   | locks RIM                                                           |
 
-Within each step-3 action's PE section the VMM submits granules from
-the lowest GPA to the highest, so RIM extension is deterministic for
-a given action ordering.
+RIM extension is reproducible from the image bytes per the granule-submission
+ordering fixed by the core [`load`](core.md#load) and [`fill`](core.md#fill)
+procedures.
 
 ## Realm parameters
 

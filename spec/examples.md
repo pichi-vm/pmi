@@ -62,7 +62,7 @@ for the full schema.)
    `.linux`, `.initrd`, `.cmdline` (kind `default`).
    `SNP_LAUNCH_UPDATE` with `PAGE_TYPE_VMSA` for `.sev.vms` (kind
    `sev:vmsa`).
-4. `SNP_LAUNCH_FINISH` (no `id` in this example).
+4. `SNP_LAUNCH_FINISH` (no `sev:id` in this example).
 5. Kernel starts.
 
 **Bare metal:** UEFI executes the EFI stub in `.linux`. All `.pmi.*` and
@@ -81,7 +81,7 @@ kinds prefixed `dillo:`). PMI itself does not carry any of those.
 ```cbor-diag
 {
   "version": 1,
-  "id": {"block": ".sev.idb", "auth": ".sev.ida"},
+  "sev:id": {"block": ".sev.idb", "auth": ".sev.ida"},
   "actions": [
     {"type": "load", "section": ".sev.svm"},
     {"type": "load", "section": ".ovmf"},

@@ -2,6 +2,12 @@
 
 **Prefix:** `vm`.
 
+The `vm` extension provides the essential functionality for launching a PMI as a
+traditional virtual machine. It defines two extension points:
+
+1. The new target [`.pmi.vm`](#1-new-target-pmivm).
+2. The new target attribute [`vm:vcpu`](#2-new-target-attribute-vmvcpu).
+
 ## 1. New target: `.pmi.vm`
 
 The `.pmi.vm` PE section MUST be non-loaded (`IMAGE_SCN_MEM_DISCARDABLE`). If
@@ -17,24 +23,19 @@ The VMM executes the launch in five ordered steps:
 4. Initialize the boot vCPU from [`vm:vcpu`](#2-new-target-attribute-vmvcpu).
 5. Start the guest.
 
-### Required keys
+### Keys
 
-The `.pmi.vm` CBOR map carries three keys:
+The `.pmi.vm` CBOR map follows the [core target shape](core.md#shape). Its
+`version` MUST be `1`. It adds one required key:
 
-- **`version`** — schema version. MUST be `1`.
 - **`vm:vcpu`** — boot-vCPU register map (see
   [§2](#2-new-target-attribute-vmvcpu)). The variant ([`vcpu-x64`](#vcpu-x64) or
   [`vcpu-aarch64`](#vcpu-aarch64)) MUST match `PE.FileHeader.Machine`.
-- **`actions`** — non-empty array of actions, each an
-  [`action`](extensions.md#1-new-targets-registered-only).
-
-Additional top-level keys MAY appear under the
-[extension namespacing rule](extensions.md#namespacing).
 
 ### Validation
 
-The [core validation rules](core.md#validation) apply. `version` MUST be `1`. In
-addition, the VMM MUST refuse to launch on any of:
+The [core validation rules](core.md#validation) apply. In addition, the VMM MUST
+refuse to launch on any of:
 
 - `PE.FileHeader.Machine` is unsupported;
 - the `vm:vcpu` variant does not match `PE.FileHeader.Machine` (the spec carries
@@ -42,10 +43,9 @@ addition, the VMM MUST refuse to launch on any of:
 
 ### `load`
 
-On `vm`, the [`default`](core.md#kind) kind places the section's
-bytes in guest memory per [section shape](core.md#section-shapes); no
-measurement is performed. Implementations MAY copy or map the contents into
-guest memory.
+On `vm`, the [`default`](core.md#kind) kind places the section's bytes in guest
+memory per [section shape](core.md#section-shapes); no measurement is performed.
+Implementations MAY copy or map the contents into guest memory.
 
 ## 2. New target attribute: `vm:vcpu`
 

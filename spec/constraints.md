@@ -29,7 +29,11 @@ efficiently this loading happens through alignment. VMMs MAY always downgrade
 to 4K page loading, but the image MUST NOT prevent 2M page loading where
 possible.
 
-There are two tiers of alignment, depending on section size:
+Every PMI section — whether or not it is loaded into guest memory — MUST follow
+one of two alignment tiers, chosen by section size. The rationale below is
+written in terms of loading, but the alignment requirements apply uniformly:
+non-loaded sections (e.g., firmware-passed blobs the VMM reads from the file)
+follow the same tier so the whole image is page-granular.
 
 ### Large Sections (≥ 2M)
 
