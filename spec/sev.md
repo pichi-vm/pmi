@@ -1,9 +1,9 @@
 # `sev` Target
 
 The `sev` target is built on [`vm`](vm.md): inherits vm's base
-launch model and admits the [`load`](load.md) and
-[`fill`](fill.md) actions with SEV-SNP-specific kinds. It
-replaces vm's [`vcpu`](vm.md#vcpu-field) field with a `sev:vmsa`
+launch model and admits the [`load`](core.md#load) and
+[`fill`](core.md#fill) actions with SEV-SNP-specific kinds. It
+replaces vm's [`vm:vcpu`](vm.md#2-new-target-attribute-vmvcpu) field with a `sev:vmsa`
 load kind for the BSP register state, and adds an optional `id`
 field for signed launches.
 
@@ -30,12 +30,8 @@ id = {
 sev-action = load / fill
 ```
 
-The schema-strictness and action-array validation rules from
-[`vm`](vm.md#schema) apply: unrecognized `version`, unknown key in
-any defined CBOR map, unknown action `type`, unknown action `kind`,
-non-existent section reference, duplicate section reference, and
-overlapping `[VirtualAddress, VirtualAddress + VirtualSize)` ranges
-all cause the VMM to refuse to launch.
+The [core validation rules](core.md#validation) apply. `version` MUST be `1`. The
+`sev` target adds the `id`-pairing rule described under [`id` field](#id-field).
 
 ## Launch model
 
@@ -117,8 +113,8 @@ contains only one.
 
 ## Actions
 
-The `sev` target admits the [`load`](load.md) and
-[`fill`](fill.md) actions.
+The `sev` target admits the [`load`](core.md#load) and
+[`fill`](core.md#fill) actions.
 
 ### `load`
 

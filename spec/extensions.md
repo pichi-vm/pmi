@@ -1,60 +1,62 @@
 # Extensions
 
-Upper layers (hypervisors, in-guest stubs, image schemas) attach
-layer-specific data to PMI images through a single contract: a
-namespacing convention for names that appear in the wire format.
+The PMI core specification does not provide sufficient functionality to launch a
+guest without defined extensions. This means that most of the actual
+functionality is found in PMI extensions.
+
+PMI provides two kinds of extensions:
+
+1. **Registered** extensions appear in the [registry](../README.md#extension-registry).
+   To register, open a PR against the PMI spec repository.
+
+2. **Unregistered** are not coordinated with PMI; an application which wants to
+   use an unregistered extension chooses a collision-resistant prefix and
+   publishes its own spec. Suited for private, experimental, or
+   deployer-specific layers.
 
 ## Namespacing
 
-| Class        | Form                | Examples                            | Defined in                                                          |
-| ------------ | ------------------- | ----------------------------------- | ------------------------------------------------------------------- |
-| Unprefixed   | `name`              | `version`, `actions`, `default`     | PMI itself (target shape, [`load`](load.md), [`fill`](fill.md))     |
-| Registered   | `<layer>:<name>`    | `vm:vcpu`                           | spec linked from the [registry](../README.md#extensions)            |
-| Unregistered | `<layer>:<name>`    | layer's choice                      | wherever the layer publishes                                        |
+PMI extensions follow namespacing rules when used as values or map keys. Only
+the PMI core specification can use unprefixed names. Extensions MUST use an
+extension-defined prefix: either the registered prefix name or a
+collision-resistant name (when used in an unregistered extension).
 
-Unknown names cause the launch to fail.
+| Class        | Form              | Examples                        | Defined in                                               |
+| ------------ | ----------------- | ------------------------------- | -------------------------------------------------------- |
+| Unprefixed   | `name`            | `version`, `actions`            | PMI core specification                                   |
+| Registered   | `<prefix>:<name>` | `vm:vcpu`                       | spec linked from the [registry](../README.md#extension-registry) |
+| Unregistered | `<prefix>:<name>` | `com.foo.bar:my-data`           | wherever the extension publishes                         |
 
-**Registered prefixes** appear in the
-[registry](../README.md#extensions). To register, open a PR
-against the PMI spec repository with the prefix and a link to its
-spec.
-
-**Unregistered prefixes** are not coordinated with PMI; the layer
-chooses a collision-resistant prefix (e.g., derived from a domain
-it controls, a UUID) and publishes its own spec. Suited for
-private, experimental, or deployer-specific layers.
+An unknown map key always causes the launch to fail. PMI decodes every CBOR map
+in strict mode — there are no ignored or pass-through keys — so an unrecognized
+name surfaces as an eager, explicit error rather than a subtly misconfigured VM.
 
 ## Four extension points
 
-Point 1 is registered-only; points 2–4 are open to both classes.
+PMI can be extended in four different ways.
 
 ### 1. New targets (registered only)
 
-A registered prefix MAY define a new launch target — a
-`.pmi.<prefix>` PE section carrying a CBOR spec that follows the
-[common target shape](targets.md). PE section names starting with
-`.pmi.` are PMI's namespace, hence registered-only: allowing
-unregistered prefixes there would conflict with strict rejection
-and muddle the discovery model (loaders look for `.pmi.<target>`
-sections by name).
+A registered prefix MAY define a new launch target — a `.pmi.<prefix>` PE
+section carrying a CBOR spec that follows the [common target shape](core.md#shape). PE
+section names starting with `.pmi.` are PMI's namespace. Therefore, new targets
+may only be defined by registered extensions.
 
 ### 2. Target attributes (top-level keys)
 
-A namespaced top-level CBOR key carries metadata the extension
-needs at launch, independent of any action. The value is any CBOR
-type the extension specifies.
+An extension MAY define a new **target** attribute. This allows the inclusion of
+top-level metadata for a target. The target attribute name MUST follow the
+namespacing rules and its value MUST be valid CBOR.
 
-### 3. New actions
+### 3. New action types
 
-A namespaced action `type` adds a new operation to the actions
-array. Beyond `type`, the action's shape is entirely the
-extension's spec — fields, runtime behavior, firmware or VMM calls,
-measurement contribution.
+An extension MAY define a new **action** `type`. This permits extensions to
+define new actions (beside `load` and `fill`) for use during VM construction.
+The **action** `type` values MUST follow the namespacing rules.
 
 ### 4. Action-defined extension points
 
-An action's own schema MAY declare an extension point. PMI's
-[`load`](load.md) and [`fill`](fill.md) declare their `kind` field
-as a free-form text string, admitting namespaced kinds alongside
-the per-target kinds the target chapters enumerate. Future actions
-decide their own extension point (or none).
+An action's own schema MAY declare an extension point. PMI's [`load`](core.md#load)
+and [`fill`](core.md#fill) declare their `kind` field as such an extension point.
+Extension points defined by an **action** definition MUST define how namespacing
+rules are applicable.

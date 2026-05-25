@@ -1,12 +1,11 @@
 # `vm` Extension
 
-**Registered prefix:** `vm`.
+**Prefix:** `vm`.
 
 ## 1. New target: `.pmi.vm`
 
-The `.pmi.vm` PE section MUST be non-loaded
-(`IMAGE_SCN_MEM_DISCARDABLE`). If absent, the VMM MUST refuse to
-launch.
+The `.pmi.vm` PE section MUST be non-loaded (`IMAGE_SCN_MEM_DISCARDABLE`). If
+absent, the VMM MUST refuse to launch.
 
 ### Launch model
 
@@ -15,8 +14,7 @@ The VMM executes the launch in five ordered steps:
 1. Read the `.pmi.vm` PE section.
 2. Initialize hypervisor state.
 3. Process each entry in `actions` in array order.
-4. Initialize the boot vCPU from
-   [`vm:vcpu`](#2-new-target-attribute-vmvcpu).
+4. Initialize the boot vCPU from [`vm:vcpu`](#2-new-target-attribute-vmvcpu).
 5. Start the guest.
 
 ### Required keys
@@ -25,48 +23,39 @@ The `.pmi.vm` CBOR map carries three keys:
 
 - **`version`** — schema version. MUST be `1`.
 - **`vm:vcpu`** — boot-vCPU register map (see
-  [§2](#2-new-target-attribute-vmvcpu)). The variant
-  ([`vcpu-x64`](#vcpu-x64) or [`vcpu-aarch64`](#vcpu-aarch64))
-  MUST match `PE.FileHeader.Machine`.
-- **`actions`** — non-empty array of actions, each an [`action`](extensions.md#1-new-targets-registered-only).
+  [§2](#2-new-target-attribute-vmvcpu)). The variant ([`vcpu-x64`](#vcpu-x64) or
+  [`vcpu-aarch64`](#vcpu-aarch64)) MUST match `PE.FileHeader.Machine`.
+- **`actions`** — non-empty array of actions, each an
+  [`action`](extensions.md#1-new-targets-registered-only).
 
 Additional top-level keys MAY appear under the
 [extension namespacing rule](extensions.md#namespacing).
 
 ### Validation
 
-The VMM MUST refuse to launch on any of:
+The [core validation rules](core.md#validation) apply. `version` MUST be `1`. In
+addition, the VMM MUST refuse to launch on any of:
 
-- `version` is anything other than `1`;
-- unknown key in any CBOR map in the spec;
-- `PE.FileHeader.Machine` is neither `0x8664` nor `0xAA64`;
-- the `vm:vcpu` variant does not match `PE.FileHeader.Machine`
-  (the spec carries a `vcpu-x64` map under `0xAA64`, or a
-  `vcpu-aarch64` map under `0x8664`);
-- unknown action `type`;
-- any action's `section` does not name a PE section present in
-  the image;
-- the same PE section name is referenced by more than one action;
-- two action-referenced PE sections have overlapping
-  `[VirtualAddress, VirtualAddress + VirtualSize)` ranges.
+- `PE.FileHeader.Machine` is unsupported;
+- the `vm:vcpu` variant does not match `PE.FileHeader.Machine` (the spec carries
+  a `vcpu-x64` map under `0xAA64`, or a `vcpu-aarch64` map under `0x8664`).
 
 ### `load`
 
-On `vm`, the [`default`](load.md#default-kind-default) kind places
-the section's bytes in guest memory per
-[section shape](load.md#section-shapes); no measurement is
-performed.
+On `vm`, the [`default`](core.md#kind) kind places the section's
+bytes in guest memory per [section shape](core.md#section-shapes); no
+measurement is performed. Implementations MAY copy or map the contents into
+guest memory.
 
 ## 2. New target attribute: `vm:vcpu`
 
-`vm:vcpu` is a CBOR map of boot-vCPU register values applied at
-launch step 4. The schema is selected by `PE.FileHeader.Machine`:
-[`vcpu-x64`](#vcpu-x64) for `0x8664`,
-[`vcpu-aarch64`](#vcpu-aarch64) for `0xAA64`.
+`vm:vcpu` is a CBOR map of boot-vCPU register values applied at launch step 4.
+The schema is selected by `PE.FileHeader.Machine`: [`vcpu-x64`](#vcpu-x64) for
+`0x8664`, [`vcpu-aarch64`](#vcpu-aarch64) for `0xAA64`.
 
-Missing keys default to zero except where noted. The VMM MUST
-reject any unknown key. The VMM MUST reject any value exceeding
-the field width defined by the architecture schema.
+Missing keys default to zero except where noted. The VMM MUST reject any unknown
+key. The VMM MUST reject any value exceeding the field width defined by the
+architecture schema.
 
 ### `vcpu-x64`
 
@@ -106,17 +95,17 @@ dtr = {
 
 #### Segment-register attributes encoding
 
-| Bits    | Meaning                                                     |
-| ------- | ----------------------------------------------------------- |
-| `0–3`   | Type (Intel SDM Vol. 3 §3.4.5.1 / AMD APM Vol. 2 §4.7).     |
-| `4`     | S — 0 = system, 1 = code/data.                              |
-| `5–6`   | DPL — 0–3.                                                  |
-| `7`     | P.                                                          |
-| `8`     | AVL.                                                        |
-| `9`     | L — 64-bit code segment (CS only; ignored elsewhere).       |
-| `10`    | D/B — 0 = 16/64-bit, 1 = 32-bit.                            |
-| `11`    | G — 0 = byte, 1 = 4 KiB.                                    |
-| `12–15` | Reserved. MUST be zero.                                     |
+| Bits    | Meaning                                                 |
+| ------- | ------------------------------------------------------- |
+| `0–3`   | Type (Intel SDM Vol. 3 §3.4.5.1 / AMD APM Vol. 2 §4.7). |
+| `4`     | S — 0 = system, 1 = code/data.                          |
+| `5–6`   | DPL — 0–3.                                              |
+| `7`     | P.                                                      |
+| `8`     | AVL.                                                    |
+| `9`     | L — 64-bit code segment (CS only; ignored elsewhere).   |
+| `10`    | D/B — 0 = 16/64-bit, 1 = 32-bit.                        |
+| `11`    | G — 0 = byte, 1 = 4 KiB.                                |
+| `12–15` | Reserved. MUST be zero.                                 |
 
 ### `vcpu-aarch64`
 
@@ -142,9 +131,8 @@ vcpu-aarch64 = {
 }
 ```
 
-System-register keys (`sctlr_el1` through `cpacr_el1`) follow the
-encodings in the Arm Architecture Reference Manual for ARMv8-A
-and later.
+System-register keys (`sctlr_el1` through `cpacr_el1`) follow the encodings in
+the Arm Architecture Reference Manual for ARMv8-A and later.
 
 #### pstate
 
@@ -161,5 +149,4 @@ and later.
 | `28–31` | NZCV.                                                                   |
 | `32–63` | Reserved or architecture-defined. See Arm ARM.                          |
 
-The VMM MUST reject a `vm:vcpu` whose `pstate` selects an EL
-other than EL1.
+The VMM MUST reject a `vm:vcpu` whose `pstate` selects an EL other than EL1.

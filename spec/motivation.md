@@ -83,7 +83,7 @@ contains only firmware (for OVMF-loads-kernel-from-disk modes), or
 only confidential-VM content, is equally valid.
 
 The mechanism: **PE-as-base**. PMI extends PE without replacing it.
-See [pe.md](pe.md) for the alignment and section-naming rules that
+See [constraints.md](constraints.md) for the alignment and section-naming rules that
 keep this invisible to existing PE tools.
 
 ## 2. Existing solutions are target-specific and don't compose
@@ -126,8 +126,8 @@ parallel.
 
 PMI uses the same shape for every target. An image author who
 supports `vm`, `sev`, `cca`, and `tdx` writes the same CBOR
-structure with the same action types ([`load`](load.md),
-[`fill`](fill.md)), the same byte-section pattern for
+structure with the same action types ([`load`](core.md#load),
+[`fill`](core.md#fill)), the same byte-section pattern for
 vendor-defined blobs, and the same encoding and ordering rules.
 The per-target chapters differ only in their target-specific
 deltas: what kinds of `load` and `fill` mean, which vendor

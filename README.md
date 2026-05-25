@@ -1,75 +1,46 @@
 # PMI: Portable Machine Image
 
-PMI is a working draft. Schemas and semantics may change.
+NOTE: this document is a working draft. Schemas and semantics may change.
 
-## Motivation
+## What is PMI?
 
-A single workload increasingly needs to run as more than one
-artifact shape — bare metal under UEFI, direct-boot VM, OVMF +
-disk image, confidential VM under SEV-SNP / TDX / CCA — and each
-CC vendor ships its own launch-recipe conventions that don't
-compose. PMI is a deliberately narrow substrate (PE container +
-per-target launch recipes + action mechanism) that lets one image
-declare one recipe per target without replacing the existing PE
-toolchain. See [spec/motivation.md](spec/motivation.md).
+PMI is a file format for distributing the early boot code (including a Linux
+kernel, guest firmware, bootloader or a Confidential Computing service module)
+of an operating system. It has the following goals:
 
-## PMI
+1. portability across targets (bare metal, VM, AMD SEV, Arm CCA and Intel TDX).
+2. portability of CC attestation measurements across VM implementations
+3. reuse of existing tooling and formats
 
-A PMI image is a PE binary that, for each launch target it
-supports, carries a CBOR-encoded launch recipe in a non-loaded
-`.pmi.<target>` PE section. A launch recipe is a sequence of
-**actions** the VMM processes in array order — primarily
-[`load`](spec/load.md) (place a PE section's bytes into guest
-memory) and [`fill`](spec/fill.md) (populate a GPA range with
-kind-specific content). The CC targets (`sev`, `cca`, `tdx`) drive
-their native firmware ABIs through these actions; the non-CC
-`vm` target drives plain VMM memory loading.
+For more background on these goals, see [Motivation](spec/motivation.md).
 
-### PE Constraints
+## How does it work?
 
-PMI's substrate is the PE container, with alignment and section-
-naming rules that keep PMI-specific data invisible to existing PE
-tools. See [spec/pe.md](spec/pe.md).
+PMI is a standard Portable Executable, just like a Linux UKI. A compliant VM
+implementation will choose a **target**, read the CBOR document in the
+`.pmi.<target>` section and follow each of the ordered **actions** defined in
+the document. This allows a single PE executable to boot on bare metal (i.e. as
+a UKI) or on a VM/CVM using the PMI extensions. For maximum usability, PMI
+defines some additional [PE constraints](spec/constraints.md). PMI has an
+extremely simple [core specification](spec/core.md) which defines the format of
+the **target** CBOR document and two simple **actions**. Most functionality is
+defined as [extensions](spec/extensions.md); see the extension registry below.
 
-### Targets
+## Extension Registry
 
-A target's structure — the CBOR shape, the action model, the
-launch-step ordering, and the validation rules every loader MUST
-enforce. See [spec/targets.md](spec/targets.md).
+The following extensions are registered with PMI.
 
-### Actions
+| Prefix | Spec                       | Description                            |
+| ------ | -------------------------- | -------------------------------------- |
+| `vm`   | [spec/vm.md](spec/vm.md)   | Non-CC virtual machine target          |
+| `sev`  | [spec/sev.md](spec/sev.md) | AMD SEV 3.0 (SEV-SNP) confidential VMs |
+| `tdx`  | [spec/tdx.md](spec/tdx.md) | Intel TDX confidential VMs (draft)     |
+| `cca`  | [spec/cca.md](spec/cca.md) | Arm CCA confidential VMs (draft)       |
 
-The verbs a launch recipe is built from:
-[`load`](spec/load.md) reads a PE section's bytes into guest
-memory; [`fill`](spec/fill.md) populates a reserved GPA range with
-kind-specific content. Both are extensible through their `kind`
-field.
-
-### Extensions
-
-The namespacing convention that lets upper layers (hypervisors,
-in-guest stubs, image schemas) attach layer-specific data —
-registered vs unregistered prefixes, the four extension points.
-See [spec/extensions.md](spec/extensions.md).
-
-## Extensions
-
-The following prefixes are registered with PMI. Each one is itself
-a registered extension; together they cover the launch targets PMI
-currently defines.
-
-| Prefix  | Spec                       | Description                                 |
-| ------- | -------------------------- | ------------------------------------------- |
-| `vm`    | [spec/vm.md](spec/vm.md)   | Non-CC virtual machine target               |
-| `sev`   | [spec/sev.md](spec/sev.md) | AMD SEV 3.0 (SEV-SNP) confidential VMs      |
-| `tdx`   | [spec/tdx.md](spec/tdx.md) | Intel TDX confidential VMs (draft)          |
-| `cca`   | [spec/cca.md](spec/cca.md) | Arm CCA confidential VMs (draft)            |
-
-To register a new extension, open an issue or pull request against
-the PMI spec repository with the proposed prefix and a link to its
-spec.
+To register a new extension, open an issue or pull request against the PMI spec
+repository. Be sure to follow the format in the existing extensions.
 
 ## Examples
 
-Concrete CBOR walkthroughs of PMI images across the targets above:
-see [spec/examples.md](spec/examples.md).
+Concrete CBOR walkthroughs of PMI images across the targets above: see
+[spec/examples.md](spec/examples.md).

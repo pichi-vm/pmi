@@ -2,8 +2,8 @@
 
 The `cca` target is the Arm CCA (Confidential Compute Architecture)
 launch path. It is built on [`vm`](vm.md): inherits vm's base
-launch model and admits the [`load`](load.md) and
-[`fill`](fill.md) actions with CCA-specific kinds. It uses
+launch model and admits the [`load`](core.md#load) and
+[`fill`](core.md#fill) actions with CCA-specific kinds. It uses
 a `vcpu` top-level field that the VMM applies as the BSP REC
 parameters via `RMI_REC_CREATE` at step 2.
 
@@ -26,12 +26,8 @@ cca = {
 cca-action = load / fill
 ```
 
-The schema-strictness and action-array validation rules from
-[`vm`](vm.md#schema) apply: unrecognized `version`, unknown key in
-any defined CBOR map, unknown action `type`, unknown action `kind`,
-non-existent section reference, duplicate section reference, and
-overlapping `[VirtualAddress, VirtualAddress + VirtualSize)` ranges
-all cause the VMM to refuse to launch.
+The [core validation rules](core.md#validation) apply. `version` MUST be `1`. The
+`cca` target adds no further validation rules.
 
 ## Launch model
 
@@ -56,7 +52,7 @@ via VMM-defined input (CLI flag, config file, etc.) and passes them
 to `RMI_REALM_CREATE`. PMI does not carry them. Upper layers that
 need to bind specific realm parameters to the image can declare the
 expected bytes in measured PE sections via the
-[Extensions](extensions.md) namespace and require the VMM
+[Extensions namespace](extensions.md#namespacing) and require the VMM
 to submit them verbatim.
 
 CCA does not currently define a signed launch identity equivalent
@@ -77,8 +73,8 @@ runtime by the realm via `PSCI_CPU_ON`.
 
 ## Actions
 
-The `cca` target admits the [`load`](load.md) and
-[`fill`](fill.md) actions.
+The `cca` target admits the [`load`](core.md#load) and
+[`fill`](core.md#fill) actions.
 
 ### `load`
 
@@ -93,7 +89,7 @@ The `cca` target admits the [`load`](load.md) and
 
 `cca` defines no `fill` kinds. Upper layers MAY register their
 own through `fill`'s extension point; see
-[Extensions](extensions.md).
+[Extensions](extensions.md#4-action-defined-extension-points).
 
 ## Status
 

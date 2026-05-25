@@ -2,7 +2,7 @@
 
 The `tdx` target is the Intel TDX launch path. It is built on
 [`vm`](vm.md): inherits vm's base launch model and admits the
-[`load`](load.md) and [`fill`](fill.md) actions
+[`load`](core.md#load) and [`fill`](core.md#fill) actions
 with TDX-specific kinds.
 
 The image carries an in-TD PMI consumer that takes the role TDVF
@@ -29,12 +29,8 @@ tdx = {
 tdx-action = load / fill
 ```
 
-The schema-strictness and action-array validation rules from
-[`vm`](vm.md#schema) apply: unrecognized `version`, unknown key in
-any defined CBOR map, unknown action `type`, unknown action `kind`,
-non-existent section reference, duplicate section reference, and
-overlapping `[VirtualAddress, VirtualAddress + VirtualSize)` ranges
-all cause the VMM to refuse to launch.
+The [core validation rules](core.md#validation) apply. `version` MUST be `1`. The
+`tdx` target adds no further validation rules.
 
 There is no `vcpu` field: TDX vCPU initial register state is set by
 the TDX module per the TDX architecture (see [Boot vCPU
@@ -63,8 +59,8 @@ is **host-supplied** — the VMM accepts it via VMM-defined input
 (CLI flag, config file, etc.) and passes it to `KVM_TDX_INIT_VM`.
 PMI does not carry it. Upper layers that need to bind specific
 `TD_PARAMS` fields to the image can declare the expected bytes in
-measured PE sections via the [Extensions](extensions.md)
-namespace and require the VMM to submit them verbatim. Because
+measured PE sections via the [Extensions namespace](extensions.md#namespacing)
+and require the VMM to submit them verbatim. Because
 `TD_PARAMS` is measured into MRTD, that binding is enforced
 cryptographically — a VMM that substitutes a different value
 diverges MRTD.
@@ -86,8 +82,7 @@ and hands off to the kernel. The PMI consumer is loaded as a
 (MRTD). Upper layers that need additional reset-vector
 responsibilities — platform-metadata inspection, host-data merge,
 consumer validation against host-supplied bytes — layer them onto
-the PMI consumer via the [Extensions](extensions.md)
-namespace.
+the PMI consumer via the [Extensions namespace](extensions.md#namespacing).
 
 This spec describes the consumer's contract but does not mandate an
 implementation. Image authors may use any consumer that satisfies the
@@ -96,8 +91,8 @@ smaller than TDVF).
 
 ## Actions
 
-The `tdx` target admits the [`load`](load.md) and
-[`fill`](fill.md) actions.
+The `tdx` target admits the [`load`](core.md#load) and
+[`fill`](core.md#fill) actions.
 
 ### `load`
 
@@ -113,7 +108,7 @@ The `tdx` target admits the [`load`](load.md) and
 
 `tdx` defines no `fill` kinds. Upper layers MAY register their
 own through `fill`'s extension point; see
-[Extensions](extensions.md).
+[Extensions](extensions.md#4-action-defined-extension-points).
 
 Note: PMI deliberately does not define a `td-hob` fill kind. The
 TD HOB mechanism is TDVF-specific and would allow the host to
