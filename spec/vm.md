@@ -10,8 +10,8 @@ traditional virtual machine. It defines two extension points:
 
 ## 1. New target: `.pmi.vm`
 
-The `.pmi.vm` PE section MUST be non-loaded (`IMAGE_SCN_MEM_DISCARDABLE`). If
-absent, the VMM MUST refuse to launch.
+The `.pmi.vm` PE section carries the `vm` target spec, subject to the
+[core PE constraints](constraints.md#pe-constraints).
 
 ### Launch model
 

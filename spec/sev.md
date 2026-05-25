@@ -14,9 +14,8 @@ points:
 
 ## 1. New target: `.pmi.sev`
 
-A VMM targeting `sev` reads the `.pmi.sev` PE section. The section MUST be
-non-loaded (`IMAGE_SCN_MEM_DISCARDABLE`). If absent, the image does not support
-`sev` and the VMM MUST refuse to launch.
+The `.pmi.sev` PE section carries the `sev` target spec, subject to the
+[core PE constraints](constraints.md#pe-constraints).
 
 ### Launch model
 

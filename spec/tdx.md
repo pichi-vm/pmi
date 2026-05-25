@@ -1,136 +1,89 @@
-# `tdx` Target
+# `tdx` Extension
 
-The `tdx` target is the Intel TDX launch path. It is built on
-[`vm`](vm.md): inherits vm's base launch model and admits the
-[`load`](core.md#load) and [`fill`](core.md#fill) actions
-with TDX-specific kinds.
+**Prefix:** `tdx`.
 
-The image carries an in-TD PMI consumer that takes the role TDVF
-plays in non-PMI TDX guests: it occupies the architectural reset
-vector, performs vCPU rendezvous, reads any upper-layer metadata
-the image declares, and hands off to the kernel. The PMI consumer's
-implementation is out of scope for this spec.
+The `tdx` extension provides the essential functionality for launching a PMI as a
+confidential virtual machine on Intel TDX. It defines one extension point:
 
-## PE section
+1. The new target [`.pmi.tdx`](#1-new-target-pmitdx).
 
-A VMM targeting `tdx` reads the `.pmi.tdx` PE section. The section
-MUST be non-loaded (`IMAGE_SCN_MEM_DISCARDABLE`). If the section is
-absent, the image does not support `tdx` and the VMM MUST refuse to
-launch.
+## 1. New target: `.pmi.tdx`
 
-## Schema
+The `.pmi.tdx` PE section carries the `tdx` target spec, subject to the
+[core PE constraints](constraints.md#pe-constraints).
 
-```cddl
-tdx = {
-  "version" => uint,                     ; schema version (1)
-  "actions" => [+ tdx-action],           ; ordered launch recipe
-}
+### Launch model
 
-tdx-action = load / fill
-```
+The `tdx` target follows the [base launch model](vm.md#launch-model) defined by
+`vm`, layering the Intel TDX firmware ABI onto the five ordered steps:
 
-The [core validation rules](core.md#validation) apply. `version` MUST be `1`. The
-`tdx` target adds no further validation rules.
-
-There is no `vcpu` field: TDX vCPU initial register state is set by
-the TDX module per the TDX architecture (see [Boot vCPU
-initialization](#boot-vcpu-initialization) below).
-
-## Launch model
-
-The `tdx` target follows the [base launch model](vm.md#launch-model)
-defined by `vm`, with the following Intel TDX behavior layered on:
-
-| Step          | API                                       | Inputs                                                                |
-| ------------- | ----------------------------------------- | --------------------------------------------------------------------- |
-| 2. Initialize | `KVM_TDX_INIT_VM` then `KVM_TDX_INIT_VCPU` | host-supplied TD parameters                                            |
-| 3. Update     | `KVM_TDX_INIT_MEM_REGION` per action       | each action in array order; `KVM_TDX_MEASURE_MEMORY_REGION` flag set per the action's kind |
-| 4. Finalize   | `KVM_TDX_FINALIZE_VM`                      | locks MRTD                                                            |
+1. Read the `.pmi.tdx` PE section.
+2. `KVM_TDX_INIT_VM` then `KVM_TDX_INIT_VCPU` with the host-supplied TD parameters
+   (see [TD parameters](#td-parameters)).
+3. Process each entry in `actions` in array order via `KVM_TDX_INIT_MEM_REGION`;
+   the `KVM_TDX_MEASURE_MEMORY_REGION` flag is set per the action's kind.
+4. `KVM_TDX_FINALIZE_VM`, which locks MRTD.
+5. Start the guest.
 
 MRTD extension is reproducible from the image bytes per the page-submission
 ordering fixed by the core [`load`](core.md#load) and [`fill`](core.md#fill)
 procedures.
 
-## TD parameters
+### Keys
 
-`TD_PARAMS` (including `ATTRIBUTES`, `XFAM`, CPUID configuration,
-and the `MRCONFIGID` / `MROWNER` / `MROWNERCONFIG` deployer fields)
-is **host-supplied** — the VMM accepts it via VMM-defined input
-(CLI flag, config file, etc.) and passes it to `KVM_TDX_INIT_VM`.
-PMI does not carry it. Upper layers that need to bind specific
-`TD_PARAMS` fields to the image can declare the expected bytes in
-measured PE sections via the [Extensions namespace](extensions.md#namespacing)
-and require the VMM to submit them verbatim. Because
-`TD_PARAMS` is measured into MRTD, that binding is enforced
-cryptographically — a VMM that substitutes a different value
-diverges MRTD.
+The `.pmi.tdx` CBOR map follows the [core target shape](core.md#shape). Its
+`version` MUST be `1`. It adds no keys.
 
-## Boot vCPU initialization
+### Validation
 
-TDX vCPU initial register state is set by the TDX module per the TDX
-architecture. All vCPUs begin execution simultaneously at the x86
-architectural reset vector (`0xFFFFFFF0`); there is no INIT/SIPI
-mechanism. The hypervisor's `KVM_TDX_INIT_VCPU` ioctl conveys a small
-set of values into hypervisor-controllable registers (notably `RCX`,
-`RSI`, `R8`), but these are not part of PMI's contract with the guest
-and the PMI consumer MUST NOT depend on them.
+The [core validation rules](core.md#validation) apply. The `tdx` target adds no
+further validation rules.
 
-The image MUST carry a **PMI consumer**: a measured component that
-occupies the architectural reset vector, performs vCPU rendezvous,
-and hands off to the kernel. The PMI consumer is loaded as a
-`default` load action and is therefore part of the launch identity
-(MRTD). Upper layers that need additional reset-vector
-responsibilities — platform-metadata inspection, host-data merge,
-consumer validation against host-supplied bytes — layer them onto
-the PMI consumer via the [Extensions namespace](extensions.md#namespacing).
+### TD parameters
 
-This spec describes the consumer's contract but does not mandate an
-implementation. Image authors may use any consumer that satisfies the
-contract; PMI consumers for TDX are expected to be lightweight (much
-smaller than TDVF).
-
-## Actions
-
-The `tdx` target admits the [`load`](core.md#load) and
-[`fill`](core.md#fill) actions.
+`TD_PARAMS` (including `ATTRIBUTES`, `XFAM`, CPUID configuration, and the
+`MRCONFIGID` / `MROWNER` / `MROWNERCONFIG` deployer fields) is **host-supplied** —
+the VMM passes it to `KVM_TDX_INIT_VM`; PMI does not carry it. None of it enters
+MRTD, which is built only from the pages added by `load` actions, so the host
+cannot perturb the image measurement through `TD_PARAMS`. Each field is attested
+in its own report field; a remote verifier MUST check those separately, as it
+does for SEV's launch policy.
 
 ### `load`
 
-`tdx` defines one `load` kind:
+On `tdx`, the `default` kind submits the section's pages via
+`KVM_TDX_INIT_MEM_REGION` with the `KVM_TDX_MEASURE_MEMORY_REGION` flag set —
+`TDH.MEM.PAGE.ADD` followed by `TDH.MR.EXTEND` per 256-byte chunk. Both the GPA
+and the page content contribute to MRTD.
 
-- **`default`**: the VMM submits the PE section's pages via
-  `KVM_TDX_INIT_MEM_REGION` with the
-  `KVM_TDX_MEASURE_MEMORY_REGION` flag set — `TDH.MEM.PAGE.ADD`
-  followed by `TDH.MR.EXTEND` per 256-byte chunk. Both the GPA
-  and the page content contribute to MRTD.
+TDX sets the boot vCPU at the architectural reset vector with no host-controlled
+register contract, so the image MUST carry a measured **PMI consumer** loaded
+there via a `default` load (and thus part of MRTD) that performs vCPU rendezvous
+and hands off to the kernel. The consumer's implementation is out of scope for
+this spec.
 
 ### `fill`
 
-`tdx` defines no `fill` kinds. Upper layers MAY register their
-own through `fill`'s extension point; see
-[Extensions](extensions.md#4-action-defined-extension-points).
+`tdx` defines no `tdx`-specific `fill` kinds.
 
-Note: PMI deliberately does not define a `td-hob` fill kind. The
-TD HOB mechanism is TDVF-specific and would allow the host to
-supply unconstrained platform info to the guest. Upper layers
-that need platform-definition delivery use their own namespaced
-fill kinds with their own consumer-validation rules.
+PMI deliberately does not generate a TD HOB; platform description is delivered
+through the cross-target [`dtb`](dtb.md) devicetree instead, which the PMI
+consumer takes TDVF's role in consuming. For why PMI rejects the HOB, see
+[Motivation §2](motivation.md#2-portable-safe-platform-definition-and-attestation).
 
 ## Status
 
 The TDX target binding is a working draft. Open items:
 
-- A reference PMI consumer for TDX (out of spec scope, but needed for
-  the binding to be usable in practice). Expected responsibilities:
-  reset-vector occupation, vCPU rendezvous, lazy memory acceptance,
-  MMIO handling via `TDG.VP.VMCALL<#VE.RequestMMIO>`, CPUID page
-  consumption, and kernel handoff. Upper-layer responsibilities
-  (platform-metadata inspection, host-data merge, consumer
-  validation) are layered on top of the base PMI consumer.
+- A reference PMI consumer for TDX (out of spec scope, but needed for the binding
+  to be usable in practice). Expected responsibilities: reset-vector occupation,
+  vCPU rendezvous, lazy memory acceptance, MMIO handling via
+  `TDG.VP.VMCALL<#VE.RequestMMIO>`, CPUID page consumption, and kernel handoff.
+  Upper-layer responsibilities (platform-metadata inspection, host-data merge,
+  consumer validation) are layered on top of the base PMI consumer.
 - The exact CDDL constraint on PE section `VirtualAddress` for the
-  reset-vector-occupying load — whether the spec should mandate the
-  architectural reset vector address or leave it to the consumer's
-  metadata.
-- Whether RTMR runtime extensions need image-side declaration; the
-  working assumption is no — RTMRs are extended at runtime by the
-  guest (the PMI consumer or the kernel), not at launch.
+  reset-vector-occupying load — whether the spec should mandate the architectural
+  reset vector address or leave it to the consumer's metadata.
+- Whether RTMR runtime extensions need image-side declaration; the working
+  assumption is no — RTMRs are extended at runtime by the guest (the PMI consumer
+  or the kernel), not at launch.

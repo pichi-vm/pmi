@@ -9,7 +9,7 @@ kernel, guest firmware, bootloader or a Confidential Computing service module)
 of an operating system. It has the following goals:
 
 1. portability across targets (bare metal, VM, AMD SEV, Arm CCA and Intel TDX).
-2. portability of CC attestation measurements across VM implementations
+2. portability of safe platform definition and attestation
 3. reuse of existing tooling and formats
 
 For more background on these goals, see [Motivation](spec/motivation.md).
@@ -30,12 +30,13 @@ defined as [extensions](spec/extensions.md); see the extension registry below.
 
 The following extensions are registered with PMI.
 
-| Prefix | Spec                       | Description                            |
-| ------ | -------------------------- | -------------------------------------- |
-| `vm`   | [spec/vm.md](spec/vm.md)   | Non-CC virtual machine target          |
-| `sev`  | [spec/sev.md](spec/sev.md) | AMD SEV 3.0 (SEV-SNP) confidential VMs |
-| `tdx`  | [spec/tdx.md](spec/tdx.md) | Intel TDX confidential VMs (draft)     |
-| `cca`  | [spec/cca.md](spec/cca.md) | Arm CCA confidential VMs (draft)       |
+| Prefix | Spec                       | Description                             |
+| ------ | -------------------------- | --------------------------------------- |
+| `dtb`  | [spec/dtb.md](spec/dtb.md) | Cross-target devicetree platform `fill` |
+| `vm`   | [spec/vm.md](spec/vm.md)   | Non-CC virtual machine target           |
+| `sev`  | [spec/sev.md](spec/sev.md) | AMD SEV 3.0 (SEV-SNP) confidential VMs  |
+| `tdx`  | [spec/tdx.md](spec/tdx.md) | Intel TDX confidential VMs (draft)      |
+| `cca`  | [spec/cca.md](spec/cca.md) | Arm CCA confidential VMs (draft)        |
 
 To register a new extension, open an issue or pull request against the PMI spec
 repository. Be sure to follow the format in the existing extensions.
