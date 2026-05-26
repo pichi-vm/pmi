@@ -20,11 +20,12 @@ PMI is a standard Portable Executable, just like a Linux UKI. A compliant VM
 implementation will choose a **target**, read the CBOR document in the
 `.pmi.<target>` section and follow each of the ordered **actions** defined in
 the document. This allows a single PE executable to boot on bare metal (i.e. as
-a UKI) or on a VM/CVM using the PMI extensions. For maximum usability, PMI
-defines some additional [PE constraints](spec/constraints.md). PMI has an
-extremely simple [core specification](spec/core.md) which defines the format of
-the **target** CBOR document and two simple **actions**. Most functionality is
-defined as [extensions](spec/extensions.md); see the extension registry below.
+a UKI) or on a VM/CVM using the PMI extensions. For efficient zero-copy loading,
+PMI imposes [page granularity](spec/granularity.md) rules on its sections. PMI
+has an extremely simple [core specification](spec/core.md) which defines the
+format of the **target** CBOR document and two simple **actions**. Most
+functionality is defined as [extensions](spec/extensions.md); see the extension
+registry below.
 
 ## Extension Registry
 

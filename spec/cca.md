@@ -16,7 +16,7 @@ CCA-specific kinds.
 ## 1. New target: `.pmi.cca`
 
 The `.pmi.cca` PE section carries the `cca` target spec, subject to the
-[core PE constraints](constraints.md#pe-constraints).
+[page granularity](granularity.md) rules.
 
 ### Launch model
 

@@ -1,21 +1,4 @@
-# PE Constraints and Page Granularity
-
-## PE Constraints
-
-PMI imposes the following constraints on the PE:
-
-- **Each supported target's spec lives in its own non-loaded PE section.** By
-  convention these are named `.pmi.<target>` (`.pmi.vm`, `.pmi.sev`, `.pmi.tdx`,
-  `.pmi.cca`). VMMs targeting one of them read the section name fixed by that
-  target's binding and refuse to launch if it is absent. The section MUST be
-  non-loaded (`IMAGE_SCN_MEM_DISCARDABLE`). Every other PE section in the image
-  — kernels, firmware, DTBs, target-specific pages — uses a free-form name; the
-  active target spec resolves names to purposes.
-
-Tools which build PMI images MUST follow these constraints. Tools which consume
-PMI images MAY reject images that do not conform.
-
-## Page Granularity
+# Page Granularity
 
 VMMs often have to choose a page granularity for operations, including the
 `load` and `fill` actions in this specification. It is highly efficient to be
@@ -32,7 +15,7 @@ memory.
 Therefore, to facilitate efficnent VMM construction, PMI makes the following
 alignment rules.
 
-### Large Sections (≥ 2M)
+## Large Sections (≥ 2M)
 
 Sections referenced in the `load` and `fill` actions whose `VirtualSize` is ≥ 2M
 have the following alignment requirements:
@@ -45,7 +28,7 @@ This allows the VMM to mmap the file, pass each 2M chunk directly to the target
 API with no copy, and load it at a 2M-aligned GPA. The entire section can be
 loaded in `SizeOfRawData / 2M` calls to the target API.
 
-### Small Sections (< 2M)
+## Small Sections (< 2M)
 
 Sections referenced in the `load` and `fill` actions whose `VirtualSize` is < 2M
 have the following alignment requirements:

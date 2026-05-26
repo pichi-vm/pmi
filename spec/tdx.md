@@ -10,7 +10,7 @@ a confidential virtual machine on Intel TDX. It defines one extension point:
 ## 1. New target: `.pmi.tdx`
 
 The `.pmi.tdx` PE section carries the `tdx` target spec, subject to the
-[core PE constraints](constraints.md#pe-constraints).
+[page granularity](granularity.md) rules.
 
 ### Launch model
 

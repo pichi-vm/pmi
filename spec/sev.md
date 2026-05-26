@@ -15,7 +15,7 @@ points:
 ## 1. New target: `.pmi.sev`
 
 The `.pmi.sev` PE section carries the `sev` target spec, subject to the
-[core PE constraints](constraints.md#pe-constraints).
+[page granularity](granularity.md) rules.
 
 ### Launch model
 

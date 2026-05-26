@@ -54,8 +54,8 @@ type.
 
 A VMM launches a target by executing this ordered sequence:
 
-1. **Read `.pmi.<target>`.** Locate and decode the target's PE section. Refuse
-   to launch if absent.
+1. **Read `.pmi.<target>`.** Locate and decode the target's PE section, which
+   MUST be non-loaded (`IMAGE_SCN_MEM_DISCARDABLE`). Refuse to launch if absent.
 2. **Initialize.** Perform target-specific setup before processing actions
    (e.g., on confidential targets, call the CC firmware's launch-start API).
 3. **Process actions.** Execute each entry in the `actions` array in array
@@ -116,7 +116,7 @@ There are three PE-section shapes:
 
 1. **Data** (`SizeOfRawData > 0`, `VirtualSize == SizeOfRawData`). Load the
    on-disk data at `VirtualAddress`. The VMM chooses page granularity based on
-   alignment — see [page granularity](constraints.md#page-granularity).
+   alignment — see [page granularity](granularity.md).
 
 2. **Padded** (`SizeOfRawData > 0`, `VirtualSize > SizeOfRawData`). Load the
    on-disk data at `VirtualAddress` as in the Data shape above. Then zero-fill
