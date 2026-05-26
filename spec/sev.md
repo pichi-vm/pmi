@@ -138,3 +138,34 @@ functionality the processor does not support. The referenced PE section MUST be
 a Zero section (`SizeOfRawData == 0`) with `VirtualSize == 4096`. The page
 contributes to the launch digest as a typed page — the GPA and page type are
 bound, the content is not.
+
+## Example
+
+A `.pmi.sev` that launches a service module (SVSM) and OVMF under a signed
+identity, with secrets and CPUID pages:
+
+```cbor-diag
+{
+  "version": 1,
+  "sev:id": {"block": ".sev.idb", "auth": ".sev.ida"},
+  "actions": [
+    {"type": "load", "section": ".svsm"},
+    {"type": "load", "section": ".ovmf"},
+    {"type": "load", "section": ".linux"},
+    {"type": "load", "section": ".initrd"},
+    {"type": "load", "section": ".cmdline"},
+    {"type": "fill", "section": ".dtb", "kind": "dtb"},
+    {"type": "fill", "section": ".sev.sec", "kind": "sev:secrets"},
+    {"type": "fill", "section": ".sev.cpu", "kind": "sev:cpuid"},
+    {"type": "load", "section": ".sev.vms", "kind": "sev:vmsa"}
+  ]
+}
+```
+
+`SNP_LAUNCH_START` verifies the host policy against the policy embedded in the
+signed `.sev.idb`. The `default` loads submit `PAGE_TYPE_NORMAL` pages; `.dtb`
+goes in unmeasured; `.sev.sec`, `.sev.cpu`, and `.sev.vms` submit
+`PAGE_TYPE_SECRETS`, `PAGE_TYPE_CPUID`, and `PAGE_TYPE_VMSA`.
+`SNP_LAUNCH_FINISH` passes `id_block` and `id_auth` from `.sev.idb` /
+`.sev.ida`. The SVSM starts at VMPL0, initializes a vTPM, transitions OVMF to
+VMPL1, and OVMF boots the kernel.

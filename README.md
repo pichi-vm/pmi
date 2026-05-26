@@ -30,18 +30,17 @@ defined as [extensions](spec/extensions.md); see the extension registry below.
 
 The following extensions are registered with PMI.
 
-| Prefix | Spec                       | Description                             |
-| ------ | -------------------------- | --------------------------------------- |
-| `dtb`  | [spec/dtb.md](spec/dtb.md) | Cross-target devicetree platform `fill` |
-| `vm`   | [spec/vm.md](spec/vm.md)   | Non-CC virtual machine target           |
-| `sev`  | [spec/sev.md](spec/sev.md) | AMD SEV 3.0 (SEV-SNP) confidential VMs  |
-| `tdx`  | [spec/tdx.md](spec/tdx.md) | Intel TDX confidential VMs (draft)      |
-| `cca`  | [spec/cca.md](spec/cca.md) | Arm CCA confidential VMs (draft)        |
+| Prefix | Spec                       | Description                            |
+| ------ | -------------------------- | -------------------------------------- |
+| `vm`   | [spec/vm.md](spec/vm.md)   | Non-CC virtual machine target          |
+| `sev`  | [spec/sev.md](spec/sev.md) | AMD SEV 3.0 (SEV-SNP) confidential VMs |
+| `tdx`  | [spec/tdx.md](spec/tdx.md) | Intel TDX confidential VMs (draft)     |
+| `cca`  | [spec/cca.md](spec/cca.md) | Arm CCA confidential VMs (draft)       |
 
 To register a new extension, open an issue or pull request against the PMI spec
 repository. Be sure to follow the format in the existing extensions.
 
 ## Examples
 
-Concrete CBOR walkthroughs of PMI images across the targets above: see
-[spec/examples.md](spec/examples.md).
+Each target spec ends with a concrete CBOR walkthrough of a PMI image for that
+target.

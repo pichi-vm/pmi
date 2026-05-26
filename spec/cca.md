@@ -2,9 +2,9 @@
 
 **Prefix:** `cca`.
 
-The `cca` extension provides the essential functionality for launching a PMI as a
-confidential virtual machine on Arm CCA (Confidential Compute Architecture). It
-defines two extension points:
+The `cca` extension provides the essential functionality for launching a PMI as
+a confidential virtual machine on Arm CCA (Confidential Compute Architecture).
+It defines two extension points:
 
 1. The new target [`.pmi.cca`](#1-new-target-pmicca).
 2. The new target attribute [`cca:vcpu`](#2-new-target-attribute-ccavcpu).
@@ -51,10 +51,10 @@ further validation rules.
 
 ### Realm parameters
 
-Realm parameters (feature flags, hash algorithm, REC count, Realm Personalization
-Value) are **host-supplied** — the VMM accepts them via VMM-defined input (CLI
-flag, config file, etc.) and passes them to `RMI_REALM_CREATE`. PMI does not carry
-them.
+Realm parameters (feature flags, hash algorithm, REC count, Realm
+Personalization Value) are **host-supplied** — the VMM accepts them via
+VMM-defined input (CLI flag, config file, etc.) and passes them to
+`RMI_REALM_CREATE`. PMI does not carry them.
 
 CCA does not currently define a signed launch identity equivalent to SEV's
 `sev:id`. The PMI image carries no identity material; verifiers bind to RIM plus
@@ -62,9 +62,9 @@ the Realm Token.
 
 ### `load`
 
-On `cca`, the `default` kind submits the section's granules via `RMI_DATA_CREATE`.
-The granule content is copied from a non-secure source granule to the destination
-granule, hashed, and the hash is extended into RIM.
+On `cca`, the `default` kind submits the section's granules via
+`RMI_DATA_CREATE`. The granule content is copied from a non-secure source
+granule to the destination granule, hashed, and the hash is extended into RIM.
 
 ## 2. New target attribute: `cca:vcpu`
 
@@ -77,17 +77,26 @@ GPRs, and the system registers exposed by `vcpu-aarch64`) are measured into RIM.
 Secondary RECs are created non-runnable by the VMM (independent of PMI) and
 brought up at runtime by the realm via `PSCI_CPU_ON`.
 
-## Status
+## Example
 
-The CCA target binding is a working draft. Open items:
+A `.pmi.cca` that loads a kernel payload, supplies a host devicetree, and sets
+the BSP REC parameters:
 
-- Whether `vcpu-aarch64`'s register set fully captures the BSP REC parameters CCA
-  measures into RIM, or whether CCA-specific fields need their own schema (e.g.,
-  the `runnable` flag at REC creation, which RMM 1.0-rel0 includes in RIM only
-  when set).
-- Auxiliary REC granules (count returned by `RMI_REC_AUX_COUNT`): per-platform
-  and per-realm, allocated by the VMM. Runtime allocator output, by design out of
-  PMI's bindings.
-- REM (Realm Extensible Measurement) initial state: REMs are runtime-extended by
-  the realm; whether the spec needs image-side declaration of expected REM
-  extensions is open.
+```cbor-diag
+{
+  "version": 1,
+  "cca:vcpu": {"pc": 0x100000, "x0": 0x80000},
+  "actions": [
+    {"type": "load", "section": ".linux"},
+    {"type": "load", "section": ".initrd"},
+    {"type": "load", "section": ".cmdline"},
+    {"type": "fill", "section": ".dtb", "kind": "dtb"}
+  ]
+}
+```
+
+After `RMI_REALM_CREATE` and `RMI_REC_CREATE` (applying `cca:vcpu` to the BSP
+REC), each `default` load submits granules via `RMI_DATA_CREATE`, extending RIM
+with `.linux`, `.initrd`, and `.cmdline`. The `.dtb` is placed as an unmeasured
+granule. `RMI_REALM_ACTIVATE` locks RIM, and the realm starts at the BSP REC's
+`pc`, where it validates and consumes the devicetree before booting the kernel.

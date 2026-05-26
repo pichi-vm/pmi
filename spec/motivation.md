@@ -86,7 +86,8 @@ and battle-tested C implementations (libfdt), it is universally available on
 `aarch64`, and it contains no executable code — no AML-equivalent — so the guest
 can validate it unmeasured. On `x86` it could be translated to ACPI in-guest
 (e.g. by firmware such as OVMF); Linux's direct `x86` Devicetree support is
-limited but improving. PMI uses Devicetree, unmeasured, on every target.
+limited but improving. PMI uses Devicetree, unmeasured, on every target, through
+the core [`dtb`](core.md#kind-1) fill kind.
 
 With the platform definition out of the measurement, attestation depends on the
 image alone — and PMI keeps that portable too. Early CC implementations each

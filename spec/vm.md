@@ -150,3 +150,29 @@ the Arm Architecture Reference Manual for ARMv8-A and later.
 | `32–63` | Reserved or architecture-defined. See Arm ARM.                          |
 
 The VMM MUST reject a `vm:vcpu` whose `pstate` selects an EL other than EL1.
+
+## Example
+
+A direct-boot `.pmi.vm` that loads a kernel, initrd, and command line, supplies
+a host devicetree, and sets the boot vCPU:
+
+```cbor-diag
+{
+  "version": 1,
+  "vm:vcpu": {"rip": 0x100000, "rsp": 0x80000, "rflags": 0x2},
+  "actions": [
+    {"type": "load", "section": ".linux"},
+    {"type": "load", "section": ".initrd"},
+    {"type": "load", "section": ".cmdline"},
+    {"type": "fill", "section": ".dtb", "kind": "dtb"}
+  ]
+}
+```
+
+The VMM reads `.pmi.vm`, processes the actions in order — loading `.linux`,
+`.initrd`, and `.cmdline` into guest memory and filling `.dtb` with the
+host-supplied devicetree — applies the `vm:vcpu` register map to the boot vCPU,
+and starts the guest. (The omitted `vm:vcpu` keys default to zero; a real boot
+image would set `cs`, `cr0`, `cr3`, `cr4`, `efer`, `gdtr`, and `idtr` to match
+its entry-point code.) The same image might boot on bare metal under UEFI as a
+UKI, ignoring `.pmi.vm` entirely.
