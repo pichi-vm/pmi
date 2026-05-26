@@ -12,32 +12,30 @@ PMI imposes the following constraints on the PE:
   — kernels, firmware, DTBs, target-specific pages — uses a free-form name; the
   active target spec resolves names to purposes.
 
-- **Section names MUST fit in 8 bytes.** The PE `IMAGE_SECTION_HEADER.Name`
-  field is a fixed 8-byte array. PMI does not use the COFF string table
-  extension (which allows names longer than 8 bytes). Names shorter than 8 bytes
-  are null-padded; names of exactly 8 bytes have no null terminator.
-
 Tools which build PMI images MUST follow these constraints. Tools which consume
 PMI images MAY reject images that do not conform.
 
 ## Page Granularity
 
-PMI images MUST be built to support efficient loading with 2M huge pages. The
-VMM MAY allocate guest memory in 2M pages, then uses target APIs (e.g.,
-`SNP_LAUNCH_UPDATE`) to load data into those pages. Image authors control how
-efficiently this loading happens through alignment. VMMs MAY always downgrade to
-4K page loading, but the image MUST NOT prevent 2M page loading where possible.
+VMMs often have to choose a page granularity for operations, including the
+`load` and `fill` actions in this specification. It is highly efficient to be
+able to `mmap()` the PMI file on the disk and then pass the memory directly to
+the hypervisor or firmware. This permits zero-copy construction. However, this
+can only be done if the pages are correctly aligned on disk.
 
-Every PE section referenced by a `load` or `fill` action MUST follow one of two
-alignment tiers, chosen by section size. Sections the active target spec does
-not reference via `load` or `fill` are outside the scope of this rule;
-extensions that reference sections by other means (e.g., target attributes) MAY
-impose their own alignment requirements.
+If a VMM has to support unaligned pages, then it must build page copy semantics
+into its loader, which is costly and error prone. However, a 2M alignment is
+always compatible with a 4K alignement. This means that VMMs can efficiently
+downgrade from a larger alignment on disk to a smaller alignment requirement in
+memory.
+
+Therefore, to facilitate efficnent VMM construction, PMI makes the following
+alignment rules.
 
 ### Large Sections (≥ 2M)
 
-Sections like firmware (`.ovmf`), kernels (`.linux`), and initial ramdisks
-(`.initrd`) are typically large. For these sections:
+Sections referenced in the `load` and `fill` actions whose `VirtualSize` is ≥ 2M
+have the following alignment requirements:
 
 - `VirtualAddress` MUST be 2M-aligned.
 - `PointerToRawData` MUST be 2M-aligned.
@@ -49,8 +47,8 @@ loaded in `SizeOfRawData / 2M` calls to the target API.
 
 ### Small Sections (< 2M)
 
-Sections like command lines (`.cmdline`), register state (`.sev.vms`), and other
-single-page or small items:
+Sections referenced in the `load` and `fill` actions whose `VirtualSize` is < 2M
+have the following alignment requirements:
 
 - `VirtualAddress` MUST be 4K-aligned.
 - `PointerToRawData` MUST be 4K-aligned.
@@ -70,23 +68,3 @@ Only one target's spec is active per launch — the VMM reads only the
 `.pmi.<target>` section for its target — so a `VirtualAddress` shared between
 sections referenced exclusively by, say, `.pmi.sev` and `.pmi.tdx` can never
 collide in guest memory.
-
-Standard PE/UEFI loaders are not aware of PMI's target model and may handle
-overlapping sections in undefined ways (typically last-write-wins during image
-load). Image authors using shared `VirtualAddress` for PMI-only sections accept
-that the resulting PE may not behave correctly when loaded by strict PE loaders
-outside the PMI consumption path.
-
-## Spec-authoritative loading
-
-The active target spec is authoritative for what the VMM does with each PE
-section. The spec's `actions` array determines what the VMM loads into guest
-memory or feeds to the target's launch APIs. Upper layers may add their own
-extension keys (per [Extensions](extensions.md)) that reference additional PE
-sections; the same authoritativeness rule applies to them under the layer's own
-spec.
-
-PE section flags such as `IMAGE_SCN_MEM_DISCARDABLE` govern only UEFI/PE loader
-behavior — they signal to non-PMI loaders that a section should be skipped or
-may be discarded after init. They do not affect the VMM's loading or inspection
-decisions, which are driven entirely by the active target spec.
