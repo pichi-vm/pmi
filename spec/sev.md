@@ -96,17 +96,18 @@ The VMM passes the two sections to `SNP_LAUNCH_FINISH` as `id_block` and
 
 Both PE sections MUST be non-loaded (`IMAGE_SCN_MEM_DISCARDABLE`). They are not
 loaded into guest memory; the VMM reads them from the file and copies them into
-the `SNP_LAUNCH_FINISH` command. `PointerToRawData` MUST be 4K-aligned and
-`SizeOfRawData` MUST be 4096 so the VMM can mmap each section directly from the
-file. `VirtualAddress` is unconstrained: these sections are never placed in
-guest memory.
+the `SNP_LAUNCH_FINISH` command. `VirtualAddress` is unconstrained — these
+sections are never placed in guest memory — and `PointerToRawData` MUST be
+4K-aligned so the VMM can mmap each section directly from the file.
 
-- The `block` PE section MUST have `VirtualSize == 96` and contain exactly the
-  96 bytes the AMD SEV-SNP ABI defines for the ID block.
+- The `block` PE section MUST have `VirtualSize == 96` and
+  `SizeOfRawData == 96`, and contain exactly the 96 bytes the AMD SEV-SNP ABI
+  defines for the ID block.
 
-- The `auth` PE section MUST have `VirtualSize == 4096` and contain the ID auth
-  info structure defined by the same ABI (ECDSA P-384 signatures over the ID
-  block, plus the ID key and optional author key).
+- The `auth` PE section MUST have `VirtualSize == 4096` and
+  `SizeOfRawData == 4096`, and contain the ID auth info structure defined by
+  the same ABI (ECDSA P-384 signatures over the ID block, plus the ID key and
+  optional author key).
 
 Pairing is structural: when `sev:id` is present, both `block` and `auth` keys
 MUST be present; the VMM MUST refuse to launch on a spec that contains only one.
@@ -149,7 +150,7 @@ identity, with secrets and CPUID pages:
 ```cbor-diag
 {
   "version": 1,
-  "sev:id": {"block": ".sev.idblock", "auth": ".sev.idauth"},
+  "sev:id": {"block": ".sev.id.block", "auth": ".sev.id.auth"},
   "actions": [
     {"type": "load", "section": ".svsm"},
     {"type": "load", "section": ".ovmf"},
@@ -165,9 +166,9 @@ identity, with secrets and CPUID pages:
 ```
 
 `SNP_LAUNCH_START` verifies the host policy against the policy embedded in the
-signed `.sev.idblock`. The `default` loads submit `PAGE_TYPE_NORMAL` pages; `.dtb`
-goes in unmeasured; `.sev.secrets`, `.sev.cpuid`, and `.sev.vmsa` submit
+signed `.sev.id.block`. The `default` loads submit `PAGE_TYPE_NORMAL` pages;
+`.dtb` goes in unmeasured; `.sev.secrets`, `.sev.cpuid`, and `.sev.vmsa` submit
 `PAGE_TYPE_SECRETS`, `PAGE_TYPE_CPUID`, and `PAGE_TYPE_VMSA`.
-`SNP_LAUNCH_FINISH` passes `id_block` and `id_auth` from `.sev.idblock` /
-`.sev.idauth`. The SVSM starts at VMPL0, initializes a vTPM, transitions OVMF to
-VMPL1, and OVMF boots the kernel.
+`SNP_LAUNCH_FINISH` passes `id_block` and `id_auth` from `.sev.id.block` /
+`.sev.id.auth`. The SVSM starts at VMPL0, transitions OVMF to VMPL1, and OVMF
+boots the kernel.
