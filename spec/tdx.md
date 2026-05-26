@@ -14,8 +14,7 @@ The `.pmi.tdx` PE section carries the `tdx` target spec, subject to the
 
 ### Launch model
 
-The `tdx` target follows the [base launch model](vm.md#launch-model) defined by
-`vm`, layering the Intel TDX firmware ABI onto the five ordered steps:
+The `tdx` target follows the [core launch model](core.md#launch-model), layering the Intel TDX firmware ABI onto the five ordered steps:
 
 1. Read the `.pmi.tdx` PE section.
 2. `KVM_TDX_INIT_VM` then `KVM_TDX_INIT_VCPU` with the host-supplied TD
@@ -67,7 +66,7 @@ this spec.
 `tdx` defines no `tdx`-specific `fill` kinds.
 
 PMI deliberately does not generate a TD HOB; platform description is delivered
-through the core [`dtb`](core.md#kind-1) fill kind instead, which the PMI
+through the core [`dtb`](core.md#dtb) fill kind instead, which the PMI
 consumer takes TDVF's role in consuming. For why PMI rejects the HOB, see
 [Motivation §2](motivation.md#2-portable-safe-platform-definition-and-attestation).
 

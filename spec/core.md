@@ -143,7 +143,8 @@ any behavior for `kind = "default"`.
 The `kind` value is [extensible](extensions.md). Extension-defined targets MUST
 define the behavior of the `load` action when `kind = "default"`. Extensions MAY
 define additional `kind` values. Extension-defined `kind` values MUST follow all
-namespacing rules.
+namespacing rules. A VMM MUST refuse to launch on a `load` whose `kind` it
+does not recognize.
 
 ### `fill`
 
@@ -181,12 +182,16 @@ The referenced PE section MUST be a Zero section (`SizeOfRawData == 0`,
 
 #### `kind`
 
-The `kind` value determines the behavior of the `fill` action. The core
-specification defines one `kind`, `dtb` (below); it has no default.
+The `kind` value determines the behavior of the `fill` action. It has no
+default; every `fill` action MUST carry a `kind`.
 
 The `kind` value is [extensible](extensions.md). Extensions MAY define
 additional `kind` values. Extension-defined `kind` values MUST follow all
-namespacing rules.
+namespacing rules. A VMM MUST refuse to launch on a `fill` whose `kind` it
+does not recognize. The core specification defines one `kind`,
+[`dtb`](#dtb) below.
+
+#### `dtb`
 
 The `dtb` kind delivers the guest's platform description (memory map, MMIO/IO
 regions, CPU topology). The VMM fills the section with a host-supplied flattened

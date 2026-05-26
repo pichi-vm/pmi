@@ -4,7 +4,7 @@ The PMI core specification does not provide sufficient functionality to launch a
 guest without defined extensions. This means that most of the actual
 functionality is found in PMI extensions.
 
-PMI provides two kinds of extensions:
+PMI provides two classes of extensions:
 
 1. **Registered** extensions appear in the
    [registry](../README.md#extension-registry). To register, open a PR against

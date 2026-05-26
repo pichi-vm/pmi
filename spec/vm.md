@@ -37,7 +37,7 @@ The `.pmi.vm` CBOR map follows the [core target shape](core.md#shape). Its
 The [core validation rules](core.md#validation) apply. In addition, the VMM MUST
 refuse to launch on any of:
 
-- `PE.FileHeader.Machine` is unsupported;
+- `PE.FileHeader.Machine` is neither `0x8664` nor `0xAA64`;
 - the `vm:vcpu` variant does not match `PE.FileHeader.Machine` (the spec carries
   a `vcpu-x64` map under `0xAA64`, or a `vcpu-aarch64` map under `0x8664`).
 

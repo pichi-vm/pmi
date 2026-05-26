@@ -19,8 +19,7 @@ The `.pmi.sev` PE section carries the `sev` target spec, subject to the
 
 ### Launch model
 
-The `sev` target follows the [base launch model](vm.md#launch-model) defined by
-`vm`, layering the SEV-SNP firmware ABI onto the five ordered steps:
+The `sev` target follows the [core launch model](core.md#launch-model), layering the SEV-SNP firmware ABI onto the five ordered steps:
 
 1. Read the `.pmi.sev` PE section.
 2. `SNP_LAUNCH_START` with the host-supplied launch policy (see
