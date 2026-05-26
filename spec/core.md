@@ -202,12 +202,13 @@ before relying on it; the validation policy is the guest's and is out of scope
 for this spec. For the rationale, see
 [Motivation §2](motivation.md#2-portable-safe-platform-definition-and-attestation).
 
-The DTB MUST advertise every populated region as guest RAM: for each `load` and
+The DTB MUST advertise every populated region as guest RAM. Define the guest's
+usable RAM as the union of `reg` entries on nodes with `device_type = "memory"`
+whose `status` is absent or `"okay"`, minus any range covered by a
+`/reserved-memory` child carrying the `no-map` property. For each `load` and
 `fill` action in the active target's `actions`, every byte of the referenced PE
-section's `[VirtualAddress, VirtualAddress + VirtualSize)` range MUST be covered
-by the union of `reg` entries on `/memory@N` nodes in the DTB. The section
-receiving the DTB itself is no exception — its range MUST also be covered. A
-VMM MUST refuse to launch on a DTB that does not satisfy this coverage
-requirement.
+section's `[VirtualAddress, VirtualAddress + VirtualSize)` range MUST lie within
+the guest's usable RAM. The section receiving the DTB itself is no exception. A
+VMM MUST refuse to launch on a DTB that does not satisfy this requirement.
 
 [devicetree]: https://www.devicetree.org/specifications/
