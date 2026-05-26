@@ -40,8 +40,3 @@ The following extensions are registered with PMI.
 
 To register a new extension, open an issue or pull request against the PMI spec
 repository. Be sure to follow the format in the existing extensions.
-
-## Examples
-
-Each target spec ends with a concrete CBOR walkthrough of a PMI image for that
-target.
