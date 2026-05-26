@@ -23,16 +23,16 @@ PMI images MAY reject images that do not conform.
 ## Page Granularity
 
 PMI images MUST be built to support efficient loading with 2M huge pages. The
-VMM allocates guest memory in 2M pages, then uses target APIs (e.g.,
+VMM MAY allocate guest memory in 2M pages, then uses target APIs (e.g.,
 `SNP_LAUNCH_UPDATE`) to load data into those pages. Image authors control how
 efficiently this loading happens through alignment. VMMs MAY always downgrade to
 4K page loading, but the image MUST NOT prevent 2M page loading where possible.
 
-Every PMI section — whether or not it is loaded into guest memory — MUST follow
-one of two alignment tiers, chosen by section size. The rationale below is
-written in terms of loading, but the alignment requirements apply uniformly:
-non-loaded sections (e.g., firmware-passed blobs the VMM reads from the file)
-follow the same tier so the whole image is page-granular.
+Every PE section referenced by a `load` or `fill` action MUST follow one of two
+alignment tiers, chosen by section size. Sections the active target spec does
+not reference via `load` or `fill` are outside the scope of this rule;
+extensions that reference sections by other means (e.g., target attributes) MAY
+impose their own alignment requirements.
 
 ### Large Sections (≥ 2M)
 

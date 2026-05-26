@@ -96,8 +96,10 @@ The VMM passes the two sections to `SNP_LAUNCH_FINISH` as `id_block` and
 
 Both PE sections MUST be non-loaded (`IMAGE_SCN_MEM_DISCARDABLE`). They are not
 loaded into guest memory; the VMM reads them from the file and copies them into
-the `SNP_LAUNCH_FINISH` command. As small sections, they follow the 4K
-[alignment tier](constraints.md#small-sections--2m).
+the `SNP_LAUNCH_FINISH` command. `PointerToRawData` MUST be 4K-aligned and
+`SizeOfRawData` MUST be 4096 so the VMM can mmap each section directly from the
+file. `VirtualAddress` is unconstrained: these sections are never placed in
+guest memory.
 
 - The `block` PE section MUST have `VirtualSize == 96` and contain exactly the
   96 bytes the AMD SEV-SNP ABI defines for the ID block.
