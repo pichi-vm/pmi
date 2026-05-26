@@ -20,7 +20,8 @@ The `.pmi.cca` PE section carries the `cca` target spec, subject to the
 
 ### Launch model
 
-The `cca` target follows the [core launch model](core.md#launch-model), layering the Arm CCA firmware ABI onto the five ordered steps:
+The `cca` target follows the [core launch model](core.md#launch-model), layering
+the Arm CCA firmware ABI onto the five ordered steps:
 
 1. Read the `.pmi.cca` PE section.
 2. `RMI_REALM_CREATE` then `RMI_REC_CREATE` for the BSP, with the host-supplied

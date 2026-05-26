@@ -108,8 +108,8 @@ The `load` action MAY include a `kind` value.
 1. The VMM locates the PE section with the same name as `section`.
 
 2. The VMM maps or copies the bytes from the PE section into the guest memory.
-   The section's `VirtualAddress` and `VirtualSize` are interpreted as the
-   guest physical address (GPA) and size, respectively. Note that the specific
+   The section's `VirtualAddress` and `VirtualSize` are interpreted as the guest
+   physical address (GPA) and size, respectively. Note that the specific
    behavior of this operation is dictated by the `kind` value.
 
    The VMM MAY break the section into a series of page-sized operations (for
@@ -143,8 +143,8 @@ any behavior for `kind = "default"`.
 The `kind` value is [extensible](extensions.md). Extension-defined targets MUST
 define the behavior of the `load` action when `kind = "default"`. Extensions MAY
 define additional `kind` values. Extension-defined `kind` values MUST follow all
-namespacing rules. A VMM MUST refuse to launch on a `load` whose `kind` it
-does not recognize.
+namespacing rules. A VMM MUST refuse to launch on a `load` whose `kind` it does
+not recognize.
 
 ### `fill`
 
@@ -187,9 +187,8 @@ default; every `fill` action MUST carry a `kind`.
 
 The `kind` value is [extensible](extensions.md). Extensions MAY define
 additional `kind` values. Extension-defined `kind` values MUST follow all
-namespacing rules. A VMM MUST refuse to launch on a `fill` whose `kind` it
-does not recognize. The core specification defines one `kind`,
-[`dtb`](#dtb) below.
+namespacing rules. A VMM MUST refuse to launch on a `fill` whose `kind` it does
+not recognize. The core specification defines one `kind`, [`dtb`](#dtb) below.
 
 #### `dtb`
 
