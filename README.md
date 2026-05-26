@@ -4,9 +4,9 @@ NOTE: this document is a working draft. Schemas and semantics may change.
 
 ## What is PMI?
 
-PMI is a file format for distributing the early boot code (including a Linux
-kernel, guest firmware, bootloader or a Confidential Computing service module)
-of an operating system. It has the following goals:
+PMI is a file format for distributing an operating system's early boot code:
+Linux kernels, guest firmware, bootloaders, and Confidential Computing service
+modules. It has the following goals:
 
 1. portability across targets (bare metal, VM, AMD SEV, Arm CCA and Intel TDX).
 2. portability of safe platform definition and attestation

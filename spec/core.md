@@ -108,7 +108,7 @@ The `load` action MAY include a `kind` value.
 1. The VMM locates the PE section with the same name as `section`.
 
 2. The VMM maps or copies the bytes from the PE section into the guest memory.
-   The section's `VirtualAddress` and `VirtualSize` should be understood as
+   The section's `VirtualAddress` and `VirtualSize` are interpreted as the
    guest physical address (GPA) and size, respectively. Note that the specific
    behavior of this operation is dictated by the `kind` value.
 

@@ -1,10 +1,10 @@
 # Page Granularity
 
 VMMs often have to choose a page granularity for operations, including the
-`load` and `fill` actions in this specification. It is highly efficient to be
-able to `mmap()` the PMI file on the disk and then pass the memory directly to
-the hypervisor or firmware. This permits zero-copy construction. However, this
-can only be done if the pages are correctly aligned on disk.
+`load` and `fill` actions in this specification. It is highly efficient to
+memory-map the PMI file (e.g., via POSIX `mmap()`) and pass that mapping
+directly to the hypervisor or firmware. This permits zero-copy construction.
+However, this can only be done if the pages are correctly aligned on disk.
 
 If a VMM has to support unaligned pages, then it must build page copy semantics
 into its loader, which is costly and error prone. However, a 2M alignment is
