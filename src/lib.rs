@@ -5,13 +5,25 @@
 //! no FDT, no measurement, no platform glue. Implementations layer those
 //! on top.
 
+#![forbid(unsafe_code)]
+#![deny(
+    missing_docs,
+    missing_debug_implementations,
+    rust_2018_idioms,
+    unreachable_pub,
+    trivial_casts,
+    trivial_numeric_casts
+)]
+#![warn(clippy::all, clippy::pedantic)]
+
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
 pub mod cca;
 pub mod sev;
 pub mod tdx;
-pub mod vcpu;
 pub mod vm;
+
+mod kind;
 
 /// Common interface for a top-level PMI target spec.
 ///
@@ -20,47 +32,40 @@ pub mod vm;
 pub trait Target: Serialize + de::DeserializeOwned {
     /// The target's short name (e.g., `"vm"`).
     const NAME: &'static str;
+
     /// The PE section name carrying this target's spec (e.g., `".pmi.vm"`).
     const SECTION: &'static str;
 }
 
-/// Schema version field with the version number baked into the type.
+/// Schema version field pinned to `N`.
 ///
-/// Serializes as the const generic `N`; deserialization succeeds only when
-/// the wire value equals `N`. Any other value yields an "unsupported
-/// version" error — the spec's "MUST reject sections with an unrecognized
-/// version" rule expressed in the type system.
+/// Serializes as `N`; deserializes only when the wire value equals `N`,
+/// otherwise yields an "unsupported version" error.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Version<const N: usize>(());
+pub struct Version<const N: u32>(());
 
-impl<const N: usize> Version<N> {
-    pub const fn new() -> Self {
+impl<const N: u32> Default for Version<N> {
+    fn default() -> Self {
         Self(())
     }
 }
 
-impl<const N: usize> Default for Version<N> {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl<const N: usize> Serialize for Version<N> {
+impl<const N: u32> Serialize for Version<N> {
     fn serialize<S: Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
-        s.serialize_u64(N as u64)
+        s.serialize_u32(N)
     }
 }
 
-impl<'de, const N: usize> Deserialize<'de> for Version<N> {
+impl<'de, const N: u32> Deserialize<'de> for Version<N> {
     fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
-        let v = u64::deserialize(d)?;
-        if v == N as u64 {
-            Ok(Self::new())
-        } else {
-            Err(de::Error::custom(format_args!(
-                "unsupported version: expected {}, got {}",
-                N, v
-            )))
+        let v = u32::deserialize(d)?;
+
+        if v != N {
+            return Err(de::Error::custom(format_args!(
+                "unsupported version: expected {N}, got {v}"
+            )));
         }
+
+        Ok(Self::default())
     }
 }

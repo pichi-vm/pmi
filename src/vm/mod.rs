@@ -1,28 +1,38 @@
-//! `tdx` target: Intel TDX confidential virtual machines.
+//! `vm` target: non-confidential virtual machines.
 
-use serde::{Deserialize, Serialize};
+pub mod vcpu;
+
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 use crate::{Target, Version};
 
 pub use crate::kind::{FillKind, LoadKind};
 
-/// `tdx` target spec, carried in the `.pmi.tdx` PE section.
+/// `vm` target spec, carried in the `.pmi.vm` PE section.
+///
+/// `V` is the boot-vCPU register map; it MUST match `PE.FileHeader.Machine`.
+/// Use [`vcpu::x86_64::CpuState`] for `0x8664` and [`vcpu::aarch64::CpuState`]
+/// for `0xAA64`. The caller selects `V` from the PE header before decoding.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct Spec {
+pub struct Spec<V> {
     /// Schema version; MUST be `1`.
     pub version: Version<1>,
 
     /// Ordered launch recipe.
     pub actions: Vec<Action>,
+
+    /// Boot vCPU register map.
+    #[serde(rename = "vm:vcpu")]
+    pub vcpu: V,
 }
 
-impl Target for Spec {
-    const NAME: &'static str = "tdx";
-    const SECTION: &'static str = ".pmi.tdx";
+impl<V: DeserializeOwned + Serialize> Target for Spec<V> {
+    const NAME: &'static str = "vm";
+    const SECTION: &'static str = ".pmi.vm";
 }
 
-/// One entry in the `tdx` target's `actions` array.
+/// One entry in the `vm` target's `actions` array.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "lowercase")]
 pub enum Action {
