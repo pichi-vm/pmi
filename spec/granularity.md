@@ -8,11 +8,11 @@ can only be done if the pages are correctly aligned on disk.
 
 If a VMM has to support unaligned pages, then it must build page copy semantics
 into its loader, which is costly and error prone. However, a 2M alignment is
-always compatible with a 4K alignement. This means that VMMs can efficiently
+always compatible with a 4K alignment. This means that VMMs can efficiently
 downgrade from a larger alignment on disk to a smaller alignment requirement in
 memory.
 
-Therefore, to facilitate efficnent VMM construction, PMI makes the following
+Therefore, to facilitate efficient VMM construction, PMI makes the following
 alignment rules.
 
 ## Large Sections (≥ 2M)
@@ -39,15 +39,7 @@ have the following alignment requirements:
 - Small sections SHOULD be packed contiguously within a 2M-aligned region.
 
 The VMM allocates 2M pages in guest memory and loads small sections into them at
-4K granularity. Each small section requires a separate target API call, so
-packing them together minimizes the number of 2M boundaries they span and
-reduces round-trips. The resulting guest still has 2M pages regardless of how
-many 4K calls were needed to populate them.
-
-## VirtualAddress sharing for cross-target sections
-
-PE sections referenced only by disjoint targets MAY share a `VirtualAddress`.
-Only one target's spec is active per launch — the VMM reads only the
-`.pmi.<target>` section for its target — so a `VirtualAddress` shared between
-sections referenced exclusively by, say, `.pmi.sev` and `.pmi.tdx` can never
-collide in guest memory.
+4K granularity. On CC targets each small section typically requires a separate
+target API call, so packing them together minimizes the number of 2M boundaries
+they span and reduces round-trips. The resulting guest still has 2M pages
+regardless of how many 4K calls were needed to populate them.

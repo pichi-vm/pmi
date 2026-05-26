@@ -17,9 +17,10 @@ target and platform mechanism — is an [extension](extensions.md).
 
 ## Targets
 
-A PMI **target** is a launch recipe - a CBOR-encoded specification, carried in a
-`.pmi.<target>` PE section, that tells a VMM how to assemble and start a guest
-VM. Different targets express different launch paths:
+A PMI **target** is a launch recipe — a CBOR-encoded specification, carried in a
+`.pmi.<target>` PE section that MUST be non-loaded (`IMAGE_SCN_MEM_DISCARDABLE`)
+— that tells a VMM how to assemble and start a guest VM. Different targets
+express different launch paths:
 
 1. a traditional virtual machine
 2. a confidential virtual machine on AMD SEV, Arm CCA or Intel TDX
@@ -54,8 +55,8 @@ type.
 
 A VMM launches a target by executing this ordered sequence:
 
-1. **Read `.pmi.<target>`.** Locate and decode the target's PE section, which
-   MUST be non-loaded (`IMAGE_SCN_MEM_DISCARDABLE`). Refuse to launch if absent.
+1. **Read `.pmi.<target>`.** Locate and decode the target's PE section. Refuse
+   to launch if absent.
 2. **Initialize.** Perform target-specific setup before processing actions
    (e.g., on confidential targets, call the CC firmware's launch-start API).
 3. **Process actions.** Execute each entry in the `actions` array in array
@@ -77,6 +78,12 @@ A VMM MUST refuse to launch on any of:
   `[VirtualAddress, VirtualAddress + VirtualSize)` ranges.
 
 Per-target specs MAY add further validation rules.
+
+The overlap rule is scoped to the active target: PE sections referenced only by
+disjoint targets MAY share a `VirtualAddress`. Only one target's spec is active
+per launch — the VMM reads only the `.pmi.<target>` section for its target — so
+a `VirtualAddress` shared between sections referenced exclusively by, say,
+`.pmi.sev` and `.pmi.tdx` can never collide in guest memory.
 
 ## Actions
 
