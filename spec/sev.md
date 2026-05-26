@@ -105,8 +105,8 @@ sections are never placed in guest memory — and `PointerToRawData` MUST be
   defines for the ID block.
 
 - The `auth` PE section MUST have `VirtualSize == 4096` and
-  `SizeOfRawData == 4096`, and contain the ID auth info structure defined by
-  the same ABI (ECDSA P-384 signatures over the ID block, plus the ID key and
+  `SizeOfRawData == 4096`, and contain the ID auth info structure defined by the
+  same ABI (ECDSA P-384 signatures over the ID block, plus the ID key and
   optional author key).
 
 Pairing is structural: when `sev:id` is present, both `block` and `auth` keys

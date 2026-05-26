@@ -91,7 +91,7 @@ and a host devicetree:
 
 After `KVM_TDX_INIT_VM` / `KVM_TDX_INIT_VCPU` with the host-supplied TD
 parameters, each `default` load is submitted via `KVM_TDX_INIT_MEM_REGION` with
-the measure flag set, so `.tdx.consumer` (the PMI consumer), `.linux`, `.initrd`, and
-`.cmdline` all extend MRTD. The `.dtb` is placed as an unmeasured page.
-`KVM_TDX_FINALIZE_VM` locks MRTD; the consumer runs at the reset vector,
+the measure flag set, so `.tdx.consumer` (the PMI consumer), `.linux`,
+`.initrd`, and `.cmdline` all extend MRTD. The `.dtb` is placed as an unmeasured
+page. `KVM_TDX_FINALIZE_VM` locks MRTD; the consumer runs at the reset vector,
 validates and consumes the devicetree, and hands off to the kernel.
