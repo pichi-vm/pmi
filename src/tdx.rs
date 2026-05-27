@@ -15,6 +15,16 @@ pub struct Spec {
 
     /// Ordered launch recipe.
     pub actions: Vec<Action>,
+
+    /// Optional `merged:dtb` target attribute: PE section name holding the
+    /// base DTB when this image uses the `merged` extension. Required when
+    /// `actions` contains a `merged:dtbo` fill; absent otherwise.
+    #[serde(
+        rename = "merged:dtb",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub merged_dtb: Option<String>,
 }
 
 impl Target for Spec {

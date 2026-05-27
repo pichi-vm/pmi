@@ -17,6 +17,16 @@ pub struct Spec {
     /// Optional signed launch identity. Present on signed launches.
     #[serde(rename = "sev:id", default, skip_serializing_if = "Option::is_none")]
     pub id: Option<Id>,
+
+    /// Optional `merged:dtb` target attribute: PE section name holding the
+    /// base DTB when this image uses the `merged` extension. Required when
+    /// `actions` contains a `merged:dtbo` fill; absent otherwise.
+    #[serde(
+        rename = "merged:dtb",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub merged_dtb: Option<String>,
 }
 
 impl Target for Spec {
@@ -91,13 +101,18 @@ pub struct Fill {
     pub kind: FillKind,
 }
 
-/// `fill` action kinds accepted on the `sev` target: the core `dtb`,
-/// plus `sev:secrets` and `sev:cpuid`.
+/// `fill` action kinds accepted on the `sev` target: the cross-target
+/// `direct:dtb` and `merged:dtbo`, plus `sev:secrets` and `sev:cpuid`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum FillKind {
-    /// Core `dtb` kind.
-    #[serde(rename = "dtb")]
-    Dtb,
+    /// `direct:dtb`: host-supplied complete DTB.
+    #[serde(rename = "direct:dtb")]
+    DirectDtb,
+
+    /// `merged:dtbo`: host-supplied DTBO overlay (merged onto a measured
+    /// base DTB named by the `merged:dtb` target attribute).
+    #[serde(rename = "merged:dtbo")]
+    MergedDtbo,
 
     /// `sev:secrets`: a SEV-SNP secrets page.
     #[serde(rename = "sev:secrets")]

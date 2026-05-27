@@ -19,6 +19,16 @@ pub struct Spec {
     /// BSP REC parameters applied via `RMI_REC_CREATE`. CCA is aarch64 only.
     #[serde(rename = "cca:vcpu")]
     pub vcpu: crate::vm::vcpu::aarch64::CpuState,
+
+    /// Optional `merged:dtb` target attribute: PE section name holding the
+    /// base DTB when this image uses the `merged` extension. Required when
+    /// `actions` contains a `merged:dtbo` fill; absent otherwise.
+    #[serde(
+        rename = "merged:dtb",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub merged_dtb: Option<String>,
 }
 
 impl Target for Spec {

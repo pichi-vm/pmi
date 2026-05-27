@@ -17,11 +17,19 @@ impl LoadKind {
     }
 }
 
-/// `fill` action kind discriminator.
+/// `fill` action kind discriminator: the cross-target fill kinds defined by
+/// the `direct` and `merged` extensions, available on every target.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
 pub enum FillKind {
-    /// Core `dtb` kind: the section is populated with a host-supplied,
-    /// unmeasured flattened devicetree blob.
-    Dtb,
+    /// `direct:dtb`: the section is populated with a host-supplied,
+    /// unmeasured flattened devicetree blob (the entire platform definition).
+    #[serde(rename = "direct:dtb")]
+    DirectDtb,
+
+    /// `merged:dtbo`: the section is populated with a host-supplied,
+    /// unmeasured flattened devicetree overlay (resource allocation only;
+    /// merged onto a measured base DTB named by the `merged:dtb` target
+    /// attribute).
+    #[serde(rename = "merged:dtbo")]
+    MergedDtbo,
 }
