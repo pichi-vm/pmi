@@ -86,17 +86,37 @@ and battle-tested C implementations (libfdt), it is universally available on
 `aarch64`, and it contains no executable code — no AML-equivalent — so the guest
 can validate it unmeasured. On `x86` it could be translated to ACPI in-guest
 (e.g. by firmware such as OVMF); Linux's direct `x86` Devicetree support is
-limited but improving. PMI uses Devicetree, unmeasured, on every target, through
-the core [`dtb`](core.md#dtb) fill kind.
+limited but improving. PMI uses Devicetree as its platform-definition format on
+every target; the trust model is the image author's choice (see below).
 
-With the platform definition out of the measurement, attestation depends on the
-image alone — and PMI keeps that portable too. Early CC implementations each
-measured the guest in their own idiomatic order, so each VMM shipped its own
-measurement tool; PMI instead drives an explicit, deterministic ordering of the
-guest image measurement (as IGVM demonstrated for the narrower paravisor case).
-The result: the same PMI image yields the same measurement on every VMM and
-under every platform-definition variation — safe platform definition and
-portable attestation, without trading one for the other.
+### Splitting Platform Definition from Resource Allocation
+
+A DTB carries two concerns. Platform definition — MMIO map, interrupt
+controller, transport choice — is image-owned: the kernel is built against it,
+the host has no business changing it. Resource allocation — CPU count, memory,
+NUMA topology — is host-owned: it varies per deployment and cannot be baked into
+the image. One trust model for both leaves protection unused on one side or the
+other.
+
+PMI provides two extensions. [`direct`](direct.md) keeps the monolithic DTB
+unchanged — host supplies, guest validates post-hoc. A hypervisor that already
+drops a DTB at an IPA implements it for free; the cost is that validation cannot
+fully ground-truth the image-owned half. [`merged`](merged.md) splits the
+concerns: a measured base DTB for platform definition, plus an overlay
+restricted to the resource-allocation allowlist (`/cpus`, `/memory@*`,
+`/distance-map`, per-node `numa-node-id`); the guest validates and merges. The
+cost is a hypervisor refactor — its DTB pipeline must drive through the
+allowlist rather than around it — and the benefit is the full split.
+
+Host resource decisions never enter the measurement; attestation depends on
+image-controlled bytes alone — and PMI keeps that portable too. Early CC
+implementations each measured the guest in their own idiomatic order, so each
+VMM shipped its own measurement tool; PMI instead drives an explicit,
+deterministic ordering of the guest image measurement (as IGVM demonstrated for
+the narrower paravisor case). The result: the same PMI image yields the same
+measurement on every VMM and under every host resource-allocation variation —
+safe platform definition and portable attestation, without trading one for the
+other.
 
 ## 3. Reuse of Existing Tooling and Formats
 

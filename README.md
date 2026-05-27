@@ -31,12 +31,14 @@ registry below.
 
 The following extensions are registered with PMI.
 
-| Prefix | Spec                       | Description                            |
-| ------ | -------------------------- | -------------------------------------- |
-| `vm`   | [spec/vm.md](spec/vm.md)   | Non-CC virtual machine target          |
-| `sev`  | [spec/sev.md](spec/sev.md) | AMD SEV 3.0 (SEV-SNP) confidential VMs |
-| `tdx`  | [spec/tdx.md](spec/tdx.md) | Intel TDX confidential VMs (draft)     |
-| `cca`  | [spec/cca.md](spec/cca.md) | Arm CCA confidential VMs (draft)       |
+| Prefix   | Spec                             | Description                                 |
+| -------- | -------------------------------- | ------------------------------------------- |
+| `vm`     | [spec/vm.md](spec/vm.md)         | Non-CC virtual machine target               |
+| `sev`    | [spec/sev.md](spec/sev.md)       | AMD SEV 3.0 (SEV-SNP) confidential VMs      |
+| `tdx`    | [spec/tdx.md](spec/tdx.md)       | Intel TDX confidential VMs (draft)          |
+| `cca`    | [spec/cca.md](spec/cca.md)       | Arm CCA confidential VMs (draft)            |
+| `direct` | [spec/direct.md](spec/direct.md) | Host-supplied monolithic DTB                |
+| `merged` | [spec/merged.md](spec/merged.md) | Image base DTB + host overlay (split-trust) |
 
 To register a new extension, open an issue or pull request against the PMI spec
 repository. Be sure to follow the format in the existing extensions.

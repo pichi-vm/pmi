@@ -185,30 +185,6 @@ The referenced PE section MUST be a Zero section (`SizeOfRawData == 0`,
 The `kind` value determines the behavior of the `fill` action. It has no
 default; every `fill` action MUST carry a `kind`.
 
-The `kind` value is [extensible](extensions.md). Extensions MAY define
-additional `kind` values. Extension-defined `kind` values MUST follow all
-namespacing rules. A VMM MUST refuse to launch on a `fill` whose `kind` it does
-not recognize. The core specification defines one `kind`, [`dtb`](#dtb) below.
-
-#### `dtb`
-
-The `dtb` kind delivers the guest's platform description (memory map, MMIO/IO
-regions, CPU topology). The VMM fills the section with a host-supplied flattened
-devicetree blob (DTB), in the format defined by the [Devicetree
-Specification][devicetree] v0.4 or later. The host selects the DTB content via
-VMM-defined input, out of scope for PMI. The DTB is **unmeasured** — it does not
-contribute to the target's launch measurement — so the guest MUST validate it
-before relying on it; the validation policy is the guest's and is out of scope
-for this spec. For the rationale, see
-[Motivation §2](motivation.md#2-portable-safe-platform-definition-and-attestation).
-
-The DTB MUST advertise every populated region as guest RAM. Define the guest's
-usable RAM as the union of `reg` entries on nodes with `device_type = "memory"`
-whose `status` is absent or `"okay"`, minus any range covered by a
-`/reserved-memory` child carrying the `no-map` property. For each `load` and
-`fill` action in the active target's `actions`, every byte of the referenced PE
-section's `[VirtualAddress, VirtualAddress + VirtualSize)` range MUST lie within
-the guest's usable RAM. The section receiving the DTB itself is no exception. A
-VMM MUST refuse to launch on a DTB that does not satisfy this requirement.
-
-[devicetree]: https://www.devicetree.org/specifications/
+The `kind` value is [extensible](extensions.md). Extensions MAY define `kind`
+values. Extension-defined `kind` values MUST follow all namespacing rules. A VMM
+MUST refuse to launch on a `fill` whose `kind` it does not recognize.
