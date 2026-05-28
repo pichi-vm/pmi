@@ -108,13 +108,9 @@ pub struct Fill {
 }
 
 /// `fill` action kinds accepted on the `sev` target: the cross-target
-/// `direct:dtb` and `merged:dtbo`, plus `sev:secrets` and `sev:cpuid`.
+/// `merged:dtbo`, plus `sev:secrets` and `sev:cpuid`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum FillKind {
-    /// `direct:dtb`: host-supplied complete DTB.
-    #[serde(rename = "direct:dtb")]
-    DirectDtb,
-
     /// `merged:dtbo`: host-supplied DTBO overlay (merged onto a measured
     /// base DTB named by the `merged:dtb` target attribute).
     #[serde(rename = "merged:dtbo")]

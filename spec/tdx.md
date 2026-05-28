@@ -69,9 +69,8 @@ this spec.
 `tdx` defines no `tdx`-specific `fill` kinds.
 
 PMI deliberately does not generate a TD HOB; platform description is delivered
-through a DTB fill kind ([`direct:dtb`](direct.md) or
-[`merged:dtbo`](merged.md)) instead, which the PMI consumer takes TDVF's role
-in consuming. For why PMI rejects the HOB, see
+through the [`merged:dtbo`](merged.md) fill kind instead, which the PMI
+consumer takes TDVF's role in consuming. For why PMI rejects the HOB, see
 [Motivation §2](motivation.md#2-portable-safe-platform-definition-and-attestation).
 
 ### `cpu:profile`
@@ -93,19 +92,22 @@ and a host devicetree:
 {
   "version": 1,
   "cpu:profile": "x86-64-v4",
+  "merged:dtb": ".dtb",
   "actions": [
     {"type": "load", "section": ".tdx.consumer"},
     {"type": "load", "section": ".linux"},
     {"type": "load", "section": ".initrd"},
     {"type": "load", "section": ".cmdline"},
-    {"type": "fill", "section": ".dtb", "kind": "direct:dtb"}
+    {"type": "load", "section": ".dtb"},
+    {"type": "fill", "section": ".dtbo", "kind": "merged:dtbo"}
   ]
 }
 ```
 
 After `KVM_TDX_INIT_VM` / `KVM_TDX_INIT_VCPU` with the host-supplied TD
-parameters, each `default` load is submitted via `KVM_TDX_INIT_MEM_REGION` with
-the measure flag set, so `.tdx.consumer` (the PMI consumer), `.linux`,
-`.initrd`, and `.cmdline` all extend MRTD. The `.dtb` is placed as an unmeasured
-page. `KVM_TDX_FINALIZE_VM` locks MRTD; the consumer runs at the reset vector,
+parameters, each `default` load is submitted via `KVM_TDX_INIT_MEM_REGION`
+with the measure flag set, so `.tdx.consumer` (the PMI consumer), `.linux`,
+`.initrd`, `.cmdline`, and the base `.dtb` all extend MRTD. The `.dtbo` is
+placed as an unmeasured page for the consumer to validate and merge.
+`KVM_TDX_FINALIZE_VM` locks MRTD; the consumer runs at the reset vector,
 validates and consumes the devicetree, and hands off to the kernel.

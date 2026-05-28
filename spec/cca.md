@@ -147,17 +147,20 @@ the BSP REC parameters:
   "version": 1,
   "cpu:profile": "armv9.2-a",
   "cca:vcpu": {"pc": 0x100000, "x0": 0x80000},
+  "merged:dtb": ".dtb",
   "actions": [
     {"type": "load", "section": ".linux"},
     {"type": "load", "section": ".initrd"},
     {"type": "load", "section": ".cmdline"},
-    {"type": "fill", "section": ".dtb", "kind": "direct:dtb"}
+    {"type": "load", "section": ".dtb"},
+    {"type": "fill", "section": ".dtbo", "kind": "merged:dtbo"}
   ]
 }
 ```
 
 After `RMI_REALM_CREATE` and `RMI_REC_CREATE` (applying `cca:vcpu` to the BSP
-REC), each `default` load submits granules via `RMI_DATA_CREATE`, extending RIM
-with `.linux`, `.initrd`, and `.cmdline`. The `.dtb` is placed as an unmeasured
-granule. `RMI_REALM_ACTIVATE` locks RIM, and the realm starts at the BSP REC's
-`pc`, where it validates and consumes the devicetree before booting the kernel.
+REC), each `default` load submits granules via `RMI_DATA_CREATE`, extending
+RIM with `.linux`, `.initrd`, `.cmdline`, and the base `.dtb`. The `.dtbo` is
+placed as an unmeasured granule for the realm to validate and merge.
+`RMI_REALM_ACTIVATE` locks RIM, and the realm starts at the BSP REC's `pc`,
+where it validates and consumes the devicetree before booting the kernel.

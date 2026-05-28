@@ -163,13 +163,15 @@ identity, with secrets and CPUID pages:
   "version": 1,
   "cpu:profile": "x86-64-v3",
   "sev:id": {"block": ".sev.id.block", "auth": ".sev.id.auth"},
+  "merged:dtb": ".dtb",
   "actions": [
     {"type": "load", "section": ".svsm"},
     {"type": "load", "section": ".ovmf"},
     {"type": "load", "section": ".linux"},
     {"type": "load", "section": ".initrd"},
     {"type": "load", "section": ".cmdline"},
-    {"type": "fill", "section": ".dtb", "kind": "direct:dtb"},
+    {"type": "load", "section": ".dtb"},
+    {"type": "fill", "section": ".dtbo", "kind": "merged:dtbo"},
     {"type": "fill", "section": ".sev.secrets", "kind": "sev:secrets"},
     {"type": "fill", "section": ".sev.cpuid", "kind": "sev:cpuid"},
     {"type": "load", "section": ".sev.vmsa", "kind": "sev:vmsa"}
@@ -178,8 +180,9 @@ identity, with secrets and CPUID pages:
 ```
 
 `SNP_LAUNCH_START` verifies the host policy against the policy embedded in the
-signed `.sev.id.block`. The `default` loads submit `PAGE_TYPE_NORMAL` pages;
-`.dtb` goes in unmeasured; `.sev.secrets`, `.sev.cpuid`, and `.sev.vmsa` submit
+signed `.sev.id.block`. The `default` loads submit `PAGE_TYPE_NORMAL` pages
+(including the base `.dtb`); `.dtbo` goes in unmeasured for the guest to
+validate and merge; `.sev.secrets`, `.sev.cpuid`, and `.sev.vmsa` submit
 `PAGE_TYPE_SECRETS`, `PAGE_TYPE_CPUID`, and `PAGE_TYPE_VMSA`.
 `SNP_LAUNCH_FINISH` passes `id_block` and `id_auth` from `.sev.id.block` /
 `.sev.id.auth`. The SVSM starts at VMPL0, transitions OVMF to VMPL1, and OVMF

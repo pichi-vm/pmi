@@ -33,94 +33,52 @@ or a confidential VM — from the same bytes.
 
 ## 2. Portable, Safe Platform Definition and Attestation
 
-The core attestation invariant is **portability**: every compliant VMM MUST
-produce byte-identical measurements from the same PMI image. Every extension
-that participates in a target's launch measurement MUST preserve this invariant.
+A hypervisor needs four inputs to start a guest:
 
-Confidential Computing imposes two competing requirements on a VM:
+1. the CPU features the guest will see,
+2. the CPU's initial register state,
+3. the platform description — memory map, vCPU count, interrupt controller, PCI host, power button,
+4. the bytes the guest first executes — Linux, OVMF, COCONUT-SVSM.
 
-- **The platform definition must be safe.** The host describes the guest's
-  platform — memory map, MMIO and IO regions, CPU topology — and a malicious
-  host can attack the guest through that description.
+In a bare-metal world platform firmware decides all four. Virtualization
+inherited that shape: the host decides, the guest accepts. The inheritance is
+engineering inertia, not a requirement.
 
-- **Attestation must not be fragile.** The guest's measurement must be portable
-  and deterministic: the same image should attest the same way on every VMM,
-  regardless of how the host provisioned it.
+Under Confidential Computing it becomes risk. Each of the four is a channel by
+which a malicious host can attack the guest. AMD and Intel reach for the same
+defense: measure the platform description so tampering surfaces at attestation
+— ACPI tables into a COCONUT-SVSM vTPM, the Hand-Off Block into `RTMR[0]`. But
+measurement binds host decisions into the guest's identity for good: the same
+image then attests differently on every hypervisor, every memory size, every
+minor VMM version bump. Safety bought this way costs portable attestation.
 
-The obvious way to make the platform definition safe is to measure it, so the
-guest and a verifier can detect tampering. But measuring it folds the host's
-resource decisions into the guest's identity: the same image then attests
-differently depending on how much memory it was given or which hypervisor ran
-it, and even minor VMM version bumps perturb the measurement. That makes
-attestation fragile. Satisfying one requirement this way sacrifices the other —
-and PMI's position is that you should not have to choose.
+That trap rests on an unexamined premise — that the host has to make these
+choices at all. It does not. The host has no real reason to choose the guest's
+CPU features, its initial register state, or the bytes at its reset vector;
+historically it did because firmware did, not because the choice belonged to
+it. PMI moves all four declarations into the image. The host delivers them or
+refuses to launch.
 
-### Why Safety Pressure Pushes Toward Measurement
+Three of the four invert cleanly. The fourth, the platform description, has
+one slice the host genuinely owns: resource allocation. CPU count, memory
+size, and NUMA topology vary per deployment and cannot be baked into an image.
+PMI splits the platform description by trust model. Platform definition —
+image-owned — moves into the image. Resource allocation arrives via a
+Devicetree overlay (see [`merged`](merged.md)) restricted to an allowlist the
+guest validates.
 
-The platform description gives the VMM significant flexibility to attack the
-guest — for example, by defining overlapping device memory regions to bypass
-access controls and exfiltrate data. The most dangerous case is executable code.
-On `x86`, platform firmware communicates the layout via ACPI, which defines a
-bytecode language (AML) that runs arbitrary code in the most privileged part of
-the OS. Under the old threat model — firmware trusted — this was fine; under
-Confidential Computing it is a direct path for the host to attack the guest.
-This is not theoretical: AMD published [AMD-SB-3012][amdsb] demonstrating a
-practical attack, and the recommended mitigation is to **measure** the ACPI
-tables (via COCONUT-SVSM's vTPM).
+The defense against a malicious description is validation, not measurement —
+and Devicetree is what makes that possible, because it carries no executable
+code. It has standardized parsers in safe Rust and in libfdt, is universally
+available on aarch64, and the guest validates it directly. On x86 it can be
+translated to ACPI in-guest by firmware such as OVMF; direct kernel support is
+improving.
 
-Intel reaches for measurement too. Its Hand-Off Block (HOB) is a proprietary
-structure the guest TDVF reads to generate ACPI, and Intel recommends measuring
-it into `RTMR[0]` (as OVMF does). Combined with the Arm CCA reference stack's
-use of Devicetree, a VMM and confidential guest must support three different
-platform-definition mechanisms — ACPI, HOB, Devicetree — each with a subtly
-different risk, and the only way the industry has made any of them trustworthy
-is to measure it.
-
-### Dissolving the Tension: Validate, Don't Measure
-
-A platform definition does not actually need to be measured to be safe — it
-needs to be _validatable_. A description is data the guest can check: it can
-reject overlapping regions or an implausible layout, reducing the worst case to
-denial of service, which the host already holds by other means. The one thing
-validation cannot tame is executable code, so the definition must also carry
-none.
-
-Devicetree satisfies both. It is a standardized format with safe Rust parsers
-and battle-tested C implementations (libfdt), it is universally available on
-`aarch64`, and it contains no executable code — no AML-equivalent — so the guest
-can validate it unmeasured. On `x86` it could be translated to ACPI in-guest
-(e.g. by firmware such as OVMF); Linux's direct `x86` Devicetree support is
-limited but improving. PMI uses Devicetree as its platform-definition format on
-every target; the trust model is the image author's choice (see below).
-
-### Splitting Platform Definition from Resource Allocation
-
-A DTB carries two concerns. Platform definition — MMIO map, interrupt
-controller, transport choice — is image-owned: the kernel is built against it,
-the host has no business changing it. Resource allocation — CPU count, memory,
-NUMA topology — is host-owned: it varies per deployment and cannot be baked into
-the image. One trust model for both leaves protection unused on one side or the
-other.
-
-PMI provides two extensions. [`direct`](direct.md) keeps the monolithic DTB
-unchanged — host supplies, guest validates post-hoc. A hypervisor that already
-drops a DTB at an IPA implements it for free; the cost is that validation cannot
-fully ground-truth the image-owned half. [`merged`](merged.md) splits the
-concerns: a measured base DTB for platform definition, plus an overlay
-restricted to the resource-allocation allowlist (`/cpus`, `/memory@*`,
-`/distance-map`, per-node `numa-node-id`); the guest validates and merges. The
-cost is a hypervisor refactor — its DTB pipeline must drive through the
-allowlist rather than around it — and the benefit is the full split.
-
-Host resource decisions never enter the measurement; attestation depends on
-image-controlled bytes alone — and PMI keeps that portable too. Early CC
-implementations each measured the guest in their own idiomatic order, so each
-VMM shipped its own measurement tool; PMI instead drives an explicit,
-deterministic ordering of the guest image measurement (as IGVM demonstrated for
-the narrower paravisor case). The result: the same PMI image yields the same
-measurement on every VMM and under every host resource-allocation variation —
-safe platform definition and portable attestation, without trading one for the
-other.
+Image-controlled bytes alone determine the measurement; host hardware, host
+resources, host VMM version — none of them appear. **Every compliant VMM
+produces byte-identical measurements from the same PMI image.** Every
+extension that participates in a target's launch measurement MUST preserve
+this invariant.
 
 ## 3. Reuse of Existing Tooling and Formats
 
@@ -134,5 +92,3 @@ and safe Rust parsers for Devicetree — work unchanged.
 Bespoke alternatives pay the opposite tax: a proprietary format like TDX's HOB,
 or a whole new image format like IGVM, needs proprietary tooling everywhere it
 is touched.
-
-[amdsb]: https://www.amd.com/en/resources/product-security/bulletin/amd-sb-3012.html
