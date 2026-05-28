@@ -105,6 +105,7 @@ one of the following four categories. Anything outside is non-conformant.
    excluded from this comparison — `cpu@0` MAY carry them (the merger
    renumbers them at apply time) but the overlay MUST NOT, per the
    prohibition above.
+
 2. Nodes and properties under `/memory@*`.
 3. Nodes and properties under `/distance-map`.
 4. The `numa-node-id` property added to any node the base DTB already declared.
