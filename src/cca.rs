@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{Target, Version};
 
+pub use crate::cpu::Profile;
 pub use crate::kind::{FillKind, LoadKind};
 
 /// `cca` target spec, carried in the `.pmi.cca` PE section.
@@ -19,6 +20,10 @@ pub struct Spec {
     /// BSP REC parameters applied via `RMI_REC_CREATE`. CCA is aarch64 only.
     #[serde(rename = "cca:vcpu")]
     pub vcpu: crate::vm::vcpu::aarch64::CpuState,
+
+    /// vCPU ISA baseline (`cpu:profile` target attribute).
+    #[serde(rename = "cpu:profile")]
+    pub cpu_profile: Profile,
 
     /// Optional `merged:dtb` target attribute: PE section name holding the
     /// base DTB when this image uses the `merged` extension. Required when

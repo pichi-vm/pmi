@@ -4,6 +4,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::{Target, Version};
 
+pub use crate::cpu::Profile;
+
 /// `sev` target spec, carried in the `.pmi.sev` PE section.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -17,6 +19,10 @@ pub struct Spec {
     /// Optional signed launch identity. Present on signed launches.
     #[serde(rename = "sev:id", default, skip_serializing_if = "Option::is_none")]
     pub id: Option<Id>,
+
+    /// vCPU ISA baseline (`cpu:profile` target attribute).
+    #[serde(rename = "cpu:profile")]
+    pub cpu_profile: Profile,
 
     /// Optional `merged:dtb` target attribute: PE section name holding the
     /// base DTB when this image uses the `merged` extension. Required when

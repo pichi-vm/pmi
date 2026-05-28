@@ -6,6 +6,7 @@ use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 use crate::{Target, Version};
 
+pub use crate::cpu::Profile;
 pub use crate::kind::{FillKind, LoadKind};
 
 /// `vm` target spec, carried in the `.pmi.vm` PE section.
@@ -25,6 +26,10 @@ pub struct Spec<V> {
     /// Boot vCPU register map.
     #[serde(rename = "vm:vcpu")]
     pub vcpu: V,
+
+    /// vCPU ISA baseline (`cpu:profile` target attribute).
+    #[serde(rename = "cpu:profile")]
+    pub cpu_profile: Profile,
 
     /// Optional `merged:dtb` target attribute: PE section name holding the
     /// base DTB when this image uses the `merged` extension. Required when

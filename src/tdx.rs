@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{Target, Version};
 
+pub use crate::cpu::Profile;
 pub use crate::kind::{FillKind, LoadKind};
 
 /// `tdx` target spec, carried in the `.pmi.tdx` PE section.
@@ -15,6 +16,10 @@ pub struct Spec {
 
     /// Ordered launch recipe.
     pub actions: Vec<Action>,
+
+    /// vCPU ISA baseline (`cpu:profile` target attribute).
+    #[serde(rename = "cpu:profile")]
+    pub cpu_profile: Profile,
 
     /// Optional `merged:dtb` target attribute: PE section name holding the
     /// base DTB when this image uses the `merged` extension. Required when
