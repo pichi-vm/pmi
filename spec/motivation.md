@@ -33,6 +33,10 @@ or a confidential VM — from the same bytes.
 
 ## 2. Portable, Safe Platform Definition and Attestation
 
+The core attestation invariant is **portability**: every compliant VMM MUST
+produce byte-identical measurements from the same PMI image. Every extension
+that participates in a target's launch measurement MUST preserve this invariant.
+
 Confidential Computing imposes two competing requirements on a VM:
 
 - **The platform definition must be safe.** The host describes the guest's
@@ -131,5 +135,4 @@ Bespoke alternatives pay the opposite tax: a proprietary format like TDX's HOB,
 or a whole new image format like IGVM, needs proprietary tooling everywhere it
 is touched.
 
-[amdsb]:
-  https://www.amd.com/en/resources/product-security/bulletin/amd-sb-3012.html
+[amdsb]: https://www.amd.com/en/resources/product-security/bulletin/amd-sb-3012.html

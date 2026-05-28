@@ -32,7 +32,9 @@ procedures.
 ### Keys
 
 The `.pmi.tdx` CBOR map follows the [core target shape](core.md#shape). Its
-`version` MUST be `1`. It adds no keys.
+`version` MUST be `1`. It adds one required key:
+
+- **`cpu:profile`** — vCPU ISA baseline (see [cpu.md](cpu.md)).
 
 ### Validation
 
@@ -67,9 +69,20 @@ this spec.
 `tdx` defines no `tdx`-specific `fill` kinds.
 
 PMI deliberately does not generate a TD HOB; platform description is delivered
-through the core [`dtb`](core.md#dtb) fill kind instead, which the PMI consumer
-takes TDVF's role in consuming. For why PMI rejects the HOB, see
+through a DTB fill kind ([`direct:dtb`](direct.md) or
+[`merged:dtbo`](merged.md)) instead, which the PMI consumer takes TDVF's role
+in consuming. For why PMI rejects the HOB, see
 [Motivation §2](motivation.md#2-portable-safe-platform-definition-and-attestation).
+
+### `cpu:profile`
+
+The VMM builds `XFAM` and `CPUID_VALUES` in `TD_PARAMS` from the profile and
+passes them to `KVM_TDX_INIT_VM`. `TD_PARAMS` does not enter MRTD; the VMM MAY
+configure `XFAM` and `CPUID_VALUES` to expose host-supported features beyond
+the profile. The exposed `XFAM` and TD attributes are reflected in the TD
+report (`tdx_xfam` and `tdx_td_attributes`) for verifier policy. The TDX module
+enforces certain "fixed-1" CPUID bits that the VMM cannot disable; those are
+exposed regardless of profile and remain visible in the report fields.
 
 ## Example
 
@@ -79,12 +92,13 @@ and a host devicetree:
 ```cbor-diag
 {
   "version": 1,
+  "cpu:profile": "x86-64-v4",
   "actions": [
     {"type": "load", "section": ".tdx.consumer"},
     {"type": "load", "section": ".linux"},
     {"type": "load", "section": ".initrd"},
     {"type": "load", "section": ".cmdline"},
-    {"type": "fill", "section": ".dtb", "kind": "dtb"}
+    {"type": "fill", "section": ".dtb", "kind": "direct:dtb"}
   ]
 }
 ```

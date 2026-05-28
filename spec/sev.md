@@ -35,9 +35,10 @@ the SEV-SNP firmware ABI onto the five ordered steps:
 ### Keys
 
 The `.pmi.sev` CBOR map follows the [core target shape](core.md#shape). Its
-`version` MUST be `1`. It adds one optional key:
+`version` MUST be `1`. It adds the following keys:
 
-- **`sev:id`** — signed launch identity (see
+- **`cpu:profile`** — vCPU ISA baseline (required; see [cpu.md](cpu.md)).
+- **`sev:id`** — signed launch identity (optional; see
   [§2](#2-new-target-attribute-sevid)).
 
 ### Validation
@@ -78,6 +79,16 @@ a Padded section or all of a Zero section as `PAGE_TYPE_ZERO` (validated as zero
 without transferring data, yielding a different measurement than loading actual
 zeros). The VMM MUST NOT substitute data-page operations for zero-page
 operations or vice versa.
+
+### `cpu:profile`
+
+The VMM populates the CPUID page (via the
+[`sev:cpuid`](#5-new-fill-kind-sevcpuid) fill kind) with entries that advertise
+at least the profile. The PSP validates each entry against the actual processor
+and rejects entries claiming functionality the processor does not support. The
+launch digest binds the page type and GPA, not the content; `cpu:profile` does
+not enter the launch digest, and the VMM MAY include host-supported features
+beyond the profile in the CPUID page.
 
 ## 2. New target attribute: `sev:id`
 
@@ -150,6 +161,7 @@ identity, with secrets and CPUID pages:
 ```cbor-diag
 {
   "version": 1,
+  "cpu:profile": "x86-64-v3",
   "sev:id": {"block": ".sev.id.block", "auth": ".sev.id.auth"},
   "actions": [
     {"type": "load", "section": ".svsm"},
@@ -157,7 +169,7 @@ identity, with secrets and CPUID pages:
     {"type": "load", "section": ".linux"},
     {"type": "load", "section": ".initrd"},
     {"type": "load", "section": ".cmdline"},
-    {"type": "fill", "section": ".dtb", "kind": "dtb"},
+    {"type": "fill", "section": ".dtb", "kind": "direct:dtb"},
     {"type": "fill", "section": ".sev.secrets", "kind": "sev:secrets"},
     {"type": "fill", "section": ".sev.cpuid", "kind": "sev:cpuid"},
     {"type": "load", "section": ".sev.vmsa", "kind": "sev:vmsa"}

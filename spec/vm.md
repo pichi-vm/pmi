@@ -26,11 +26,12 @@ The VMM executes the launch in five ordered steps:
 ### Keys
 
 The `.pmi.vm` CBOR map follows the [core target shape](core.md#shape). Its
-`version` MUST be `1`. It adds one required key:
+`version` MUST be `1`. It adds two required keys:
 
 - **`vm:vcpu`** — boot-vCPU register map (see
   [§2](#2-new-target-attribute-vmvcpu)). The variant ([`vcpu-x64`](#vcpu-x64) or
   [`vcpu-aarch64`](#vcpu-aarch64)) MUST match `PE.FileHeader.Machine`.
+- **`cpu:profile`** — vCPU ISA baseline (see [cpu.md](cpu.md)).
 
 ### Validation
 
@@ -46,6 +47,14 @@ refuse to launch on any of:
 On `vm`, the [`default`](core.md#kind) kind places the section's bytes in guest
 memory per [section shape](core.md#section-shapes); no measurement is performed.
 Implementations MAY copy or map the contents into guest memory.
+
+### `cpu:profile`
+
+The VMM configures the boot vCPU via the host hypervisor's facilities (e.g.,
+KVM's `KVM_SET_CPUID2` on x86-64; `KVM_ARM_VCPU_INIT` feature bits and ID
+register writes on aarch64) so the guest sees at least the profile. The `vm`
+target has no launch measurement; the VMM MAY pass additional host-supported
+features through to the guest.
 
 ## 2. New target attribute: `vm:vcpu`
 
@@ -159,12 +168,13 @@ a host devicetree, and sets the boot vCPU:
 ```cbor-diag
 {
   "version": 1,
+  "cpu:profile": "x86-64-v3",
   "vm:vcpu": {"rip": 0x100000, "rsp": 0x80000, "rflags": 0x2},
   "actions": [
     {"type": "load", "section": ".linux"},
     {"type": "load", "section": ".initrd"},
     {"type": "load", "section": ".cmdline"},
-    {"type": "fill", "section": ".dtb", "kind": "dtb"}
+    {"type": "fill", "section": ".dtb", "kind": "direct:dtb"}
   ]
 }
 ```

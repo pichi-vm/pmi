@@ -39,6 +39,7 @@ The following extensions are registered with PMI.
 | `cca`    | [spec/cca.md](spec/cca.md)       | Arm CCA confidential VMs (draft)            |
 | `direct` | [spec/direct.md](spec/direct.md) | Host-supplied monolithic DTB                |
 | `merged` | [spec/merged.md](spec/merged.md) | Image base DTB + host overlay (split-trust) |
+| `cpu`    | [spec/cpu.md](spec/cpu.md)       | vCPU ISA baseline                           |
 
 To register a new extension, open an issue or pull request against the PMI spec
 repository. Be sure to follow the format in the existing extensions.
