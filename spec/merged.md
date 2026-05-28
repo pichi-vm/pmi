@@ -92,12 +92,19 @@ The merger MUST reject the launch on any of the following.
 **Allowlist.** Every node and property the overlay contributes MUST fall into
 one of the following four categories. Anything outside is non-conformant.
 
-1. Under `/cpus`: the overlay MAY add `cpu@N` nodes for any `N` not already in
-   the base DTB. Each added node MUST carry `reg` and MAY carry `numa-node-id`.
-   Apart from these two properties, each added node's properties MUST exactly
-   mirror the base DTB's `cpu@0` template (same property names, byte-identical
-   values). The overlay MUST NOT modify properties on `cpu@N` nodes already
-   present in the base DTB.
+1. Under `/cpus`: the overlay MAY add `cpu@N` nodes for any `N` not already
+   in the base DTB. The overlay MUST NOT modify properties on `cpu@N` nodes
+   already present in the base DTB. The overlay MUST NOT set `phandle` or
+   `linux,phandle` on any added `cpu@N`.
+
+   Each added `cpu@N` MUST carry `reg` and MAY carry `numa-node-id`. Apart
+   from these two properties, the added node's property set MUST be exactly
+   equal to `cpu@0`'s, with byte-identical values: neither addition (a
+   property absent from `cpu@0`) nor omission (a `cpu@0` property the
+   overlay does not copy) is permitted. `phandle` and `linux,phandle` are
+   excluded from this comparison — `cpu@0` MAY carry them (the merger
+   renumbers them at apply time) but the overlay MUST NOT, per the
+   prohibition above.
 2. Nodes and properties under `/memory@*`.
 3. Nodes and properties under `/distance-map`.
 4. The `numa-node-id` property added to any node the base DTB already declared.
