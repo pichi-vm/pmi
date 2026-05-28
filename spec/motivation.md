@@ -67,12 +67,16 @@ image-owned — moves into the image. Resource allocation arrives via a
 Devicetree overlay (see [`merged`](merged.md)) restricted to an allowlist the
 guest validates.
 
-The defense against a malicious description is validation, not measurement —
-and Devicetree is what makes that possible, because it carries no executable
-code. It has standardized parsers in safe Rust and in libfdt, is universally
-available on aarch64, and the guest validates it directly. On x86 it can be
-translated to ACPI in-guest by firmware such as OVMF; direct kernel support is
-improving.
+The split lets each half use the right defense. The image-owned platform
+definition folds into the launch measurement like any other image byte; the
+host-supplied overlay is validated against the allowlist at boot. Neither
+folds host resource decisions into the guest's identity. Devicetree is what
+makes both moves possible, because it carries no executable code — ACPI's AML
+would force the guest to trust whatever the host hands it, which is the gap
+AMD and Intel close by measuring the description wholesale. Devicetree has
+standardized parsers in safe Rust and in libfdt, is universally available on
+aarch64; on x86 it can be translated to ACPI in-guest by firmware such as
+OVMF, and direct kernel support is improving.
 
 Image-controlled bytes alone determine the measurement; host hardware, host
 resources, host VMM version — none of them appear. **Every compliant VMM
