@@ -14,6 +14,50 @@ Computing service modules. It has the following goals:
 
 For more background on these goals, see [Motivation](spec/motivation.md).
 
+## Why does PMI exist?
+
+Today's Confidential Computing offerings (AMD SEV-SNP, Intel TDX, Arm CCA)
+inherit a structure from bare metal: the hypervisor chooses much of what the
+guest sees — its CPU features, its initial register state, its platform
+description, and the bytes it first executes. That inheritance is engineering
+inertia, not a security requirement, and France's national cybersecurity agency
+named the cost directly in its October 2025 [Technical Position Paper on
+Confidential Computing][anssi-cc]:
+
+> Part of the code running in the User-provided TCB is often injected by the
+> cloud-provider, especially in the case of cVMs: the firmware responsible for
+> the early stages of booting the VM, as well as the virtual TPM used to attest
+> the later boot stages, are typically beyond the control of the user. […]
+> Attestation of every step of the bootchain is necessary to verify that the
+> entire User-provided TCB has not been compromised by an admin attack, but it
+> is impossible to perform on current cloud offerings for confidential VMs.
+>
+> — ANSSI, _Technical Position Paper on Confidential Computing_, v1.0, October
+> 2025
+
+PMI moves those declarations into the image. The host delivers them or refuses
+to launch. One artifact, one measurement, full-chain attestation that does not
+depend on which cloud or hypervisor provisioned the VM or how many resources are
+given to it.
+
+## What does a PMI image contain?
+
+PMI is a container; the payload is your choice. Some possible compositions:
+
+- **`PMI(Linux)`** — a kernel, initrd, and command line, direct-boot. Replaces
+  `qemu -kernel` provisioning and the parallel UKI build.
+- **`PMI(OVMF, Linux)`** — UEFI guest firmware plus a Linux UKI. The same file
+  boots as a UKI on bare metal and under firmware in a VM.
+- **`PMI(SVSM, OVMF, Linux)`** — a confidential VM with COCONUT-SVSM as the
+  service module providing an in-enclave vTPM, OVMF as guest firmware, and Linux
+  on top. Three components previously provisioned and attested separately,
+  shipped as one image.
+- **`PMI(OpenHCL)`** — Microsoft's OpenHCL paravisor as the guest payload.
+
+Each composition is one file. Bare metal, hypervisor, and confidential hardware
+read the same bytes, and the launch measurement is byte-identical across every
+compliant VMM.
+
 ## How does it work?
 
 PMI is a standard Portable Executable, just like a Linux UKI. A compliant VM
@@ -42,3 +86,6 @@ The following extensions are registered with PMI.
 
 To register a new extension, open an issue or pull request against the PMI spec
 repository. Be sure to follow the format in the existing extensions.
+
+[anssi-cc]:
+  https://messervices.cyber.gouv.fr/documents-guides/anssi-technical-position-paper-coco-v1.0.pdf
