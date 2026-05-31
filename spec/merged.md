@@ -5,8 +5,8 @@
 The `merged` extension splits the guest's platform description into two layers
 with different trust models. The image carries a base flattened devicetree blob
 (DTB) describing only platform definition; the host supplies a flattened
-devicetree overlay (DTBO) restricted to an allowlist of facts the host alone
-knows at launch — resource allocation, plus the CPUs' implementation identity;
+devicetree overlay (DTBO) restricted to a resource-allocation allowlist —
+memory, and the CPU instances themselves;
 the guest merges the overlay onto the base and validates the result. The base DTB is
 loaded as a measured action where the target measures loads; the overlay is
 unmeasured.
@@ -36,16 +36,12 @@ A VMM MUST refuse to launch on any of:
 - the bytes at the named section do not parse as a well-formed flattened
   devicetree blob in the format defined by the [Devicetree
   Specification][devicetree] v0.4 or later;
-- the base DTB lacks a `/cpus/cpu@0` node, or that `cpu@0` lacks the
-  build-time-known properties required of every CPU the guest will run:
-  `device_type`, `reg`, and any architecturally-required bring-up property
-  (`enable-method` on aarch64);
-- any CPU node in the base DTB carries a `compatible` property. A CPU's identity
-  is a launch-time fact the host supplies via the overlay (see
-  [§2 Allowlist](#allowlist)); the image does not know which core it will run on
-  (the [`cpu:profile`](cpu.md) it declares is a *floor*, not the actual
-  implementation), so a base DTB that hard-codes a CPU `compatible` is
-  non-conformant.
+- the base DTB lacks a `/cpus` container node, or that `/cpus` contains any
+  `cpu@N` child. CPUs are host-provided resources: the base declares the
+  `/cpus` container (with `#address-cells`/`#size-cells`), but the CPU
+  *instances* — their count and per-CPU `reg`, `status`, `enable-method`, and
+  `compatible` — are authored entirely by the host overlay (see
+  [§2 Allowlist](#allowlist)).
 
 The VMM reads the base DTB from the PE file to inform overlay generation. The
 image author chooses whether to also place it in guest memory via a `load`
@@ -55,12 +51,11 @@ obtains its measured copy of the base DTB by other means (typically by embedding
 it in the measured consumer binary).
 
 The base DTB carries only platform definition the image author knows at build
-time — MMIO map, interrupt controller, transport choice, device topology — and
-the `cpu@0` template (`device_type`, `reg`, `status`, and the arch bring-up
-method) the host's overlay extends (see [§2 Allowlist](#allowlist)). Host-known
-surfaces — additional `cpu@N` nodes, the CPUs' `compatible`, `/memory@*`,
-`/distance-map`, and per-node `numa-node-id` — come from the overlay in
-[§2](#2-new-fill-kind-mergeddtbo).
+time — MMIO map, interrupt controller, transport choice, device topology, and
+the empty `/cpus` container. The CPU instances and resource-allocation surfaces
+— every `cpu@N` node (with its `reg`, `status`, `enable-method`, and
+`compatible`), `/memory@*`, `/distance-map`, and per-node `numa-node-id` — come
+from the overlay in [§2](#2-new-fill-kind-mergeddtbo).
 
 ## 2. New `fill` kind: `merged:dtbo`
 
@@ -100,61 +95,38 @@ description. The merger's implementation is out of scope for this spec.
 The merger MUST reject the launch on any of the following.
 
 **Allowlist.** Every node and property the overlay contributes MUST fall into
-one of the following five categories. Anything outside is non-conformant.
+one of the following four categories. Anything outside is non-conformant.
 
-1. Under `/cpus`: the overlay MAY add `cpu@N` nodes for any `N` not already
-   in the base DTB. The overlay MUST NOT modify properties on `cpu@N` nodes
-   already present in the base DTB. The overlay MUST NOT set `phandle` or
-   `linux,phandle` on any added `cpu@N`.
+1. Under `/cpus`: the overlay authors the CPU instances. It MAY add `cpu@N`
+   nodes for any `N` (the base contains none). Each `cpu@N`'s properties —
+   `device_type` (= `"cpu"`), `reg`, and any of `status`, `enable-method`,
+   `compatible` — are host-authored; the overlay MUST NOT set `phandle` or
+   `linux,phandle`. The total CPU count MUST be bounded (recommended ≤ a
+   VMM-defined maximum) to prevent resource exhaustion.
 
-   Each added `cpu@N` MUST carry `reg` and MAY carry `numa-node-id` and
-   `compatible` (the latter governed by category 5). Apart from these three
-   properties, the added node's property set MUST be exactly
-   equal to `cpu@0`'s, with byte-identical values: neither addition (a
-   property absent from `cpu@0`) nor omission (a `cpu@0` property the
-   overlay does not copy) is permitted. `phandle` and `linux,phandle` are
-   excluded from this comparison — `cpu@0` MAY carry them (the merger
-   renumbers them at apply time) but the overlay MUST NOT, per the
-   prohibition above.
+   The CPUs are homogeneous in identity and bringup: the overlay SHOULD give
+   every `cpu@N` the same `compatible` and `enable-method`. `status` is
+   per-CPU — the boot CPU MUST be `okay`, while others MAY be `disabled`
+   (e.g. offline-capable / hot-onlineable) — and `reg` MUST be unique.
+   Malformed or inconsistent CPU nodes (a missing or duplicate `reg`, a
+   non-`okay` boot CPU, an `enable-method` the platform does not implement)
+   manifest as boot failures (DoS) and are not consumer-validated. Per-CPU
+   divergence in identity (heterogeneous topology) is out of scope for this
+   extension.
 
 2. Nodes and properties under `/memory@*`.
 3. Nodes and properties under `/distance-map`.
 4. The `numa-node-id` property added to any node the base DTB already declared.
    This is the only property the host MAY add outside the first three paths, and
-   it MUST NOT appear with any other host-contributed property on the same node,
-   except the CPU `compatible` of category 5 on `cpu@0`.
-
-5. The `compatible` property on CPU nodes — the CPUs' implementation identity, a
-   launch-time fact the host knows and the image does not. The overlay MAY
-   contribute a single CPU `compatible` value. When it does:
-
-   - it MUST be added to `/cpus/cpu@0` (overriding, for `compatible` only, the
-     category-1 prohibition on modifying base CPU nodes) and to every
-     overlay-added `cpu@N`;
-   - it MUST be byte-identical on every CPU node — the guest's CPUs are
-     homogeneous; per-CPU divergence (heterogeneous topology) is out of scope
-     for this extension;
-   - it is excluded from the `cpu@N`↔`cpu@0` template comparison of category 1,
-     exactly as `reg` and `numa-node-id` are.
-
-   The overlay MUST NOT contribute any other CPU-identity or CPU-feature
-   property (`enable-method`, `capacity-dmips-mhz`, `clocks`, cache or topology
-   nodes); those are the image's, or out of scope. Whether to contribute a CPU
-   `compatible` at all is the VMM's choice: an architecture with a registered
-   CPU `compatible` vocabulary (e.g. aarch64) SHOULD receive one; an
-   architecture without (e.g. x86-64, which has no CPU `compatible` binding)
-   receives none, and its CPU nodes carry only `device_type` + `reg`, which is
-   conformant.
+   it MUST NOT appear with any other host-contributed property on the same node.
 
 **The CPU `compatible` is non-authoritative.** It is host-supplied, unmeasured,
 and on confidential targets adversarial. Guests and remote verifiers MUST derive
 actual CPU identity and features from the architectural identification registers
 (`MIDR_EL1` on aarch64, `CPUID` on x86-64) and, on attested targets, the
-target's attestation report — never from this property. The allowlist admits
-only the `compatible` string itself, not the `clocks` / `operating-points` /
-topology nodes a driver match would require, and CPU errata are keyed on
-identification registers rather than `compatible`; the value is therefore inert
-and cannot alter guest behavior.
+target's attestation report — never from this property. CPU errata are keyed on
+identification registers rather than `compatible`, so the value is inert and
+cannot alter guest behavior.
 
 **Address-bearing values.** For every host-contributed address:
 
@@ -162,6 +134,14 @@ and cannot alter guest behavior.
   address width.
 - All declared `/memory@*` regions MUST be pairwise non-overlapping with every
   base-DTB node bearing a `reg` property.
+- CPU-node `reg` is an identifier (`/cpus` declares `#size-cells = 0`) — the
+  MPIDR on aarch64, the APIC ID on x86-64 — not an address. It occupies no
+  physical address space and is not subject to the overlap rules above, only to
+  uniqueness among CPU nodes. The one address-bearing CPU property,
+  `cpu-release-addr`, is specific to the aarch64 `enable-method = "spin-table"`,
+  which this extension does not use, so it does not appear. A platform adding a
+  spin-table mechanism MUST subject `cpu-release-addr` to the same bounds and
+  non-overlap checks as `/memory@*`.
 
 ### Non-validation
 
@@ -169,9 +149,10 @@ The merger is NOT required to validate:
 
 - The values of `numa-node-id` properties beyond structural type conformance.
 - The values within the `distance-matrix` property under `/distance-map`.
-- The value of the CPU `compatible` beyond structural type conformance and the
-  cross-CPU byte-identity check; the guest cannot know the host's actual core to
-  compare against, and per the clause above must not rely on it.
+- The values of CPU-node properties (`compatible`, `enable-method`, `reg`,
+  `status`) beyond what boot requires. The guest derives real CPU identity and
+  features from `MIDR_EL1`/`CPUID` and the attestation report, and must not rely
+  on the DTB for them.
 
 [devicetree]: https://www.devicetree.org/specifications/
 
