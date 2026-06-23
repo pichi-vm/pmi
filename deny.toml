@@ -1,0 +1,23 @@
+# cargo-deny configuration for pmi. License allowlist tailored to pmi's actual
+# dependency tree (cargo metadata); adding a dep with another license fails CI.
+
+[licenses]
+allow = [
+    "Apache-2.0",   # this crate + deps
+    "MIT",          # serde and its tree (dual MIT/Apache)
+    "Unicode-3.0",  # required by `unicode-ident` (AND expression)
+]
+confidence-threshold = 0.8
+
+[advisories]
+version = 2
+ignore = []
+
+[bans]
+multiple-versions = "warn"
+wildcards = "deny"
+
+[sources]
+# pmi depends only on crates.io packages.
+unknown-registry = "deny"
+unknown-git = "deny"

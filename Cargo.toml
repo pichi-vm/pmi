@@ -1,0 +1,10 @@
+[package]
+name = "pmi"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+repository = "https://github.com/pichi-vm/pmi"
+description = "Type definitions for the Portable Machine Image (PMI) spec."
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }

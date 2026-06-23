@@ -1,0 +1,13 @@
+[general]
+contrib=contrib-title-conventional-commits
+# FF-only merge policy (linear history); no merge commits to handle.
+ignore-revert-commits=true
+
+[contrib-title-conventional-commits]
+types = feat,fix,docs,style,refactor,perf,test,build,ci,chore,revert,spec
+
+[title-max-length]
+line-length=50
+
+[body-max-line-length]
+line-length=72
