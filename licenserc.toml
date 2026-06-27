@@ -2,5 +2,5 @@ inlineHeader = """
 SPDX-FileCopyrightText: Advanced Micro Devices, Inc.
 SPDX-License-Identifier: Apache-2.0
 """
-includes = ["**/*.rs"]
+includes = ["**/*.rs", "**/*.sh"]
 excludes = ["target/**"]
