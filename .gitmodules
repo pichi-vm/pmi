@@ -1,0 +1,3 @@
+[submodule ".agent"]
+	path = .agent
+	url = https://github.com/pichi-vm/.agent.git
