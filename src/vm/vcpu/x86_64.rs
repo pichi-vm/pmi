@@ -1,17 +1,103 @@
 // SPDX-FileCopyrightText: Advanced Micro Devices, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-use serde::{Deserialize, Serialize};
+use serde::{de, Deserialize, Deserializer, Serialize};
 
-use super::is_zero;
+use super::{is_zero, InvalidRegister};
 
-// `&u64` is required by serde's `skip_serializing_if`.
-#[allow(clippy::trivially_copy_pass_by_ref)]
-fn rflags_is_default(v: &u64) -> bool {
-    *v == 0x2
+/// x86-64 `RFLAGS`, with bit 1 (architecturally reserved-as-one) guaranteed
+/// set. Serializes as the underlying `u64`; construction and deserialization
+/// reject any value that clears bit 1 (`spec/vm.md`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(transparent)]
+pub struct RFlags(u64);
+
+impl RFlags {
+    /// Construct from raw bits.
+    ///
+    /// # Errors
+    /// [`InvalidRegister::RflagsReservedBitClear`] if bit 1 is not set.
+    pub fn new(bits: u64) -> Result<Self, InvalidRegister> {
+        if bits & 0x2 == 0 {
+            return Err(InvalidRegister::RflagsReservedBitClear);
+        }
+        Ok(Self(bits))
+    }
+
+    /// The raw `RFLAGS` value.
+    #[must_use]
+    pub fn get(self) -> u64 {
+        self.0
+    }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+impl Default for RFlags {
+    /// `0x2` — the reserved-as-one bit set, all others clear.
+    fn default() -> Self {
+        Self(0x2)
+    }
+}
+
+impl TryFrom<u64> for RFlags {
+    type Error = InvalidRegister;
+
+    fn try_from(bits: u64) -> Result<Self, Self::Error> {
+        Self::new(bits)
+    }
+}
+
+impl<'de> Deserialize<'de> for RFlags {
+    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        Self::new(u64::deserialize(d)?).map_err(de::Error::custom)
+    }
+}
+
+/// A segment-register attribute word, with reserved bits 12–15 guaranteed zero
+/// (`spec/vm.md`).
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize)]
+#[serde(transparent)]
+pub struct SegAttributes(u16);
+
+impl SegAttributes {
+    /// Construct from raw bits.
+    ///
+    /// # Errors
+    /// [`InvalidRegister::SegmentReservedBits`] if any of bits 12–15 are set.
+    pub fn new(bits: u16) -> Result<Self, InvalidRegister> {
+        if bits & 0xF000 != 0 {
+            return Err(InvalidRegister::SegmentReservedBits);
+        }
+        Ok(Self(bits))
+    }
+
+    /// The raw attribute word.
+    #[must_use]
+    pub fn get(self) -> u16 {
+        self.0
+    }
+}
+
+impl TryFrom<u16> for SegAttributes {
+    type Error = InvalidRegister;
+
+    fn try_from(bits: u16) -> Result<Self, Self::Error> {
+        Self::new(bits)
+    }
+}
+
+impl<'de> Deserialize<'de> for SegAttributes {
+    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        Self::new(u16::deserialize(d)?).map_err(de::Error::custom)
+    }
+}
+
+// `&RFlags` is required by serde's `skip_serializing_if`.
+#[allow(clippy::trivially_copy_pass_by_ref)]
+fn rflags_is_default(v: &RFlags) -> bool {
+    *v == RFlags::default()
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(deny_unknown_fields, default)]
 pub struct CpuState {
     #[serde(skip_serializing_if = "is_zero")]
@@ -19,7 +105,7 @@ pub struct CpuState {
     #[serde(skip_serializing_if = "is_zero")]
     pub rsp: u64,
     #[serde(skip_serializing_if = "rflags_is_default")]
-    pub rflags: u64,
+    pub rflags: RFlags,
 
     #[serde(skip_serializing_if = "is_zero")]
     pub rax: u64,
@@ -81,52 +167,13 @@ pub struct CpuState {
     pub idtr: Dtr,
 }
 
-impl Default for CpuState {
-    /// All registers zero except `rflags`, which defaults to `0x2`
-    /// (the architectural reserved bit, which must be set).
-    fn default() -> Self {
-        Self {
-            rip: 0,
-            rsp: 0,
-            rflags: 0x2,
-            rax: 0,
-            rbx: 0,
-            rcx: 0,
-            rdx: 0,
-            rsi: 0,
-            rdi: 0,
-            rbp: 0,
-            r8: 0,
-            r9: 0,
-            r10: 0,
-            r11: 0,
-            r12: 0,
-            r13: 0,
-            r14: 0,
-            r15: 0,
-            cr0: 0,
-            cr3: 0,
-            cr4: 0,
-            efer: 0,
-            cs: SegReg::default(),
-            ds: SegReg::default(),
-            es: SegReg::default(),
-            fs: SegReg::default(),
-            gs: SegReg::default(),
-            ss: SegReg::default(),
-            gdtr: Dtr::default(),
-            idtr: Dtr::default(),
-        }
-    }
-}
-
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields, default)]
 pub struct SegReg {
     #[serde(skip_serializing_if = "is_zero")]
     pub selector: u16,
     #[serde(skip_serializing_if = "is_zero")]
-    pub attributes: u16,
+    pub attributes: SegAttributes,
     #[serde(skip_serializing_if = "is_zero")]
     pub limit: u32,
     #[serde(skip_serializing_if = "is_zero")]
@@ -140,4 +187,32 @@ pub struct Dtr {
     pub limit: u16,
     #[serde(skip_serializing_if = "is_zero")]
     pub base: u64,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{CpuState, RFlags, SegAttributes};
+
+    #[test]
+    fn default_sets_only_the_rflags_reserved_bit() {
+        let s = CpuState::default();
+        assert_eq!(s.rflags.get(), 0x2, "rflags bit 1 must be set by default");
+        assert_eq!(s.rip, 0);
+        assert_eq!(s.rsp, 0);
+        assert_eq!(s.cr0, 0);
+    }
+
+    #[test]
+    fn rflags_rejects_a_clear_reserved_bit() {
+        assert!(RFlags::new(0).is_err());
+        assert!(RFlags::new(0x1).is_err(), "bit 1 clear must be rejected");
+        assert_eq!(RFlags::new(0x202).unwrap().get(), 0x202);
+        assert_eq!(RFlags::default().get(), 0x2);
+    }
+
+    #[test]
+    fn segment_attributes_reject_reserved_bits() {
+        assert!(SegAttributes::new(0x1000).is_err());
+        assert_eq!(SegAttributes::new(0x0F93).unwrap().get(), 0x0F93);
+    }
 }
