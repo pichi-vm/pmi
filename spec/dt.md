@@ -23,17 +23,20 @@ It defines three extension points:
 2. The new `fill` kind [`dt:dtb`](#2-new-fill-kind-dtdtb).
 3. The new `fill` kind [`dt:dtbo`](#3-new-fill-kind-dtdtbo).
 
-The base DTB reaches the guest in one of two ways, and which one is a property of
-the actions present — no `load` is treated specially:
+The base DTB reaches guest memory in one of two ways; no `load` is treated
+specially:
 
-- **Bundled and loaded.** The image carries the base DTB in a PE section named by
-  the [`dt:dtb`](#1-new-target-attribute-dtdtb) attribute and places it in guest
-  memory with an ordinary [`default` load](core.md#load) — measured like any
-  other load, and not substitutable by the host.
+- **Loaded.** The base is measured image bytes placed by an ordinary
+  [`default` load](core.md#load) — whether a dedicated section or bytes embedded
+  in the measured consumer, which PMI does not distinguish. The consumer locates
+  the base by convention, and the host cannot substitute it.
 - **Filled.** A [`dt:dtb` fill](#2-new-fill-kind-dtdtb) has the VMM write the
-  measured base into a reserved region, sourced from the bundled copy (as a
-  default the VMM MAY substitute) or, in detached mode, supplied entirely by the
-  VMM.
+  measured base into a reserved region, sourced from a bundled copy (a default
+  the VMM MAY substitute) or, in detached mode, supplied entirely by the VMM.
+
+The optional [`dt:dtb` attribute](#1-new-target-attribute-dtdtb) is orthogonal to
+delivery: it exposes a bundled base *section* to the VMM (to author an overlay
+against, or as a fill's default source). It places nothing in guest memory.
 
 See
 [Motivation §2](motivation.md#splitting-platform-definition-from-resource-allocation)
@@ -48,22 +51,19 @@ DTB:
 dt-dtb = tstr                        ; PE section name
 ```
 
-The attribute is a distribution marker: its presence means a base DTB is bundled
-in the image at the named section; its absence means the base is distributed
-separately (**detached mode**), in which case it is supplied through a
-[`dt:dtb` fill](#2-new-fill-kind-dtdtb). The attribute carries no overlay or
-trust meaning by itself.
+The attribute **exposes a bundled base section to the VMM**: the VMM reads it to
+author a [`dt:dtbo`](#3-new-fill-kind-dtdtbo) overlay against it, and uses it as
+the default source of a [`dt:dtb` fill](#2-new-fill-kind-dtdtb). It is not a
+delivery path — it places nothing in guest memory — and carries no overlay or
+trust meaning by itself. When it is absent, no bundled base is exposed to the
+VMM; a base the VMM must produce then comes from a
+[`dt:dtb` fill](#2-new-fill-kind-dtdtb) (**detached mode**).
 
-The VMM reads the bundled section from the PE file — to author a
-[`dt:dtbo`](#3-new-fill-kind-dtdtbo) overlay against it, and as the default
-source of a [`dt:dtb` fill](#2-new-fill-kind-dtdtb) — independently of whether
-the image also places it in guest memory with a `load`.
-
-The guest can only use a base that is present in its memory. The base MUST reach
-guest memory by one of: an ordinary [`load`](core.md#load), a
-[`dt:dtb` fill](#2-new-fill-kind-dtdtb), or a copy embedded in the measured
-consumer. An image whose base reaches the guest by none of these simply fails to
-boot — a denial of service, not a security defect (see
+The guest can only use a base present in its memory. The base MUST be placed
+there by a [`load`](core.md#load) — a dedicated section, or bytes embedded in the
+measured consumer, which PMI does not distinguish — or by a
+[`dt:dtb` fill](#2-new-fill-kind-dtdtb). An image that places no base at all
+simply fails to boot: a denial of service, not a security defect (see
 [Enforcement](#enforcement)).
 
 A VMM MUST refuse to launch on any of:
@@ -145,10 +145,15 @@ contribute to the target's launch measurement.
 {"type": "fill", "gpa": 0x2011000, "section": ".dtbo", "kind": "dt:dtbo"}
 ```
 
-A `dt:dtbo` fill requires a base DTB to merge onto. A VMM MUST refuse to launch
-on a target that carries a `dt:dtbo` fill but neither a
-[`dt:dtb`](#1-new-target-attribute-dtdtb) attribute nor a
-[`dt:dtb` fill](#2-new-fill-kind-dtdtb).
+A `dt:dtbo` overlay is meaningless without a base to merge onto. The image
+author MUST place a base in guest memory — a [`load`](core.md#load) or a
+[`dt:dtb` fill](#2-new-fill-kind-dtdtb) (see [§1](#1-new-target-attribute-dtdtb)).
+This is not a VMM launch check: a `load`ed base is opaque to the VMM, so the VMM
+cannot in general tell whether a base is present. The in-guest merger enforces it
+by failing closed when it has nothing to merge onto — a denial of service. The
+VMM needs to *read* the base (via the attribute or a fill) only when the overlay
+decorates existing base nodes (e.g. `numa-node-id`); a fresh
+`/cpus` + `/memory@*` + `/distance-map` overlay needs no base knowledge.
 
 Because the overlay is unmeasured, the guest MUST validate and merge it only from
 memory the host cannot mutate after the check — i.e. private memory — never from
