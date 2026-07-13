@@ -64,9 +64,10 @@ against the host here.
 The schema is selected by `PE.FileHeader.Machine`: [`vcpu-x64`](#vcpu-x64) for
 `0x8664`, [`vcpu-aarch64`](#vcpu-aarch64) for `0xAA64`.
 
-Missing keys default to zero except where noted. The VMM MUST reject any unknown
-key. The VMM MUST reject any value exceeding the field width defined by the
-architecture schema.
+Missing keys default to zero except where noted; on aarch64, `pstate` is
+**required** — it has no valid default (see [pstate](#pstate)). The VMM MUST
+reject any unknown key. The VMM MUST reject any value exceeding the field width
+defined by the architecture schema.
 
 ### `vcpu-x64`
 
@@ -133,7 +134,7 @@ vcpu-aarch64 = {
   ? "x28" => uint, ? "x29" => uint, ? "x30" => uint,
   ? "sp_el1" => uint,                     ; u64
   ? "pc"     => uint,                     ; u64
-  ? "pstate" => uint,                     ; u64; SPSR encoding below
+    "pstate" => uint,                     ; u64; required; SPSR encoding below
   ; system registers below: all u64
   ? "sctlr_el1" => uint, ? "tcr_el1"   => uint,
   ? "ttbr0_el1" => uint, ? "ttbr1_el1" => uint,
@@ -160,7 +161,11 @@ the Arm Architecture Reference Manual for ARMv8-A and later.
 | `28–31` | NZCV.                                                                   |
 | `32–63` | Reserved or architecture-defined. See Arm ARM.                          |
 
-The VMM MUST reject a `vm:vcpu` whose `pstate` selects an EL other than EL1.
+`pstate` is **required** on aarch64 and MUST select EL1: `M[3:0]` is `0b0100`
+(EL1t) or `0b0101` (EL1h), which also fixes `M[4] = 0` (AArch64). It has no
+default because no single `pstate` is universally correct (EL1t vs EL1h, and the
+DAIF masks are image choices). The VMM MUST reject a `vm:vcpu` that omits
+`pstate`, or whose `pstate` selects any EL other than EL1.
 
 ## Example
 
@@ -172,13 +177,13 @@ a host devicetree, and sets the boot vCPU:
   "version": 1,
   "cpu:profile": "x86-64-v3",
   "vm:vcpu": {"rip": 0x100000, "rsp": 0x80000, "rflags": 0x2},
-  "merged:dtb": ".dtb",
+  "dt:dtb": ".dtb",
   "actions": [
     {"type": "load", "gpa": 0x100000,  "section": ".linux"},
     {"type": "load", "gpa": 0x1000000, "section": ".initrd"},
     {"type": "load", "gpa": 0x2000000, "section": ".cmdline"},
     {"type": "load", "gpa": 0x2001000, "section": ".dtb"},
-    {"type": "fill", "gpa": 0x2011000, "section": ".dtbo", "kind": "merged:dtbo"}
+    {"type": "fill", "gpa": 0x2011000, "section": ".dtbo", "kind": "dt:dtbo"}
   ]
 }
 ```

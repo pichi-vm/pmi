@@ -191,7 +191,7 @@ identity, with secrets and CPUID pages:
   "version": 1,
   "cpu:profile": "x86-64-v3",
   "sev:id": {"block": ".sev.id.block", "auth": ".sev.id.auth"},
-  "merged:dtb": ".dtb",
+  "dt:dtb": ".dtb",
   "actions": [
     {"type": "load", "gpa": 0x8000000,  "section": ".svsm"},
     {"type": "load", "gpa": 0xFFC00000, "section": ".ovmf"},
@@ -199,7 +199,7 @@ identity, with secrets and CPUID pages:
     {"type": "load", "gpa": 0x4000000,  "section": ".initrd"},
     {"type": "load", "gpa": 0x2000000,  "section": ".cmdline"},
     {"type": "load", "gpa": 0x2001000,  "section": ".dtb"},
-    {"type": "fill", "gpa": 0x2011000,  "section": ".dtbo", "kind": "merged:dtbo"},
+    {"type": "fill", "gpa": 0x2011000,  "section": ".dtbo", "kind": "dt:dtbo"},
     {"type": "fill", "gpa": 0x2021000,  "section": ".sev.secrets", "kind": "sev:secrets"},
     {"type": "fill", "gpa": 0x2022000,  "section": ".sev.cpuid", "kind": "sev:cpuid"},
     {"type": "load", "gpa": 0x2023000,  "section": ".sev.vmsa", "kind": "sev:vmsa"}

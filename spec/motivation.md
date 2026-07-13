@@ -64,19 +64,20 @@ image. The host delivers them or refuses to launch.
 
 The first three inputs invert outright: the image states them and the host has
 nothing to add. The fourth, the platform description, is the only one with a
-slice the host genuinely owns — *resource allocation*: CPU count, memory size,
-and NUMA topology vary per deployment and cannot be baked into an image. So PMI
-splits the platform description by trust model and inverts the half that admits
-it:
+slice the host can own — *resource allocation*: CPU count, memory size, and NUMA
+topology typically vary per deployment. So PMI splits the platform description by
+trust model and inverts the half that admits it:
 
 - **Platform definition** — the device MMIO map, interrupt controller, transport
   choice, and device topology — is image-owned. The host does not describe it to
   the guest; the *image* declares it, and the host must instantiate a VM that
   matches or refuse to launch. The guest reads its platform from the measured
   image, never from the host.
-- **Resource allocation** — CPU instances, memory, NUMA distances — arrives from
-  the host via a Devicetree overlay (see [`merged`](merged.md)), restricted to an
-  allowlist the guest validates.
+- **Resource allocation** — CPU instances, memory, NUMA distances — may arrive
+  from the host via a Devicetree overlay (see [`dt`](dt.md)), restricted
+  to an allowlist the guest validates. An image that wants an exact layout may
+  instead fix CPUs and memory in the measured base; NUMA affinity, being a
+  host placement decision, stays with the host whenever an overlay is present.
 
 This is emphatically **not** the legacy model, in which the host enumerates its
 own devices and the guest adapts to whatever it is handed. Under PMI the host

@@ -83,7 +83,7 @@ The following extensions are registered with PMI.
 | `sev`    | [spec/sev.md](spec/sev.md)       | AMD SEV 3.0 (SEV-SNP) confidential VMs      |
 | `tdx`    | [spec/tdx.md](spec/tdx.md)       | Intel TDX confidential VMs (draft)          |
 | `cca`    | [spec/cca.md](spec/cca.md)       | Arm CCA confidential VMs (draft)            |
-| `merged` | [spec/merged.md](spec/merged.md) | Image base DTB + host overlay (split-trust) |
+| `dt`     | [spec/dt.md](spec/dt.md)         | Image base DTB + host overlay (split-trust) |
 | `cpu`    | [spec/cpu.md](spec/cpu.md)       | vCPU ISA baseline                           |
 
 To register a new extension, open an issue or pull request against the PMI spec

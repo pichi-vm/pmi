@@ -32,9 +32,9 @@ the Arm CCA firmware ABI onto the five ordered steps:
 3. Process each entry in `actions` in array order. A measured `default` load
    uses `RMI_DATA_CREATE`; a Zero section (reserved memory) uses
    `RMI_DATA_CREATE_UNKNOWN` (zeroed private memory). The unmeasured
-   `merged:dtbo` overlay carries host content, which `RMI_DATA_CREATE_UNKNOWN`
+   `dt:dtbo` overlay carries host content, which `RMI_DATA_CREATE_UNKNOWN`
    cannot, so it is placed in shared (NS) memory; the realm copies it into
-   private memory before validating (see [`merged`](merged.md)).
+   private memory before validating (see [`dt`](dt.md)).
 4. `RMI_REALM_ACTIVATE`, which locks RIM.
 5. Start the guest.
 
@@ -162,14 +162,14 @@ the BSP REC parameters:
 {
   "version": 1,
   "cpu:profile": "armv9.2-a",
-  "cca:vcpu": {"pc": 0x100000, "x0": 0x80000},
-  "merged:dtb": ".dtb",
+  "cca:vcpu": {"pc": 0x100000, "x0": 0x80000, "pstate": 0x5},
+  "dt:dtb": ".dtb",
   "actions": [
     {"type": "load", "gpa": 0x100000,  "section": ".linux"},
     {"type": "load", "gpa": 0x1000000, "section": ".initrd"},
     {"type": "load", "gpa": 0x2000000, "section": ".cmdline"},
     {"type": "load", "gpa": 0x2001000, "section": ".dtb"},
-    {"type": "fill", "gpa": 0x2011000, "section": ".dtbo", "kind": "merged:dtbo"}
+    {"type": "fill", "gpa": 0x2011000, "section": ".dtbo", "kind": "dt:dtbo"}
   ]
 }
 ```

@@ -231,8 +231,8 @@ The referenced PE section MUST be a Zero section (`SizeOfRawData == 0`,
 The `kind` value determines the behavior of the `fill` action. It has no
 default; every `fill` action MUST carry a `kind`. The `kind` also determines the
 **memory class** of the placement — private (encrypted/integrity-protected) or
-shared guest memory — which matters on confidential targets (e.g. `merged:dtbo`
-is unmeasured-private where supported, otherwise shared; see [`merged`](merged.md)).
+shared guest memory — which matters on confidential targets (e.g. `dt:dtbo`
+is unmeasured-private where supported, otherwise shared; see [`dt`](dt.md)).
 
 The `kind` value is [extensible](extensions.md). Extensions MAY define `kind`
 values. Extension-defined `kind` values MUST follow all namespacing rules. A VMM
@@ -243,13 +243,18 @@ MUST refuse to launch on a `fill` whose `kind` it does not recognize.
 A PMI requirement on the VMM falls into one of two classes, and guests MUST treat
 them differently.
 
-**Measured inputs** are fixed by the image and fold into the launch measurement
-(the bytes placed by `load`, and each target's measured launch parameters). A
-deviation changes the measurement and is caught at attestation, so a guest —
-backed by a remote verifier checking the measurement — may rely on them.
+**Measured inputs** fold into the launch measurement (the bytes placed by
+`load`, and each target's measured launch parameters). A deviation changes the
+measurement and is caught at attestation, so a guest — backed by a remote
+verifier checking the measurement — may rely on them. A measured input is
+usually fixed by the image, but need not be: a host MAY supply its content — for
+example a substituted [`dt:dtb`](dt.md) base — and it remains measured and
+attested. Reliance then rests on the verifier appraising the measurement against
+an expected value, which is predictable only when that value is authored by a
+trusted party (see [`dt` authorship](dt.md#authorship-and-attestation-predictability)).
 
 **Host-controlled, unmeasured inputs** are those a VMM supplies that do not enter
-the launch measurement: resource allocation (the [`merged`](merged.md) overlay),
+the launch measurement: resource allocation (the [`dt`](dt.md) overlay),
 and per-target launch configuration such as TDX `TD_PARAMS` (including `XFAM` and
 `CPUID_VALUES`), SEV's launch policy, `host_data`, and CPUID-page contents, the
 unmeasured `RmiRealmParams` subset on CCA, and the initial register state where
@@ -268,7 +273,7 @@ validated by the guest. Accordingly:
   the denial of service. A guest MAY verify such properties for clearer
   diagnostics, but is not required to.
 - **Guest-validated** inputs (the overlay) MUST be validated and the launch
-  rejected on violation (see [`merged`](merged.md)).
+  rejected on violation (see [`dt`](dt.md)).
 - **Verifier-checked** inputs (e.g. SEV launch policy, TDX `tdx_xfam` /
   `tdx_td_attributes`) MUST be checked by the remote verifier in the attestation
   report; the launch measurement alone does not establish them.

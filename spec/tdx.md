@@ -83,7 +83,7 @@ kernel; its implementation is out of scope for this spec.
 `tdx` defines no `tdx`-specific `fill` kinds.
 
 PMI deliberately does not generate a TD HOB; platform description is delivered
-through the [`merged:dtbo`](merged.md) fill kind instead, which the PMI
+through the [`dt:dtbo`](dt.md) fill kind instead, which the PMI
 consumer takes TDVF's role in consuming. For why PMI rejects the HOB, see
 [Motivation §2](motivation.md#2-portable-safe-platform-definition-and-attestation).
 
@@ -112,14 +112,14 @@ and a host devicetree:
 {
   "version": 1,
   "cpu:profile": "x86-64-v4",
-  "merged:dtb": ".dtb",
+  "dt:dtb": ".dtb",
   "actions": [
     {"type": "load", "gpa": 0xFFFF0000, "section": ".tdx.consumer"},
     {"type": "load", "gpa": 0x1000000,  "section": ".linux"},
     {"type": "load", "gpa": 0x4000000,  "section": ".initrd"},
     {"type": "load", "gpa": 0x2000000,  "section": ".cmdline"},
     {"type": "load", "gpa": 0x2001000,  "section": ".dtb"},
-    {"type": "fill", "gpa": 0x2011000,  "section": ".dtbo", "kind": "merged:dtbo"}
+    {"type": "fill", "gpa": 0x2011000,  "section": ".dtbo", "kind": "dt:dtbo"}
   ]
 }
 ```
