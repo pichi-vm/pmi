@@ -46,3 +46,18 @@ impl From<&str> for Profile {
         Self(name.to_owned())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::Profile;
+
+    #[test]
+    fn profile_preserves_the_raw_name() {
+        assert_eq!(Profile::from("x86-64-v2").as_str(), "x86-64-v2");
+        assert_eq!(Profile::new("armv8.2-a").as_str(), "armv8.2-a");
+        assert_eq!(
+            Profile::from(String::from("x86-64-v4")),
+            Profile::new("x86-64-v4")
+        );
+    }
+}
