@@ -34,15 +34,12 @@ pub struct Spec<V> {
     #[serde(rename = "cpu:profile")]
     pub cpu_profile: Profile,
 
-    /// Optional `merged:dtb` target attribute: PE section name holding the
-    /// base DTB when this image uses the `merged` extension. Required when
-    /// `actions` contains a `merged:dtbo` fill; absent otherwise.
-    #[serde(
-        rename = "merged:dtb",
-        default,
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub merged_dtb: Option<String>,
+    /// Optional `dt:dtb` target attribute: PE section holding the bundled
+    /// base DTB. Present means a base DTB is bundled in the image, consumed by
+    /// a `load` or as the default source of a `dt:dtb` fill; absent means the
+    /// base is distributed separately (detached mode).
+    #[serde(rename = "dt:dtb", default, skip_serializing_if = "Option::is_none")]
+    pub dt_dtb: Option<String>,
 }
 
 impl<V: DeserializeOwned + Serialize> Target for Spec<V> {

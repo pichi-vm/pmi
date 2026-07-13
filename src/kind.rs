@@ -20,14 +20,19 @@ impl LoadKind {
     }
 }
 
-/// `fill` action kind discriminator: the cross-target fill kind defined by
-/// the `merged` extension, available on every target.
+/// `fill` action kind discriminator: the cross-target fill kinds defined by
+/// the `dt` extension, available on every target.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum FillKind {
-    /// `merged:dtbo`: the section is populated with a host-supplied,
-    /// unmeasured flattened devicetree overlay (resource allocation only;
-    /// merged onto a measured base DTB named by the `merged:dtb` target
-    /// attribute).
-    #[serde(rename = "merged:dtbo")]
-    MergedDtbo,
+    /// `dt:dtb`: the section (a Zero section reserving the range) is populated
+    /// by the VMM with the measured base DTB — the bundled copy named by the
+    /// `dt:dtb` target attribute, or a substitute.
+    #[serde(rename = "dt:dtb")]
+    DtDtb,
+
+    /// `dt:dtbo`: the section is populated with a host-supplied, unmeasured
+    /// flattened devicetree overlay (resource allocation only; merged onto
+    /// the measured base DTB).
+    #[serde(rename = "dt:dtbo")]
+    DtDtbo,
 }
