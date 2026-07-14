@@ -134,15 +134,9 @@ override it. An overlay is meaningless without a base to merge onto; if none is
 present the merge fails, which is a denial of service.
 
 Because the overlay is unmeasured, the guest MUST validate and merge it only from
-memory the host cannot mutate after the check, that is, private memory. Two
-placements satisfy this:
-
-- **Unmeasured-private** (preferred where the target supports it): the VMM places
-  the overlay in private, content-unmeasured guest memory. It is immutable after
-  launch, so the guest validates it in place.
-- **Shared** (fallback): the VMM places the overlay in shared memory; the guest
-  MUST copy it, in a single pass, into private memory, then validate and merge
-  the private copy.
+memory the host cannot mutate after the check, that is, private memory. On the
+confidential targets the VMM places the overlay in private, content-unmeasured
+guest memory; it is immutable after launch, so the guest validates it in place.
 
 Per target:
 
@@ -150,9 +144,8 @@ Per target:
 - **`sev`**: `SNP_LAUNCH_UPDATE` with `PAGE_TYPE_UNMEASURED` (unmeasured-private).
 - **`tdx`**: `KVM_TDX_INIT_MEM_REGION` with the measure flag clear (private,
   content unmeasured; the GPA still enters MRTD, which is deterministic).
-- **`cca`**: no host-content unmeasured-private primitive exists, so the overlay
-  is delivered in shared (NS) memory and the realm copies it into private memory
-  before validating.
+- **`cca`**: `RMI_DATA_CREATE` with `RmiDataFlags.measure` clear (private,
+  content not extended into RIM).
 
 The overlay is adversarial input. The in-guest merger MUST validate it against an
 allowlist that admits only host resource allocation (the CPUs, memory, and NUMA

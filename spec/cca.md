@@ -30,11 +30,11 @@ the Arm CCA firmware ABI onto the five ordered steps:
    The BSP REC is initialized from `cca:vcpu` (see
    [§2](#2-new-target-attribute-ccavcpu)).
 3. Process each entry in `actions` in array order. A measured `default` load
-   uses `RMI_DATA_CREATE`; a Zero section (reserved memory) uses
-   `RMI_DATA_CREATE_UNKNOWN` (zeroed private memory). The unmeasured
-   `dt:dtbo` overlay carries host content, which `RMI_DATA_CREATE_UNKNOWN`
-   cannot, so it is placed in shared (NS) memory; the realm copies it into
-   private memory before validating (see [`dt`](dt.md)).
+   uses `RMI_DATA_CREATE` with its content extended into RIM; a Zero section
+   (reserved memory) uses `RMI_DATA_CREATE_UNKNOWN` (zeroed private memory,
+   unmeasured). The unmeasured `dt:dtbo` overlay uses `RMI_DATA_CREATE` with the
+   measure flag (`RmiDataFlags.measure`) clear, placing host content in private
+   memory without extending RIM (see [`dt`](dt.md)).
 4. `RMI_REALM_ACTIVATE`, which locks RIM.
 5. Start the guest.
 
