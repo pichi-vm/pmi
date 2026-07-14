@@ -46,9 +46,9 @@ RIM extension is reproducible from the image bytes per the order fixed by
 The `.pmi.cca` CBOR map follows the [core target shape](core.md#shape). Its
 `version` MUST be `1`. It adds two required keys:
 
-- **`cca:vcpu`** — BSP REC parameters (see
+- **`cca:vcpu`**: BSP REC parameters (see
   [§2](#2-new-target-attribute-ccavcpu)).
-- **`cpu:profile`** — vCPU ISA baseline (see [cpu.md](cpu.md)).
+- **`cpu:profile`**: vCPU ISA baseline (see [cpu.md](cpu.md)).
 
 ### Validation
 
@@ -81,15 +81,14 @@ fields as follows:
 | `flags.sve_en` | `true` iff `cpu:profile` is `armv9.x-a` | SVE/SVE2 mandatory from Armv9-A            |
 | `sve_vl`       | 128 when `flags.sve_en`; otherwise 0    | Minimum legal value satisfying the profile |
 
-The remaining measured fields — `flags.lpa2_en`, `flags.pmu_en`, `s2sz`,
-`num_bps`, `num_wps`, `pmu_num_ctrs`, `hash_algo`, `rpv` — are **not yet
-pinned** by this draft. See [Open measured fields](#open-measured-fields)
-below.
+The remaining measured fields (`flags.lpa2_en`, `flags.pmu_en`, `s2sz`,
+`num_bps`, `num_wps`, `pmu_num_ctrs`, `hash_algo`, `rpv`) are not yet pinned
+by this draft. See [Open measured fields](#open-measured-fields) below.
 
 #### Unmeasured fields
 
-All other `RmiRealmParams` fields — including `vmid`, `rtt_base`, `rtt_level`,
-`rtt_num_start`, and the REC count — are unmeasured and MAY be host-supplied
+All other `RmiRealmParams` fields, including `vmid`, `rtt_base`, `rtt_level`,
+`rtt_num_start`, and the REC count, are unmeasured and MAY be host-supplied
 via VMM-defined input. They MAY vary per deployment without perturbing RIM.
 
 #### Open measured fields
@@ -99,19 +98,19 @@ can be pinned. Until they are, leaving them host-supplied violates the
 [attestation invariant](motivation.md#2-portable-safe-platform-definition-and-attestation);
 this draft is therefore not fully invariant-compliant for the `cca` target.
 
-- `flags.lpa2_en` — whether the realm enables FEAT_LPA2 (52-bit addressing
+- `flags.lpa2_en`: whether the realm enables FEAT_LPA2 (52-bit addressing
   with 4 KiB / 16 KiB granules). FEAT_LPA2 is optional in every current
   Arm-A revision, so no profile mandates it; the choice is policy.
-- `flags.pmu_en` / `pmu_num_ctrs` — whether the realm gets PMU access, and
+- `flags.pmu_en` / `pmu_num_ctrs`: whether the realm gets PMU access, and
   with how many counters. May warrant an image-author knob (e.g., a future
   `cpu:pmu` extension or `cca:pmu` attribute).
-- `s2sz` — stage-2 IPA size (40 / 42 / 44 / 48 / 52 bits, subject to
+- `s2sz`: stage-2 IPA size (40 / 42 / 44 / 48 / 52 bits, subject to
   FEAT_LPA / FEAT_LPA2 availability). Bounds the realm's maximum IPA.
-- `num_bps` / `num_wps` — breakpoint and watchpoint counts. Arm-A
+- `num_bps` / `num_wps`: breakpoint and watchpoint counts. The Arm-A
   architectural minimum is 6 / 4; realms may need more for debuggable builds.
-- `hash_algo` — SHA-256 vs SHA-512 for RIM. Determines what every downstream
+- `hash_algo`: SHA-256 vs SHA-512 for RIM. Determines what every downstream
   verifier must recompute.
-- `rpv` — 64-byte Realm Personalization Value; image-owned identity material.
+- `rpv`: 64-byte Realm Personalization Value; image-owned identity material.
 
 ### `load`
 
@@ -135,11 +134,11 @@ is portable across compliant VMMs. Features mandated by the profile that the
 host implementation cannot satisfy cause `RMI_REALM_CREATE` to fail; the VMM
 MUST refuse to launch.
 
-Other CPU features are read by the realm from the architectural ID registers via
-the trusted RMM — the host does not synthesize them, so it cannot over-claim — and
-the SVE floor is in measured RIM with `RMI_REALM_CREATE` refusing an
-unsatisfiable request. So there is no host deviation here beyond denial of service
-(see [Measured vs. host-controlled
+The realm reads other CPU features from the architectural ID registers via the
+trusted RMM. The host does not synthesize them, so it cannot over-claim, and the
+SVE floor lives in measured RIM with `RMI_REALM_CREATE` refusing an unsatisfiable
+request. The host thus has no deviation here beyond denial of service (see
+[Measured vs. host-controlled
 inputs](core.md#measured-vs-host-controlled-inputs)).
 
 ## 2. New target attribute: `cca:vcpu`

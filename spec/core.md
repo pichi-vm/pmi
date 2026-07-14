@@ -1,10 +1,10 @@
 # PMI Core Specification
 
 PMI builds on the Portable Executable (PE) format. PE is already bootable on
-bare metal under UEFI — a Linux UKI is one example — but PMI neither defines nor
-depends on that path. PMI is a separate, additive layer: it adds non-loaded PE
-sections that a PMI-aware VMM reads to compose a virtual machine, which non-PMI
-loaders ignore.
+bare metal under UEFI (a Linux UKI is one example), but PMI neither defines nor
+depends on that path. PMI is a separate, additive layer. It adds non-loaded PE
+sections that a PMI-aware VMM reads to compose a virtual machine, and that
+non-PMI loaders ignore.
 
 The two are independent. A PMI image can also be a UKI, but need not be; a UKI
 can carry PMI, but need not. They are parallel, compatible extensions to the
@@ -12,14 +12,14 @@ same PE container.
 
 This document defines the PMI core: the [target](#targets) shape, the
 [launch model](#launch-model), the [validation rules](#validation), and the
-[`load`](#load) and [`fill`](#fill) actions. Everything else — every launch
-target and platform mechanism — is an [extension](extensions.md).
+[`load`](#load) and [`fill`](#fill) actions. Everything else, every launch
+target and platform mechanism, is an [extension](extensions.md).
 
 ## Targets
 
-A PMI **target** is a launch recipe — a CBOR-encoded specification, carried in a
-`.pmi.<target>` PE section that MUST be non-loaded (`IMAGE_SCN_MEM_DISCARDABLE`)
-— that tells a VMM how to assemble and start a guest VM. Different targets
+A PMI **target** is a launch recipe: a CBOR-encoded specification, carried in a
+`.pmi.<target>` PE section that MUST be non-loaded (`IMAGE_SCN_MEM_DISCARDABLE`),
+that tells a VMM how to assemble and start a guest VM. Different targets
 express different launch paths:
 
 1. a traditional virtual machine
@@ -80,8 +80,8 @@ A VMM MUST refuse to launch on any of:
 Per-target specs MAY add further validation rules.
 
 The overlap rule is scoped to the active target: actions in disjoint targets MAY
-place sections at the same `gpa`. Only one target's spec is active per launch —
-the VMM reads only the `.pmi.<target>` section for its target — so a `gpa`
+place sections at the same `gpa`. Only one target's spec is active per launch,
+and the VMM reads only the `.pmi.<target>` section for its target, so a `gpa`
 shared between actions in, say, `.pmi.sev` and `.pmi.tdx` can never collide in
 guest memory.
 
@@ -92,15 +92,15 @@ guest memory.
 Both [`load`](#load) and [`fill`](#fill) place bytes at an explicit, absolute
 guest-physical address given by the action's `gpa`. PMI does not consult the PE
 `VirtualAddress` of a referenced section, and applies no relocation: `gpa` is the
-GPA verbatim. (`VirtualAddress` is a PE *relative* virtual address — relative to
-`ImageBase` — meaningful only to non-PMI loaders such as UEFI.)
+GPA verbatim. (`VirtualAddress` is a PE *relative* virtual address, relative to
+`ImageBase`, meaningful only to non-PMI loaders such as UEFI.)
 
 This decoupling lets one PE serve two interpretations at once. A PMI image that
-is *also* a bootable UKI keeps a compact, relocatable PE layout for the UEFI path
-— its sections at modest `VirtualAddress`es, ASLR-relocated at load — while PMI
-places those same sections at whatever GPAs the guest requires (for example guest
-firmware near the 4 GiB reset vector) via `gpa`, with no effect on the PE layout
-or `SizeOfImage`. Dual-use images SHOULD set `ImageBase` to 0; PMI ignores
+is *also* a bootable UKI keeps a compact, relocatable PE layout for the UEFI path,
+with its sections at modest `VirtualAddress`es, ASLR-relocated at load. PMI in
+turn places those same sections at whatever GPAs the guest requires (for example
+guest firmware near the 4 GiB reset vector) via `gpa`, with no effect on the PE
+layout or `SizeOfImage`. Dual-use images SHOULD set `ImageBase` to 0; PMI ignores
 `ImageBase` regardless.
 
 The granularity rules ([page granularity](granularity.md)) and the overlap check
@@ -109,8 +109,8 @@ The granularity rules ([page granularity](granularity.md)) and the overlap check
 ### Measurement determinism
 
 On targets that produce a launch measurement, the measurement MUST be a
-deterministic function of the image bytes — of each measured unit's content,
-GPA, and page type, taken in a fixed total order — and MUST NOT depend on the
+deterministic function of the image bytes, namely each measured unit's content,
+GPA, and page type, taken in a fixed total order, and MUST NOT depend on the
 page size a VMM chooses to load or map guest memory with.
 
 The total order is: actions in `actions` array order; within an action,
@@ -137,7 +137,7 @@ load = {
 
 The `load` action MAY include a `kind` value. The `gpa` field gives the absolute
 guest-physical address at which the bytes are placed; it is required. PMI does
-**not** use the section's PE `VirtualAddress` for placement (see
+not use the section's PE `VirtualAddress` for placement (see
 [Placement and `VirtualAddress`](#placement-and-virtualaddress)).
 
 #### Procedure
@@ -146,7 +146,7 @@ guest-physical address at which the bytes are placed; it is required. PMI does
 
 2. The VMM maps or copies the bytes from the PE section into guest memory at the
    action's `gpa`. The number of bytes placed is the section's `VirtualSize`. The
-   section's `VirtualAddress` is **not** consulted (see
+   section's `VirtualAddress` is not consulted (see
    [Placement and `VirtualAddress`](#placement-and-virtualaddress)). Note that
    the specific behavior of this operation is dictated by the `kind` value.
 
@@ -164,7 +164,7 @@ There are three PE-section shapes:
 
 1. **Data** (`SizeOfRawData > 0`, `VirtualSize == SizeOfRawData`). Load the
    on-disk data at `gpa`. The VMM chooses page granularity based on
-   alignment — see [page granularity](granularity.md).
+   alignment (see [page granularity](granularity.md)).
 
 2. **Padded** (`SizeOfRawData > 0`, `VirtualSize > SizeOfRawData`). Load the
    on-disk data at `gpa` as in the Data shape above. Then zero-fill
@@ -230,8 +230,8 @@ The referenced PE section MUST be a Zero section (`SizeOfRawData == 0`,
 
 The `kind` value determines the behavior of the `fill` action. It has no
 default; every `fill` action MUST carry a `kind`. The `kind` also determines the
-**memory class** of the placement — private (encrypted/integrity-protected) or
-shared guest memory — which matters on confidential targets (e.g. `dt:dtbo`
+memory class of the placement, private (encrypted/integrity-protected) or
+shared guest memory, which matters on confidential targets (e.g. `dt:dtbo`
 is unmeasured-private where supported, otherwise shared; see [`dt`](dt.md)).
 
 The `kind` value is [extensible](extensions.md). Extensions MAY define `kind`
@@ -245,10 +245,10 @@ them differently.
 
 **Measured inputs** fold into the launch measurement (the bytes placed by
 `load`, and each target's measured launch parameters). A deviation changes the
-measurement and is caught at attestation, so a guest — backed by a remote
-verifier checking the measurement — may rely on them. A measured input is
-usually fixed by the image, but need not be: a host MAY supply its content — for
-example a substituted [`dt:dtb`](dt.md) base — and it remains measured and
+measurement and is caught at attestation, so a guest backed by a remote
+verifier checking the measurement may rely on them. A measured input is
+usually fixed by the image, but need not be: a host MAY supply its content, for
+example a substituted [`dt:dtb`](dt.md) base, and it remains measured and
 attested. Reliance then rests on the verifier appraising the measurement against
 an expected value, which is predictable only when that value is authored by a
 trusted party (see [`dt` authorship](dt.md#authorship-and-attestation-predictability)).
@@ -264,7 +264,7 @@ enforce it, and a non-conformant or malicious host can violate it undetected by
 the measurement.
 
 An input is permitted to be host-controlled and unmeasured only when a host
-deviation can cause at most **denial of service** — which a host can always
+deviation can cause at most denial of service, which a host can always
 inflict regardless. Anything a host could exploit *beyond* denial of service MUST
 be either measured, attested in a report field a remote verifier checks, or
 validated by the guest. Accordingly:
@@ -279,7 +279,7 @@ validated by the guest. Accordingly:
   report; the launch measurement alone does not establish them.
 
 A guest MUST NOT assume an unmeasured "MUST" was honored. Where it depends on an
-unmeasured property beyond denial of service, it MUST verify it from an
-authoritative architectural source — `CPUID` and the ID registers (`MIDR_EL1`,
-`ID_AA64*`), `TDCALL[TDG.VP.INFO]`, `RSI_REALM_CONFIG`, or the validated overlay
-— and fail safe.
+unmeasured property beyond denial of service, it MUST verify it and fail safe,
+drawing on an authoritative architectural source: `CPUID` and the ID registers
+(`MIDR_EL1`, `ID_AA64*`), `TDCALL[TDG.VP.INFO]`, `RSI_REALM_CONFIG`, or the
+validated overlay.

@@ -34,7 +34,7 @@ sub-operation order defined under [`load`](#load) below.
 The `.pmi.tdx` CBOR map follows the [core target shape](core.md#shape). Its
 `version` MUST be `1`. It adds one required key:
 
-- **`cpu:profile`** — vCPU ISA baseline (see [cpu.md](cpu.md)).
+- **`cpu:profile`**: vCPU ISA baseline (see [cpu.md](cpu.md)).
 
 ### Validation
 
@@ -44,8 +44,8 @@ further validation rules.
 ### TD parameters
 
 `TD_PARAMS` (including `ATTRIBUTES`, `XFAM`, CPUID configuration, and the
-`MRCONFIGID` / `MROWNER` / `MROWNERCONFIG` deployer fields) is **host-supplied**
-— the VMM passes it to `KVM_TDX_INIT_VM`; PMI does not carry it. None of it
+`MRCONFIGID` / `MROWNER` / `MROWNERCONFIG` deployer fields) is host-supplied.
+The VMM passes it to `KVM_TDX_INIT_VM`; PMI does not carry it. None of it
 enters MRTD, which is built only from the pages added by `load` actions, so the
 host cannot perturb the image measurement through `TD_PARAMS`. Each field is
 attested in its own report field; a remote verifier MUST check those separately,
@@ -55,8 +55,8 @@ as it does for SEV's launch policy.
 
 On `tdx`, the `default` kind submits the section's pages via
 `KVM_TDX_INIT_MEM_REGION` with `KVM_TDX_MEASURE_MEMORY_REGION` set. MRTD is
-computed at the TDX module's fixed granularity — 4 KiB for `TDH.MEM.PAGE.ADD`
-(binding the page GPA) and 256 bytes for `TDH.MR.EXTEND` (binding content) —
+computed at the TDX module's fixed granularity (4 KiB for `TDH.MEM.PAGE.ADD`,
+binding the page GPA, and 256 bytes for `TDH.MR.EXTEND`, binding content),
 independent of the page size the VMM uses to back or map guest memory.
 
 The submission order is fully pinned, so MRTD is reproducible from the image
@@ -69,9 +69,9 @@ batch all `TDH.MEM.PAGE.ADD` operations ahead of the `TDH.MR.EXTEND` operations.
 TDX starts the boot vCPU at the architectural reset vector with its initial
 register state fixed by the TDX module. PMI provides no mechanism to set initial
 register contents on TDX; the `tdx` target defines no `vm:vcpu`/`vcpu-x64`. A
-compliant VMM MUST set to zero any initial register value it can influence —
+compliant VMM MUST set to zero any initial register value it can influence,
 notably R8, which the module mirrors into RCX. This state does not enter MRTD and
-is not attestable, so the image MUST carry a measured **PMI consumer**, loaded at
+is not attestable, so the image MUST carry a measured PMI consumer, loaded at
 the reset vector via a `default` load (and thus part of MRTD), that establishes
 boot state itself: it obtains platform facts (GPAW, vCPU index, attributes) from
 `TDCALL[TDG.VP.INFO]` and MUST NOT rely on the initial register contents,
@@ -99,7 +99,7 @@ exposed regardless of profile and remain visible in the report fields.
 
 Leaving `TD_PARAMS` unmeasured is safe: the TDX module validates `CPUID_VALUES`
 against the hardware and enforces the fixed-1 bits (no over-claim), and `XFAM`
-and the TD attributes are attested in the report for the verifier — so the only
+and the TD attributes are attested in the report for the verifier. The only
 host deviation is under-provisioning, a denial of service (see [Measured vs.
 host-controlled inputs](core.md#measured-vs-host-controlled-inputs)).
 

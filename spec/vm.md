@@ -65,7 +65,7 @@ The schema is selected by `PE.FileHeader.Machine`: [`vcpu-x64`](#vcpu-x64) for
 `0x8664`, [`vcpu-aarch64`](#vcpu-aarch64) for `0xAA64`.
 
 Missing keys default to zero except where noted; on aarch64, `pstate` is
-**required** — it has no valid default (see [pstate](#pstate)). The VMM MUST
+**required** and has no valid default (see [pstate](#pstate)). The VMM MUST
 reject any unknown key. The VMM MUST reject any value exceeding the field width
 defined by the architecture schema.
 
@@ -188,10 +188,10 @@ a host devicetree, and sets the boot vCPU:
 }
 ```
 
-The VMM reads `.pmi.vm`, processes the actions in order — loading `.linux`,
-`.initrd`, `.cmdline`, and the base `.dtb` into guest memory, then filling
-`.dtbo` with the host-supplied overlay the guest will merge onto the base —
-applies the `vm:vcpu` register map to the boot vCPU, and starts the guest.
+The VMM reads `.pmi.vm` and processes the actions in order. It loads `.linux`,
+`.initrd`, `.cmdline`, and the base `.dtb` into guest memory, then fills
+`.dtbo` with the host-supplied overlay the guest will merge onto the base. It
+applies the `vm:vcpu` register map to the boot vCPU and starts the guest.
 (The omitted `vm:vcpu` keys default to zero; a real boot image would set `cs`,
 `cr0`, `cr3`, `cr4`, `efer`, `gdtr`, and `idtr` to match its entry-point
 code.) The same image might boot on bare metal under UEFI as a UKI, ignoring

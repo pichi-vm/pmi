@@ -2,7 +2,7 @@
 
 VMMs often have to choose a page granularity for operations, including the
 `load` and `fill` actions in this specification. Placing a section's bytes in
-guest memory always involves a copy — performed by the target firmware on
+guest memory always involves a copy, performed by the target firmware on
 confidential targets (which copies a source page into encrypted guest memory), or
 by the VMM otherwise. These alignment rules do not eliminate that copy; they make
 it efficient, letting a VMM memory-map the PMI file (e.g., via POSIX `mmap()`) at
@@ -16,7 +16,7 @@ VMM chooses never enters a launch measurement (see [Measurement
 determinism](core.md#measurement-determinism)).
 
 Therefore, to facilitate efficient VMM construction, PMI makes the following
-alignment rules. They constrain only the *start* of a section — its `gpa` and
+alignment rules. They constrain only the *start* of a section, its `gpa` and
 `PointerToRawData`. A section's `SizeOfRawData` is not otherwise constrained (it
 follows PE's own `FileAlignment`); a section occupies whole 4 KiB guest pages,
 and any bytes in its final page beyond the section's data are zero.
@@ -32,7 +32,7 @@ have the following alignment requirements:
 Because the section's start is 2M-aligned in both the file and guest memory, the
 VMM can mmap the file and hand each whole 2M chunk to the copy at a 2M-aligned
 GPA. A large section is loaded as `floor(SizeOfRawData / 2M)` such 2M chunks,
-plus — when `SizeOfRawData` is not a multiple of 2M — a trailing tail (< 2M)
+plus (when `SizeOfRawData` is not a multiple of 2M) a trailing tail (< 2M)
 loaded at 4K granularity exactly as a small section. Only the section's *start*
 is 2M-aligned; its size is not padded up to a 2M multiple, so a 2.1 MiB section
 occupies ~2.1 MiB on disk rather than 4 MiB, and the remainder of its final 2M

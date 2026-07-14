@@ -29,8 +29,8 @@ collision-resistant name (when used in an unregistered extension).
 | Unregistered | `<prefix>:<name>` | `com.foo.bar:my-data` | wherever the extension publishes                                 |
 
 An unknown map key always causes the launch to fail. PMI decodes every CBOR map
-in strict mode — there are no ignored or pass-through keys — so an unrecognized
-name surfaces as an eager, explicit error rather than a subtly misconfigured VM.
+in strict mode, with no ignored or pass-through keys, so an unrecognized name
+surfaces as an eager, explicit error rather than a subtly misconfigured VM.
 
 ## Four extension points
 
@@ -38,7 +38,7 @@ PMI can be extended in four different ways.
 
 ### 1. New targets (registered only)
 
-A registered prefix MAY define a new launch target — a `.pmi.<prefix>` PE
+A registered prefix MAY define a new launch target: a `.pmi.<prefix>` PE
 section carrying a CBOR spec that follows the
 [common target shape](core.md#shape). A new target MUST define the accepted
 `version` value(s). PE section names starting with `.pmi.` are PMI's namespace.
@@ -46,19 +46,19 @@ Therefore, new targets may only be defined by registered extensions.
 
 ### 2. Target attributes (top-level keys)
 
-An extension MAY define a new **target** attribute. This allows the inclusion of
+An extension MAY define a new target attribute. This allows the inclusion of
 top-level metadata for a target. The target attribute name MUST follow the
 namespacing rules and its value MUST be valid CBOR.
 
 ### 3. New action types
 
-An extension MAY define a new **action** `type`. This permits extensions to
+An extension MAY define a new action `type`. This permits extensions to
 define new actions (beside `load` and `fill`) for use during VM construction.
-The **action** `type` values MUST follow the namespacing rules.
+The action `type` values MUST follow the namespacing rules.
 
 ### 4. Action-defined extension points
 
 An action's own schema MAY declare an extension point. PMI's
 [`load`](core.md#load) and [`fill`](core.md#fill) declare their `kind` field as
-such an extension point. Extension points defined by an **action** definition
+such an extension point. Extension points defined by an action definition
 MUST define how namespacing rules are applicable.

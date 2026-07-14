@@ -37,8 +37,8 @@ the SEV-SNP firmware ABI onto the five ordered steps:
 The `.pmi.sev` CBOR map follows the [core target shape](core.md#shape). Its
 `version` MUST be `1`. It adds the following keys:
 
-- **`cpu:profile`** — vCPU ISA baseline (required; see [cpu.md](cpu.md)).
-- **`sev:id`** — signed launch identity (optional; see
+- **`cpu:profile`**: vCPU ISA baseline (required; see [cpu.md](cpu.md)).
+- **`sev:id`**: signed launch identity (optional; see
   [§2](#2-new-target-attribute-sevid)).
 
 ### Validation
@@ -53,7 +53,7 @@ independent of PMI.
 
 ### Launch policy
 
-The launch policy passed to `SNP_LAUNCH_START` is **host-supplied** — the VMM
+The launch policy passed to `SNP_LAUNCH_START` is host-supplied. The VMM
 accepts it via VMM-defined input (CLI flag, config file, etc.), which is out of
 scope for PMI. The format is the 64-bit POLICY field as defined in the AMD
 SEV-SNP firmware ABI.
@@ -68,7 +68,7 @@ policy.
 
 The launch policy is not measured; it appears in the attestation report for
 remote verification. A remote verifier MUST check policy fields in the
-attestation report — the launch digest alone does not establish policy
+attestation report, since the launch digest alone does not establish policy
 properties.
 
 The deployer also supplies a 32-byte `host_data` value to `SNP_LAUNCH_FINISH`.
@@ -88,8 +88,8 @@ operations or vice versa.
 The PSP computes the launch digest at a fixed 4 KiB granularity: each 4 KiB page
 contributes a `PAGE_INFO` record binding its content, GPA, and page type into the
 running digest. This is independent of the page size the VMM uses for
-`SNP_LAUNCH_UPDATE` or for backing/mapping guest memory — a 2 MiB submission
-yields the same digest as the 512 corresponding 4 KiB pages — so the VMM MAY
+`SNP_LAUNCH_UPDATE` or for backing/mapping guest memory (a 2 MiB submission
+yields the same digest as the 512 corresponding 4 KiB pages), so the VMM MAY
 choose any page size without affecting the measurement. The VMM MUST submit pages
 in `actions` array order, and within a section in ascending GPA order; the launch
 digest is then reproducible from the image bytes (see [Measurement
@@ -107,14 +107,14 @@ beyond the profile in the CPUID page.
 
 Leaving the CPUID page unmeasured is safe: the PSP rejects entries claiming
 features the processor lacks (no over-claim), and the SEV feature set
-(`SEV_FEATURES`) lives in the measured VMSA — so the only host deviation is
+(`SEV_FEATURES`) lives in the measured VMSA. The only host deviation left is
 under-provisioning, a denial of service (see [Measured vs. host-controlled
 inputs](core.md#measured-vs-host-controlled-inputs)).
 
 ## 2. New target attribute: `sev:id`
 
-The optional `sev:id` field carries a signed launch identity — present on signed
-launches, absent on unsigned ones. It names two PE sections:
+The optional `sev:id` field carries a signed launch identity. It is present on
+signed launches and absent on unsigned ones. It names two PE sections:
 
 ```cddl
 sev-id = {
@@ -128,8 +128,8 @@ The VMM passes the two sections to `SNP_LAUNCH_FINISH` as `id_block` and
 
 Both PE sections MUST be non-loaded (`IMAGE_SCN_MEM_DISCARDABLE`). They are not
 loaded into guest memory; the VMM reads them from the file and copies them into
-the `SNP_LAUNCH_FINISH` command. `VirtualAddress` is unconstrained — these
-sections are never placed in guest memory — and `PointerToRawData` MUST be
+the `SNP_LAUNCH_FINISH` command. `VirtualAddress` is unconstrained, since these
+sections are never placed in guest memory, and `PointerToRawData` MUST be
 4K-aligned so the VMM can mmap each section directly from the file.
 
 - The `block` PE section MUST have `VirtualSize == 96` and
@@ -167,7 +167,7 @@ The VMM submits the page via `SNP_LAUNCH_UPDATE` with `PAGE_TYPE_SECRETS`. No
 content is supplied; the PSP populates the page with platform secrets in
 encrypted guest memory at launch. The referenced PE section MUST be a Zero
 section (`SizeOfRawData == 0`) with `VirtualSize == 4096`. The page contributes
-to the launch digest as a typed page — the GPA and page type are bound, the
+to the launch digest as a typed page: the GPA and page type are bound, the
 content is not.
 
 ## 5. New `fill` kind: `sev:cpuid`
@@ -178,7 +178,7 @@ defined by the AMD SEV-SNP firmware ABI, then submits the table via
 against the actual processor's capabilities and rejects entries that claim
 functionality the processor does not support. The referenced PE section MUST be
 a Zero section (`SizeOfRawData == 0`) with `VirtualSize == 4096`. The page
-contributes to the launch digest as a typed page — the GPA and page type are
+contributes to the launch digest as a typed page: the GPA and page type are
 bound, the content is not.
 
 ## Example

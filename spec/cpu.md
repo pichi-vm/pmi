@@ -41,8 +41,8 @@ the requested profile MUST be exposed to the guest.
 The floor is unmeasured on targets where the profile-derived configuration does
 not enter the launch measurement (e.g. TDX `XFAM`/`CPUID_VALUES`, the SEV CPUID
 page contents). There a non-conformant host can expose fewer features than the
-profile, but the only consequence is the guest's own boot failure — a denial of
-service — which is why the configuration is permitted to be unmeasured (see
+profile, but the only consequence is the guest's own boot failure, a denial of
+service, which is why the configuration is permitted to be unmeasured (see
 [Measured vs. host-controlled
 inputs](core.md#measured-vs-host-controlled-inputs)). A guest therefore does not
 rely on the floor and need not verify it. A host cannot *over*-claim features it
@@ -51,8 +51,8 @@ attestation; each target's `cpu:profile` section gives the mechanism.
 
 On targets where the profile-derived vCPU configuration enters a launch
 measurement, the profile is also a **ceiling** on the measured fields: the VMM
-MUST configure those fields as a deterministic function of the profile alone —
-no fewer features, no more — so the measurement remains portable across
+MUST configure those fields as a deterministic function of the profile alone
+(no fewer features, no more) so the measurement remains portable across
 compliant VMMs, per the [core attestation
 invariant](motivation.md#2-portable-safe-platform-definition-and-attestation).
 
