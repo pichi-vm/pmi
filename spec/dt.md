@@ -68,19 +68,38 @@ base DTB is defined under [VMM](#vmm).
 
 ### Base resources
 
-The base DTB declares the guest's platform: the device MMIO map, interrupt
-controller, transport choice, and device topology. It also partitions the
-resources the tenant fixes from those the host may allocate:
+The base DTB is a complete devicetree and can describe almost anything the
+[Devicetree Specification][devicetree] permits: arbitrary devices with their MMIO
+regions, interrupts, clocks, and topology. A VMM can boot the guest only if it
+instantiates the platform the base declares, so a base that names an exotic
+device boots only on the VMMs that provide it. For portability, an image SHOULD
+keep the base to the conventional virtual-platform device set that common VMMs
+already implement: a generic interrupt controller, the architected timer, a
+paravirtual power interface (PSCI on aarch64), a simple serial console, and a
+PCIe or virtio-mmio transport. This is the platform exposed by QEMU's `virt`
+machine and mirrored by lightweight VMMs such as kvmtool, Firecracker, Cloud
+Hypervisor, and crosvm.
 
-- **CPUs** (`/cpus`): declaring `/cpus` fixes the CPU set, exact and measured;
-  omitting it delegates CPU allocation to the overlay.
-- **Memory** (`/memory@*`): declaring memory fixes it, measured; omitting it
-  delegates sizing to the overlay.
-- **NUMA** (`/distance-map`, `numa-node-id`): whenever the image ships an
-  overlay, NUMA is the host's decision, so the base MUST NOT declare it.
+The base also partitions the resources the tenant fixes from those it delegates
+to the host: CPUs, memory, and NUMA.
 
-What the overlay may contribute for a delegated resource is defined under
-[Overlay contents](#overlay-contents).
+- **CPUs** (`/cpus`): declaring `/cpus` fixes the CPU set (exact, measured, and
+  immutable by the host); omitting `/cpus` delegates CPU allocation to the host.
+- **Memory** (`/memory@*`): declaring memory fixes it (measured); omitting it
+  delegates sizing to the host.
+- **NUMA** (`/distance-map`, `numa-node-id`): a NUMA topology is useful only when
+  it matches the host's physical layout, that is, which node each vCPU and memory
+  range actually lands on. The image author cannot know that layout at build
+  time, so a base-declared topology would be meaningless. NUMA is therefore
+  always the host's to supply, and the base MUST NOT declare it whenever the
+  image ships an overlay.
+
+To delegate a resource, the base omits its nodes and the producer adds a
+[`dt:dtbo` fill](#3-new-fill-kind-dtdtbo) (see [Producer](#producer)). At launch
+the host supplies the omitted resource in the overlay, and the guest validates
+and merges it (see [Guest](#guest)); the merged devicetree is the guest's
+complete platform. What the overlay may contribute is defined under [Overlay
+contents](#overlay-contents).
 
 ## 2. New `fill` kind: `dt:dtb`
 
