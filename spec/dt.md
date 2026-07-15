@@ -15,11 +15,11 @@ process. PMI does this with a simple protocol:
 3. the host allocates resources (CPUs, memory, NUMA)
 4. the guest verifies the allocated resources
 
-PMI uses devicetree to accomplish this process. The guest will supply a base
+PMI implements this protocol using devicetree. The guest will supply a base
 DTB to the host and the host, if permitted by the tenant, will generate an
 overlay containing allocated resources. On Confidential Computing deployments,
 the base DTB is measured, and is thus part of the identity of the guest. In
-contrast, to prevent allocated resources changing guest identity, the overlay
+contrast, to prevent allocated resources from changing guest identity, the overlay
 is validated, but never measured.
 
 This extension, therefore, defines the mechanisms used to enact this
@@ -33,7 +33,7 @@ negotiation. It gives the tenant two distinct facilities to control:
    fall back to a bundled DTB if it is not available.
 
 2. **Does the guest permit host allocation of resources?** This is called the
-   **allocation** facility. The guest has three allocated resource types it can
+   **allocation** facility. The guest has three resource types it can
    delegate to the VMM: CPUs, memory, and NUMA. Alternatively, it can require
    the host to provide an exact layout.
 
@@ -76,9 +76,8 @@ resources the tenant fixes from those the host may allocate:
   omitting it delegates CPU allocation to the overlay.
 - **Memory** (`/memory@*`): declaring memory fixes it, measured; omitting it
   delegates sizing to the overlay.
-- **NUMA** (`/distance-map`, `numa-node-id`): NUMA is the host's decision
-  whenever an overlay is present, so the base MUST NOT declare NUMA when the
-  image ships an overlay.
+- **NUMA** (`/distance-map`, `numa-node-id`): whenever the image ships an
+  overlay, NUMA is the host's decision, so the base MUST NOT declare it.
 
 What the overlay may contribute for a delegated resource is defined under
 [Overlay contents](#overlay-contents).
@@ -126,7 +125,7 @@ denies the host the opportunity to specify it in the overlay.
    permitted, the overlay authors it in full: it creates the `/cpus` node,
    carrying only `#address-cells`/`#size-cells`, and MAY add `cpu@N` nodes for
    any `N`. Each `cpu@N`'s properties are host-authored: `device_type`
-   (= `"cpu"`), `reg`, and any of `status`, `enable-method`, `compatible`. The
+   (= `"cpu"`), `reg`, and any of `status`, `enable-method`, or `compatible`. The
    overlay MUST NOT set `phandle` or `linux,phandle`. The total CPU count MUST be
    bounded (recommended ≤ an implementation-defined maximum) to prevent resource
    exhaustion. If the base declares `/cpus`, the overlay MUST NOT contribute
@@ -161,7 +160,7 @@ target's attestation report, never from this property.
 
 A PMI producer MUST:
 
-- provide a base DTB by one of the channel modes:
+- provide a base DTB in one of the channel modes:
   - **bundled**: place the base in a section, name it with the
     [`dt:dtb`](#1-new-target-attribute-dtdtb) attribute, and deliver it with a
     [`default` load](core.md#load);
@@ -186,7 +185,7 @@ predictability](#authorship-and-attestation-predictability)).
 ## VMM
 
 The `dt` extension participates in each target's launch model. This section
-defines its behavior: how the VMM selects the launch base DTB, places and
+defines the VMM's behavior: how it selects the launch base DTB, places and
 measures it, and places the overlay.
 
 The VMM selects the launch base DTB from the presence of the
@@ -196,13 +195,13 @@ The VMM selects the launch base DTB from the presence of the
 | `dt:dtb` attribute | `dt:dtb` fill | Mode     | Launch base DTB                                                                                     |
 | ------------------ | ------------- | -------- | --------------------------------------------------------------------------------------------------- |
 | present            | absent        | bundled  | the attribute's section, placed by a [`default` load](core.md#load)                                 |
-| absent             | present       | detached | a base the VMM supplies out of band, written by the fill                                            |
+| absent             | present       | detached | a base the VMM supplies out-of-band, written by the fill                                            |
 | present            | present       | optional | an out-of-band base if the VMM has one, otherwise the attribute's bundled base, written by the fill |
 | absent             | absent        | invalid  | no base is available; the VMM MUST refuse to launch                                                 |
 
-In detached and optional modes the VMM MAY supply an out-of-band base DTB in
-place of the bundled default, and MAY even author that base itself, though the
-launch measurement is then unpredictable (see [Authorship and attestation
+When the VMM supplies an out-of-band base DTB (in detached mode, and in optional
+mode when it has one), it MAY even author that base itself, though the launch
+measurement is then unpredictable (see [Authorship and attestation
 predictability](#authorship-and-attestation-predictability)).
 
 The VMM places the launch base DTB and folds it into the target's launch
@@ -211,14 +210,14 @@ base reaches guest memory as an ordinary [`default` load](core.md#load); a fille
 base as a [`dt:dtb` fill](#2-new-fill-kind-dtdtb).
 
 If a [`dt:dtbo` fill](#3-new-fill-kind-dtdtbo) is present, the VMM places the
-overlay unmeasured and in memory the host cannot mutate after launch: private,
+overlay, unmeasured, in memory the host cannot mutate after launch: private,
 content-unmeasured memory on targets with memory encryption, or ordinary guest
 memory otherwise. The overlay it supplies MUST contain only the content defined
 under [Overlay contents](#overlay-contents); because the overlay is unmeasured,
 the guest, not the VMM, enforces this (see [Guest](#guest)).
 
-Each target's spec defines the firmware primitives that realize this measured
-base placement and unmeasured-private overlay placement.
+Each target's spec defines the firmware primitives that realize the measured
+base placement and the unmeasured-private overlay placement.
 
 A VMM MUST refuse to launch on any of:
 
@@ -235,7 +234,7 @@ A VMM MUST refuse to launch on any of:
 
 On confidential targets the VMM is untrusted, so these checks are advisory: a
 cooperative host fails fast on a malformed image, but a malicious host can skip
-them, achieving at worst a guest that cannot boot (a denial of service). The base
+them, causing at worst a guest that cannot boot (a denial of service). The base
 DTB's trustworthiness rests on its measurement, not on these checks; the
 overlay's rests on [Guest](#guest).
 
@@ -249,7 +248,7 @@ validate it before relying on the platform description.
 
 The guest MUST:
 
-- merge and validate the overlay only from memory the host cannot mutate after
+- validate and merge the overlay only from memory the host cannot mutate after
   the check. The VMM places the overlay in private, content-unmeasured memory
   (see [VMM](#vmm)), which is immutable after launch, so the guest validates it
   in place;
@@ -259,7 +258,7 @@ The guest MUST:
   rejecting any overlay that contributes anything else.
 
 An overlay is meaningless without a base to merge onto; if none is present the
-merge fails, a denial of service. How the guest parses and merges the overlay is
+merge fails (a denial of service). How the guest parses and merges the overlay is
 out of scope.
 
 ## Authorship and attestation predictability
@@ -277,7 +276,7 @@ is why the [Producer](#producer) keeps the base tenant-authored.
 ## Examples
 
 A `.pmi.vm` that loads a kernel, initrd, and command line, and bundles a base DTB
-placed with an ordinary `default` load so its bytes are authoritative (attached).
+placed with an ordinary `default` load so its bytes are authoritative (bundled).
 The host allocates CPUs, memory, and NUMA via the overlay:
 
 ```cbor-diag
