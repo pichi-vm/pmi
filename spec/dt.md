@@ -80,8 +80,14 @@ PCIe transport. It should also declare any timer the architecture exposes as a
 platform device (for example the aarch64 architected timer); where timekeeping is
 a CPU feature instead, as on x86-64, the base declares no timer.
 
-The base also partitions the resources the tenant fixes from those it delegates
-to the host: CPUs, memory, and NUMA.
+The base also partitions three resources between the tenant and the host: CPUs,
+memory, and NUMA. Nothing else may be delegated. Delegating a resource means the
+base does not fix it and the producer adds a
+[`dt:dtbo` fill](#3-new-fill-kind-dtdtbo) (see [Producer](#producer)); at launch
+the host supplies the resource in the overlay, the guest validates and merges it
+(see [Guest](#guest)), and the merged devicetree is the guest's complete
+platform. The overlay may contribute only what [Overlay
+contents](#overlay-contents) permits.
 
 - **CPUs** (`/cpus`): declaring `/cpus` fixes the CPU set (exact, measured, and
   immutable by the host); omitting `/cpus` delegates CPU allocation to the host.
@@ -90,16 +96,9 @@ to the host: CPUs, memory, and NUMA.
 - **NUMA** (`/distance-map`, `numa-node-id`): a NUMA topology is useful only when
   it matches the host's physical layout, that is, which node each vCPU and memory
   range actually lands on. The image author cannot know that layout at build
-  time, so a base-declared topology would be meaningless. NUMA is therefore
-  always the host's to supply, and the base MUST NOT declare it whenever the
-  image ships an overlay.
-
-To delegate a resource, the base omits its nodes and the producer adds a
-[`dt:dtbo` fill](#3-new-fill-kind-dtdtbo) (see [Producer](#producer)). At launch
-the host supplies the omitted resource in the overlay, and the guest validates
-and merges it (see [Guest](#guest)); the merged devicetree is the guest's
-complete platform. What the overlay may contribute is defined under [Overlay
-contents](#overlay-contents).
+  time, so a base-declared topology would be meaningless. The base MUST NOT
+  declare NUMA. A guest that wants a NUMA topology MUST delegate it, shipping an
+  overlay for the host to populate.
 
 ## 2. New `fill` kind: `dt:dtb`
 
@@ -189,7 +188,7 @@ A PMI producer MUST:
     (the fallback base) and add the [`dt:dtb` fill](#2-new-fill-kind-dtdtb)
     action;
 - author the base DTB per [Base resources](#base-resources): the platform
-  definition, and the choice to fix or delegate CPUs, memory, and NUMA;
+  definition, and which of CPUs and memory to fix or delegate;
 - if it delegates any resource, reserve a Zero section for the overlay and add a
   [`dt:dtbo` fill](#3-new-fill-kind-dtdtbo) action naming it;
 - size each reserved Zero section for the largest DTB it will hold;
