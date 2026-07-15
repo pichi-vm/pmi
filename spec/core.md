@@ -92,11 +92,11 @@ guest memory.
 Both [`load`](#load) and [`fill`](#fill) place bytes at an explicit, absolute
 guest-physical address given by the action's `gpa`. PMI does not consult the PE
 `VirtualAddress` of a referenced section, and applies no relocation: `gpa` is the
-GPA verbatim. (`VirtualAddress` is a PE *relative* virtual address, relative to
+GPA verbatim. (`VirtualAddress` is a PE _relative_ virtual address, relative to
 `ImageBase`, meaningful only to non-PMI loaders such as UEFI.)
 
 This decoupling lets one PE serve two interpretations at once. A PMI image that
-is *also* a bootable UKI keeps a compact, relocatable PE layout for the UEFI path,
+is _also_ a bootable UKI keeps a compact, relocatable PE layout for the UEFI path,
 with its sections at modest `VirtualAddress`es, ASLR-relocated at load. PMI in
 turn places those same sections at whatever GPAs the guest requires (for example
 guest firmware near the 4 GiB reset vector) via `gpa`, with no effect on the PE
@@ -259,13 +259,13 @@ and per-target launch configuration such as TDX `TD_PARAMS` (including `XFAM` an
 `CPUID_VALUES`), SEV's launch policy, `host_data`, and CPUID-page contents, the
 unmeasured `RmiRealmParams` subset on CCA, and the initial register state where
 the platform fixes it. For these, a "the VMM MUST …" requirement in this
-specification describes a *conformant* host; the launch measurement does not
+specification describes a _conformant_ host; the launch measurement does not
 enforce it, and a non-conformant or malicious host can violate it undetected by
 the measurement.
 
 An input is permitted to be host-controlled and unmeasured only when a host
 deviation can cause at most denial of service, which a host can always
-inflict regardless. Anything a host could exploit *beyond* denial of service MUST
+inflict regardless. Anything a host could exploit _beyond_ denial of service MUST
 be either measured, attested in a report field a remote verifier checks, or
 validated by the guest. Accordingly:
 

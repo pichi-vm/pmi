@@ -45,7 +45,7 @@ profile, but the only consequence is the guest's own boot failure, a denial of
 service, which is why the configuration is permitted to be unmeasured (see
 [Measured vs. host-controlled
 inputs](core.md#measured-vs-host-controlled-inputs)). A guest therefore does not
-rely on the floor and need not verify it. A host cannot *over*-claim features it
+rely on the floor and need not verify it. A host cannot _over_-claim features it
 lacks, and the security-relevant subset is captured by measurement or
 attestation; each target's `cpu:profile` section gives the mechanism.
 
