@@ -2,43 +2,50 @@
 
 **Prefix:** `dt`.
 
-The `dt` extension describes the guest's platform with a flattened devicetree.
-It uses two channels with different trust models:
+The fundamental problem of launching a guest boils down to the negotiation of
+the platform configuration. In the traditional VM model, the host would build
+whatever platform it wanted and it only had to communicate this to the guest.
+This model used ACPI or devicetree to accomplish this.
 
-- a base DTB, a devicetree blob the guest treats as authoritative. The base is
-  always measured: whatever the guest receives as the base enters the target's
-  launch measurement. Each launch uses exactly one base DTB.
-- an optional resource overlay, a devicetree overlay (DTBO) the host supplies to
-  allocate the resources (CPUs, memory, NUMA) that the base leaves open. The
-  overlay is the only unmeasured channel. It is adversarial input; the guest
-  validates it and merges it onto the base before relying on it.
+PMI, however, aims to give the tenant, rather than the host, control of this
+process. PMI does this with a simple protocol:
 
-Everything the guest relies on for correctness is either in the measured base or
-validated before use. The host's only unvalidated influence is resource
-allocation, whose worst case is denial of service.
+1. the guest tells the host the platform it requires
+2. the host complies or fails to boot
+3. the host allocates resources (CPUs, memory, NUMA)
+4. the guest verifies the allocated resources
 
-It defines three extension points:
+PMI uses devicetree to accomplish this process. The guest will supply a base
+DTB to the host and the host, if permitted by the tenant, will generate an
+overlay containing allocated resources. On Confidential Computing deployments,
+the base DTB is measured, and is thus part of the identity of the guest. In
+contrast, to prevent allocated resources changing guest identity, the overlay
+is validated, but never measured.
+
+This extension, therefore, defines the mechanisms used to enact this
+negotiation. It gives the tenant two distinct facilities to control:
+
+1. **How does the VMM provide the base DTB to the guest?** This is called the
+   **channel** facility. There are three modes of operation: **bundled**,
+   **detached**, and **optional**. In **bundled** mode, the base DTB is
+   contained within the PMI. In **detached** mode, the base DTB is provided out
+   of band. In **optional** mode, the VMM may use an out-of-band base DTB and
+   fall back to a bundled DTB if it is not available.
+
+2. **Does the guest permit host allocation of resources?** This is called the
+   **allocation** facility. The guest has three allocated resource types it can
+   delegate to the VMM: CPUs, memory, and NUMA. Alternatively, it can require
+   the host to provide an exact layout.
+
+This extension defines three extension points:
 
 1. The new target attribute [`dt:dtb`](#1-new-target-attribute-dtdtb).
 2. The new `fill` kind [`dt:dtb`](#2-new-fill-kind-dtdtb).
 3. The new `fill` kind [`dt:dtbo`](#3-new-fill-kind-dtdtbo).
 
-The base DTB reaches guest memory in one of two ways. No `load` is treated
-specially:
-
-- **Loaded.** The base is measured image bytes placed by an ordinary
-  [`default` load](core.md#load), whether a dedicated section or bytes embedded
-  in the measured consumer (PMI does not distinguish the two). The host cannot
-  substitute it.
-- **Filled.** A [`dt:dtb` fill](#2-new-fill-kind-dtdtb) has the VMM write the
-  measured base into a reserved region, from a bundled copy (a default the VMM
-  MAY substitute) or, in detached mode, entirely from the VMM.
-
-The optional [`dt:dtb` attribute](#1-new-target-attribute-dtdtb) is orthogonal to
-delivery. It exposes a bundled base *section* to the VMM, to author an overlay
-against or to serve as a fill's default source. It places nothing in guest
-memory. When it is absent, the mode is **detached**: any base the VMM produces
-comes from a [`dt:dtb` fill](#2-new-fill-kind-dtdtb).
+What the producer must build is defined under [Producer](#producer); how the VMM
+realizes the channel modes and validates the result under [VMM](#vmm); and
+what the guest must do with the overlay under [Guest](#guest).
 
 See
 [Motivation §2](motivation.md#splitting-platform-definition-from-resource-allocation)
@@ -53,117 +60,219 @@ DTB:
 dt-dtb = tstr                        ; PE section name
 ```
 
-The attribute exposes a bundled base section to the VMM: the VMM reads it to
-author a [`dt:dtbo`](#3-new-fill-kind-dtdtbo) overlay against it, and uses it as
-the default source of a [`dt:dtb` fill](#2-new-fill-kind-dtdtb). It is not a
-delivery path and places nothing in guest memory. When it is absent (detached
-mode), no bundled base is exposed and the base comes from a
-[`dt:dtb` fill](#2-new-fill-kind-dtdtb).
+The attribute exposes a bundled base DTB to the VMM. In **bundled** mode it is
+the launch base DTB; in **optional** mode it is the fallback used when no
+out-of-band base DTB is provided. The attribute only makes a base DTB available
+to the VMM and places nothing in guest memory; how the VMM selects the launch
+base DTB is defined under [VMM](#vmm).
 
-The guest can only use a base present in its memory, placed there by a
-[`load`](core.md#load) or a [`dt:dtb` fill](#2-new-fill-kind-dtdtb). An image
-that places no base fails to boot, which is a denial of service, not a security
-defect.
+### Base resources
 
-A VMM MUST refuse to launch on any of:
+The base DTB declares the guest's platform: the device MMIO map, interrupt
+controller, transport choice, and device topology. It also partitions the
+resources the tenant fixes from those the host may allocate:
 
-- the section named by `dt:dtb` is not a PE section present in the image;
-- the bytes at the named section do not parse as a well-formed flattened
-  devicetree blob in the format defined by the [Devicetree
-  Specification][devicetree] v0.4 or later.
+- **CPUs** (`/cpus`): declaring `/cpus` fixes the CPU set, exact and measured;
+  omitting it delegates CPU allocation to the overlay.
+- **Memory** (`/memory@*`): declaring memory fixes it, measured; omitting it
+  delegates sizing to the overlay.
+- **NUMA** (`/distance-map`, `numa-node-id`): NUMA is the host's decision
+  whenever an overlay is present, so the base MUST NOT declare NUMA when the
+  image ships an overlay.
 
-The base DTB carries the platform definition the image declares for the guest:
-the device MMIO map, interrupt controller, transport choice, and device topology.
-The guest reads its platform from the measured base, and the VMM must build a VM
-that matches it. A device `reg` region declared in the base DTB MUST NOT fall
-within the 2 MiB-aligned region occupied by any `load` or `fill` section (see
-[Page Granularity](granularity.md)).
+What the overlay may contribute for a delegated resource is defined under
+[Overlay contents](#overlay-contents).
 
 ## 2. New `fill` kind: `dt:dtb`
 
-The `dt:dtb` fill kind delivers the measured base DTB into a reserved region. As
-with every [`fill`](core.md#fill), the action's `section` MUST be a Zero section:
-it reserves the guest-physical range and holds no image bytes. The VMM populates
-that range with a base DTB and measures the content.
+The `dt:dtb` fill kind delivers a base DTB into a reserved Zero section. The VMM
+populates that section and measures its content (see [VMM](#vmm)).
 
 ```cbor-diag
 {"type": "fill", "gpa": 0x2001000, "section": ".dtb", "kind": "dt:dtb"}
 ```
 
-The bytes the VMM writes come from the bundled base named by the
-[`dt:dtb`](#1-new-target-attribute-dtdtb) attribute, used as a non-authoritative
-default the VMM MAY replace, or, in detached mode, from a base the VMM supplies
-entirely. An image that needs an exact, non-substitutable base places it with a
-[`default` load](core.md#load) instead: a `default` load writes the section's
-bytes verbatim, so the host cannot substitute them.
-
-A VMM MUST refuse to launch if the base it delivers exceeds the reserved section
-size, or does not parse as a well-formed FDT ([Devicetree
-Specification][devicetree] v0.4 or later).
-
-The base is measured, per target:
-
-- **`vm`**: ordinary guest memory (no measurement on this target).
-- **`sev`**: `SNP_LAUNCH_UPDATE` with `PAGE_TYPE_NORMAL` (measured into the
-  launch digest).
-- **`tdx`**: `KVM_TDX_INIT_MEM_REGION` with `KVM_TDX_MEASURE_MEMORY_REGION` set
-  (`TDH.MEM.PAGE.ADD` then `TDH.MR.EXTEND` into MRTD).
-- **`cca`**: `RMI_DATA_CREATE` (measured).
-
-Because the host MAY substitute the base, the measurement records what the guest
-actually received; see [Authorship and attestation
-predictability](#authorship-and-attestation-predictability).
-
 ## 3. New `fill` kind: `dt:dtbo`
 
 The `dt:dtbo` fill kind delivers a host-supplied devicetree overlay (DTBO), in
 the format defined by the [Devicetree Specification][devicetree] v0.4 or later,
-into a Zero section. The host selects the overlay content through VMM-defined
-input, out of scope for PMI. The overlay is unmeasured: it does not contribute to
-the target's launch measurement.
+into a reserved Zero section.
 
 ```cbor-diag
 {"type": "fill", "gpa": 0x2011000, "section": ".dtbo", "kind": "dt:dtbo"}
 ```
 
-The overlay allocates the resources the base leaves open: CPUs, memory, and NUMA
-topology. Each of CPUs and memory is authored in full by exactly one party,
-either the tenant in the measured base or the host in the overlay, never split.
-A resource the base declares is fixed and measured, and the overlay MUST NOT
-override it. An overlay is meaningless without a base to merge onto; if none is
-present the merge fails, which is a denial of service.
+The overlay is unmeasured and allocates the resources the base leaves open (CPUs,
+memory, and NUMA), so that host resource choices do not change the guest's
+identity. The VMM places it (see [VMM](#vmm)) and the guest validates it (see
+[Guest](#guest)).
 
-Because the overlay is unmeasured, the guest MUST validate and merge it only from
-memory the host cannot mutate after the check, that is, private memory. On the
-confidential targets the VMM places the overlay in private, content-unmeasured
-guest memory; it is immutable after launch, so the guest validates it in place.
+### Overlay contents
 
-Per target:
+The overlay is the resource-allocation channel: it carries CPU, memory, and NUMA
+allocation and nothing else. This definition is normative for all three actors:
+the [producer](#producer) authors the base so that every resource it delegates is
+left open to the overlay; the [VMM](#vmm) populates the overlay with only the
+content defined here; and the [guest](#guest) rejects any overlay that goes beyond
+it.
 
-- **`vm`**: ordinary guest memory; no encryption, so the threat does not apply.
-- **`sev`**: `SNP_LAUNCH_UPDATE` with `PAGE_TYPE_UNMEASURED` (unmeasured-private).
-- **`tdx`**: `KVM_TDX_INIT_MEM_REGION` with the measure flag clear (private,
-  content unmeasured; the GPA still enters MRTD, which is deterministic).
-- **`cca`**: `RMI_DATA_CREATE` with `RmiDataFlags.measure` clear (private,
-  content not extended into RIM).
+Every node and property the overlay contributes MUST fall into one of the four
+categories below. A category that authors a resource (CPUs or memory) is
+permitted only when the base leaves that resource open (see [Base
+resources](#base-resources)): by declaring a resource in the base, the tenant
+denies the host the opportunity to specify it in the overlay.
 
-The overlay is adversarial input. The in-guest merger MUST validate it against an
-allowlist that admits only host resource allocation (the CPUs, memory, and NUMA
-the base leaves open) and merge it fail-closed, rejecting the launch on any
-violation, before the guest relies on the platform description. The allowlist and
-the merger's implementation are guest policy, out of scope for this spec.
+1. The `/cpus` subtree, permitted only if the base declares no `/cpus`. When
+   permitted, the overlay authors it in full: it creates the `/cpus` node,
+   carrying only `#address-cells`/`#size-cells`, and MAY add `cpu@N` nodes for
+   any `N`. Each `cpu@N`'s properties are host-authored: `device_type`
+   (= `"cpu"`), `reg`, and any of `status`, `enable-method`, `compatible`. The
+   overlay MUST NOT set `phandle` or `linux,phandle`. The total CPU count MUST be
+   bounded (recommended ≤ an implementation-defined maximum) to prevent resource
+   exhaustion. If the base declares `/cpus`, the overlay MUST NOT contribute
+   `/cpus` or any `cpu@N`; it MAY only attach `numa-node-id` to an existing
+   `cpu@N`, per category 4.
+
+   The CPUs are homogeneous in identity and bringup, so the overlay SHOULD give
+   every `cpu@N` the same `compatible` and `enable-method`. `status` is per-CPU:
+   the boot CPU MUST be `okay`, while others MAY be `disabled` (for example,
+   offline-capable or hot-onlineable). Each `reg` MUST be unique.
+
+2. Nodes and properties under `/memory@*`, permitted only if the base declares no
+   memory (no node with `device_type = "memory"`). If the base declares memory,
+   the overlay MUST NOT contribute `/memory@*`; it MAY only attach `numa-node-id`
+   to an existing `memory@` node, per category 4.
+
+3. Nodes and properties under `/distance-map` (NUMA), always permitted when an
+   overlay is present.
+
+4. The `numa-node-id` property added to any node the base DTB already declared
+   (NUMA), always permitted when an overlay is present. It is the only property
+   the host MAY add outside the first three categories, and it MUST NOT appear
+   alongside any other host-contributed property on the same node.
+
+**The CPU `compatible` is non-authoritative.** It is host-supplied, unmeasured,
+and on confidential targets adversarial. Guests and remote verifiers MUST derive
+actual CPU identity and features from the architectural identification registers
+(`MIDR_EL1` on aarch64, `CPUID` on x86-64) and, on attested targets, from the
+target's attestation report, never from this property.
+
+## Producer
+
+A PMI producer MUST:
+
+- provide a base DTB by one of the channel modes:
+  - **bundled**: place the base in a section, name it with the
+    [`dt:dtb`](#1-new-target-attribute-dtdtb) attribute, and deliver it with a
+    [`default` load](core.md#load);
+  - **detached**: reserve a Zero section for the base and add a
+    [`dt:dtb` fill](#2-new-fill-kind-dtdtb) action naming it, with no attribute;
+  - **optional**: set the [`dt:dtb`](#1-new-target-attribute-dtdtb) attribute
+    (the fallback base) and add the [`dt:dtb` fill](#2-new-fill-kind-dtdtb)
+    action;
+- author the base DTB per [Base resources](#base-resources): the platform
+  definition, and the choice to fix or delegate CPUs, memory, and NUMA;
+- if it delegates any resource, reserve a Zero section for the overlay and add a
+  [`dt:dtbo` fill](#3-new-fill-kind-dtdtbo) action naming it;
+- size each reserved Zero section for the largest DTB it will hold;
+- lay out sections so that no device `reg` region in the base falls within the
+  2 MiB-aligned region of any [`load`](core.md#load) or [`fill`](core.md#fill)
+  section (see [Page Granularity](granularity.md)).
+
+To keep attestation predictable, the base SHOULD be tenant-authored (see
+[Authorship and attestation
+predictability](#authorship-and-attestation-predictability)).
+
+## VMM
+
+The `dt` extension participates in each target's launch model. This section
+defines its behavior: how the VMM selects the launch base DTB, places and
+measures it, and places the overlay.
+
+The VMM selects the launch base DTB from the presence of the
+[`dt:dtb`](#1-new-target-attribute-dtdtb) attribute and the
+[`dt:dtb` fill](#2-new-fill-kind-dtdtb) action:
+
+| `dt:dtb` attribute | `dt:dtb` fill | Mode     | Launch base DTB                                                                                     |
+| ------------------ | ------------- | -------- | --------------------------------------------------------------------------------------------------- |
+| present            | absent        | bundled  | the attribute's section, placed by a [`default` load](core.md#load)                                 |
+| absent             | present       | detached | a base the VMM supplies out of band, written by the fill                                            |
+| present            | present       | optional | an out-of-band base if the VMM has one, otherwise the attribute's bundled base, written by the fill |
+| absent             | absent        | invalid  | no base is available; the VMM MUST refuse to launch                                                 |
+
+In detached and optional modes the VMM MAY supply an out-of-band base DTB in
+place of the bundled default, and MAY even author that base itself, though the
+launch measurement is then unpredictable (see [Authorship and attestation
+predictability](#authorship-and-attestation-predictability)).
+
+The VMM places the launch base DTB and folds it into the target's launch
+measurement, exactly as it measures a [`default` load](core.md#load). A loaded
+base reaches guest memory as an ordinary [`default` load](core.md#load); a filled
+base as a [`dt:dtb` fill](#2-new-fill-kind-dtdtb).
+
+If a [`dt:dtbo` fill](#3-new-fill-kind-dtdtbo) is present, the VMM places the
+overlay unmeasured and in memory the host cannot mutate after launch: private,
+content-unmeasured memory on targets with memory encryption, or ordinary guest
+memory otherwise. The overlay it supplies MUST contain only the content defined
+under [Overlay contents](#overlay-contents); because the overlay is unmeasured,
+the guest, not the VMM, enforces this (see [Guest](#guest)).
+
+Each target's spec defines the firmware primitives that realize this measured
+base placement and unmeasured-private overlay placement.
+
+A VMM MUST refuse to launch on any of:
+
+- neither the `dt:dtb` attribute nor a `dt:dtb` fill action is present;
+- the section named by the `dt:dtb` attribute is not a PE section present in the
+  image;
+- the launch base DTB does not parse as a well-formed flattened devicetree blob
+  in the format defined by the [Devicetree Specification][devicetree] v0.4 or
+  later;
+- a `dt:dtb` fill delivers a base DTB larger than its reserved section;
+- a device `reg` region declared in the base DTB falls within the 2 MiB-aligned
+  region occupied by any [`load`](core.md#load) or [`fill`](core.md#fill) section
+  (see [Page Granularity](granularity.md)).
+
+On confidential targets the VMM is untrusted, so these checks are advisory: a
+cooperative host fails fast on a malformed image, but a malicious host can skip
+them, achieving at worst a guest that cannot boot (a denial of service). The base
+DTB's trustworthiness rests on its measurement, not on these checks; the
+overlay's rests on [Guest](#guest).
+
+## Guest
+
+The base DTB is measured and authoritative: the guest relies on it as far as a
+remote verifier appraises the launch measurement (see [Authorship and attestation
+predictability](#authorship-and-attestation-predictability)). The overlay is
+unmeasured and adversarial, so the guest is its sole security boundary and MUST
+validate it before relying on the platform description.
+
+The guest MUST:
+
+- merge and validate the overlay only from memory the host cannot mutate after
+  the check. The VMM places the overlay in private, content-unmeasured memory
+  (see [VMM](#vmm)), which is immutable after launch, so the guest validates it
+  in place;
+- reject malformed or disallowed input by halting (a denial of service) rather
+  than proceeding or crashing;
+- accept only the content defined under [Overlay contents](#overlay-contents),
+  rejecting any overlay that contributes anything else.
+
+An overlay is meaningless without a base to merge onto; if none is present the
+merge fails, a denial of service. How the guest parses and merges the overlay is
+out of scope.
 
 ## Authorship and attestation predictability
 
 The base DTB is always measured, however it is delivered. Measurement records
 what the guest received; it does not fix who chose the bytes. A substituted base
 changes the launch measurement and is caught at attestation, but the measurement
-is only *predictable*, and attestation only appraisable in advance, when the
+is only _predictable_, and attestation only appraisable in advance, when the
 base is **tenant-authored**. Detached mode exists to keep it so: it decouples DTB
 distribution from PMI distribution (one image, many separately shipped tenant
-DTBs) while the tenant remains the author. A VMM MAY author the base itself, but
-the measurement then varies with host choice and cannot be appraised in advance;
-images and deployments SHOULD keep the base tenant-authored.
+DTBs) while the tenant remains the author. If the VMM instead authors the base,
+the measurement varies with host choice and cannot be appraised in advance. This
+is why the [Producer](#producer) keeps the base tenant-authored.
 
 ## Examples
 
