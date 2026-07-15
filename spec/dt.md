@@ -97,8 +97,10 @@ contents](#overlay-contents) permits.
   it matches the host's physical layout, that is, which node each vCPU and memory
   range actually lands on. The image author cannot know that layout at build
   time, so a base-declared topology would be meaningless. The base MUST NOT
-  declare NUMA. A guest that wants a NUMA topology MUST delegate it, shipping an
-  overlay for the host to populate.
+  declare NUMA. A guest that wants a NUMA topology MUST delegate it; because
+  there is no base node to omit, delegation is simply a
+  [`dt:dtbo` fill](#3-new-fill-kind-dtdtbo) that the producer adds for the host
+  to populate, even when the base fixes CPUs and memory.
 
 ## 2. New `fill` kind: `dt:dtb`
 
