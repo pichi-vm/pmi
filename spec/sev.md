@@ -95,6 +95,13 @@ in `actions` array order, and within a section in ascending GPA order; the launc
 digest is then reproducible from the image bytes (see [Measurement
 determinism](core.md#measurement-determinism)).
 
+### `dt:dtbo`
+
+On `sev`, the [`dt:dtbo`](dt.md) overlay fill submits the page via
+`SNP_LAUNCH_UPDATE` with `PAGE_TYPE_UNMEASURED`: the overlay is placed in
+encrypted (private) guest memory and its content is not measured into the launch
+digest.
+
 ### `cpu:profile`
 
 The VMM populates the CPUID page (via the

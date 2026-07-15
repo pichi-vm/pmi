@@ -80,7 +80,10 @@ kernel; its implementation is out of scope for this spec.
 
 ### `fill`
 
-`tdx` defines no `tdx`-specific `fill` kinds.
+`tdx` defines no `tdx`-specific `fill` kinds. It realizes the
+[`dt:dtbo`](dt.md) overlay fill via `KVM_TDX_INIT_MEM_REGION` with the measure
+flag clear: the page is added to private guest memory without extending MRTD with
+its content, though the page's GPA still enters MRTD deterministically.
 
 PMI deliberately does not generate a TD HOB; platform description is delivered
 through the [`dt:dtbo`](dt.md) fill kind instead, which the PMI
