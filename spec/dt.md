@@ -71,12 +71,14 @@ base DTB is defined under [VMM](#vmm).
 The base DTB is a complete devicetree and can describe almost anything the
 [Devicetree Specification][devicetree] permits: arbitrary devices with their MMIO
 regions, interrupts, clocks, and topology. A VMM can boot the guest only if it
-instantiates the platform the base declares, so a base that names an exotic
+can instantiate the platform the base declares, so a base that names an exotic
 device boots only on the VMMs that provide it. For portability, an image SHOULD
 keep the base to a modern, legacy-free baseline that is broadly implementable
 across common hypervisor backends (such as KVM, HVF, and WHP): an interrupt
-controller, a timer, a power and reset interface, a serial console, and a
-virtio-mmio or PCIe transport.
+controller, a power and reset interface, a serial console, and a virtio-mmio or
+PCIe transport. It should also declare any timer the architecture exposes as a
+platform device (for example the aarch64 architected timer); where timekeeping is
+a CPU feature instead, as on x86-64, the base declares no timer.
 
 The base also partitions the resources the tenant fixes from those it delegates
 to the host: CPUs, memory, and NUMA.
