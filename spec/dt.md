@@ -102,12 +102,40 @@ contents](#overlay-contents) permits.
 
 ## 2. New `fill` kind: `dt:dtb`
 
-The `dt:dtb` fill kind delivers a base DTB into a reserved Zero section. The VMM
-populates that section and measures its content (see [VMM](#vmm)).
+The `dt:dtb` fill kind delivers the base DTB into a reserved region of guest
+memory at launch, instead of carrying it as image bytes. It is what enables the
+**detached** and **optional** channel modes. **Bundled** mode needs no fill: the
+base travels in the image and reaches guest memory by an ordinary
+[`default` load](core.md#load), so an image that always ships its own base never
+uses this kind.
 
 ```cbor-diag
 {"type": "fill", "gpa": 0x2001000, "section": ".dtb", "kind": "dt:dtb"}
 ```
+
+As with every [`fill`](core.md#fill), the action's `section` is a Zero section:
+it reserves the guest-physical range and its size but carries no image bytes. At
+launch the VMM writes a base DTB into that range and folds it into the launch
+measurement (the VMM realizes this per target; see [VMM](#vmm)).
+
+Which base the VMM writes depends on whether the
+[`dt:dtb`](#1-new-target-attribute-dtdtb) attribute is also present:
+
+- **Detached** (no attribute): the image carries no base of its own, so the VMM
+  must obtain one out-of-band and write it here. This decouples base-DTB
+  distribution from image distribution, letting one image boot against many
+  separately shipped bases.
+- **Optional** (attribute present): the attribute names a bundled fallback. The
+  VMM writes an out-of-band base if it has one, and otherwise writes the bundled
+  base named by the attribute.
+
+The reserved region fixes an upper bound on the base: a base that overflows it is
+rejected at launch (see [VMM](#vmm)), so the producer sizes the section for the
+largest base it expects to deliver (see [Producer](#producer)). The written base
+is measured in every mode, so a substituted or VMM-authored base still changes
+the launch measurement and is caught at attestation; it is predictable only when
+tenant-authored (see [Authorship and attestation
+predictability](#authorship-and-attestation-predictability)).
 
 ## 3. New `fill` kind: `dt:dtbo`
 
