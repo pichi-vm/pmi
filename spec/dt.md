@@ -73,12 +73,12 @@ The base DTB is a complete devicetree and can describe almost anything the
 regions, interrupts, clocks, and topology. A VMM can boot the guest only if it
 instantiates the platform the base declares, so a base that names an exotic
 device boots only on the VMMs that provide it. For portability, an image SHOULD
-keep the base to the conventional virtual-platform device set that common VMMs
-already implement: a generic interrupt controller, the architected timer, a
-paravirtual power interface (PSCI on aarch64), a simple serial console, and a
-PCIe or virtio-mmio transport. This is the platform exposed by QEMU's `virt`
-machine and mirrored by lightweight VMMs such as kvmtool, Firecracker, Cloud
-Hypervisor, and crosvm.
+keep the base to a modern, legacy-free baseline that is broadly implementable
+across hypervisor backends (KVM, HVF, WHP): an interrupt controller, a timer, a
+power and reset interface, a serial console, and a virtio-mmio or PCIe transport.
+The pichi-vm reference producer ([`arma`][arma]) and VMM ([`dillo`][dillo])
+implement such a platform; [arma's device model][arma-device-model] is a
+concrete, curated profile.
 
 The base also partitions the resources the tenant fixes from those it delegates
 to the host: CPUs, memory, and NUMA.
@@ -334,3 +334,6 @@ out-of-band, tenant-authored base into it (measured):
 ```
 
 [devicetree]: https://www.devicetree.org/specifications/
+[arma]: https://github.com/pichi-vm/arma
+[dillo]: https://github.com/pichi-vm/dillo
+[arma-device-model]: https://github.com/pichi-vm/arma/blob/main/docs/device-model.md
