@@ -74,11 +74,9 @@ regions, interrupts, clocks, and topology. A VMM can boot the guest only if it
 instantiates the platform the base declares, so a base that names an exotic
 device boots only on the VMMs that provide it. For portability, an image SHOULD
 keep the base to a modern, legacy-free baseline that is broadly implementable
-across hypervisor backends (KVM, HVF, WHP): an interrupt controller, a timer, a
-power and reset interface, a serial console, and a virtio-mmio or PCIe transport.
-The pichi-vm reference producer ([`arma`][arma]) and VMM ([`dillo`][dillo])
-implement such a platform; [arma's device model][arma-device-model] is a
-concrete, curated profile.
+across common hypervisor backends (such as KVM, HVF, and WHP): an interrupt
+controller, a timer, a power and reset interface, a serial console, and a
+virtio-mmio or PCIe transport.
 
 The base also partitions the resources the tenant fixes from those it delegates
 to the host: CPUs, memory, and NUMA.
@@ -334,6 +332,3 @@ out-of-band, tenant-authored base into it (measured):
 ```
 
 [devicetree]: https://www.devicetree.org/specifications/
-[arma]: https://github.com/pichi-vm/arma
-[dillo]: https://github.com/pichi-vm/dillo
-[arma-device-model]: https://github.com/pichi-vm/arma/blob/main/docs/device-model.md
