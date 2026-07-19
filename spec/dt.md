@@ -270,6 +270,13 @@ advisory, and a violation costs at most a guest that cannot boot.
 Each target's spec defines the firmware primitives that realize the measured
 base placement and the unmeasured-private overlay placement.
 
+The VMM MUST build a VM that matches the description: every device MMIO region,
+interrupt controller, and transport the base declares MUST be present at its
+declared address, and the VM's CPUs, memory, and NUMA MUST match the merged
+base-and-overlay result. The VMM cannot relocate or substitute the declared
+platform; a divergent VM only leaves the guest's expected devices absent, which
+is a denial of service, not a substitution.
+
 A VMM MUST refuse to launch on any of:
 
 - neither the `dt:dtb` attribute nor a `dt:dtb` fill action is present;
@@ -281,7 +288,10 @@ A VMM MUST refuse to launch on any of:
 - a `dt:dtb` fill delivers a base DTB larger than its reserved section;
 - a device `reg` region declared in the base DTB falls within the 2 MiB-aligned
   region occupied by any [`load`](core.md#load) or [`fill`](core.md#fill) section
-  (see [Page Granularity](granularity.md)).
+  (see [Page Granularity](granularity.md));
+- the base declares NUMA (a `/distance-map` node or a `numa-node-id` property);
+- the base omits `/cpus` or `/memory@*` and no `dt:dtbo` fill delegates it;
+- it cannot instantiate the platform the base declares.
 
 On confidential targets the VMM is untrusted, so these checks are advisory: a
 cooperative host fails fast on a malformed image, but a malicious host can skip
@@ -305,8 +315,12 @@ The guest MUST:
   in place;
 - reject malformed or disallowed input by halting (a denial of service) rather
   than proceeding or crashing;
-- accept only the content defined under [Overlay contents](#overlay-contents),
-  rejecting any overlay that contributes anything else;
+- accept only the content defined under [Overlay contents](#overlay-contents):
+  reject any overlay that contributes anything else, authors a resource the base
+  fixed, or modifies a base node beyond adding `numa-node-id`;
+- process the overlay within fixed, bounded resources, rejecting one whose byte
+  size or CPU count exceeds a preset bound before merging it, so a hostile
+  overlay cannot exhaust early-boot memory;
 - validate every host-chosen address in the overlay before acting on it (see
   [Address validation](#address-validation)).
 
@@ -347,6 +361,16 @@ location. The guest MUST verify:
 A `cpu@N` `reg` is a CPU identifier, not an address, so it is subject only to
 uniqueness, not to these bounds. The guest halts (a denial of service) on any
 violation.
+
+### Not required to validate
+
+The guest validates structure and addresses, not values, and only the overlay,
+never the base. It is NOT required to check the values of non-address,
+non-authoritative overlay properties (`capacity-dmips-mhz`, NUMA distances and
+`numa-node-id`, `compatible`, and other `cpu@N` property values): a wrong value
+degrades only the guest's own scheduling or performance, a denial of service it
+can already suffer, so checking it adds early-boot cost with no security benefit.
+The base DTB is measured and authoritative, so the guest does not re-validate it.
 
 ## Authorship and attestation predictability
 
