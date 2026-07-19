@@ -170,20 +170,18 @@ resources](#base-resources)): by declaring a resource in the base, the tenant
 denies the host the opportunity to specify it in the overlay.
 
 1. The `/cpus` subtree, permitted only if the base declares no `/cpus`. When
-   permitted, the overlay authors it in full: it creates the `/cpus` node,
-   carrying only `#address-cells`/`#size-cells`, and MAY add `cpu@N` nodes for
-   any `N`. Each `cpu@N`'s properties are host-authored: `device_type`
-   (= `"cpu"`), `reg`, and any of `status`, `enable-method`, or `compatible`. The
-   overlay MUST NOT set `phandle` or `linux,phandle`. The total CPU count MUST be
-   bounded (recommended ≤ an implementation-defined maximum) to prevent resource
-   exhaustion. If the base declares `/cpus`, the overlay MUST NOT contribute
-   `/cpus` or any `cpu@N`; it MAY only attach `numa-node-id` to an existing
-   `cpu@N`, per category 4.
+   permitted, the overlay authors it in full: it creates the `/cpus` node (with
+   `#address-cells`/`#size-cells`) and MAY add `cpu@N` nodes carrying any
+   properties: `reg`, `status`, `enable-method`, `compatible`,
+   `capacity-dmips-mhz`, cache and cluster topology, and so on. The total CPU
+   count MUST be bounded (recommended ≤ an implementation-defined maximum) to
+   prevent resource exhaustion. If the base declares `/cpus`, the overlay MUST
+   NOT contribute `/cpus` or any `cpu@N`; it MAY only attach `numa-node-id` to an
+   existing `cpu@N`, per category 4.
 
-   The CPUs are homogeneous in identity and bringup, so the overlay SHOULD give
-   every `cpu@N` the same `compatible` and `enable-method`. `status` is per-CPU:
-   the boot CPU MUST be `okay`, while others MAY be `disabled` (for example,
-   offline-capable or hot-onlineable). Each `reg` MUST be unique.
+   Arbitrary `cpu@N` properties are safe: the guest never trusts them for CPU
+   identity or features (see below), and it validates every host-chosen address
+   before use (see [Address validation](#address-validation)).
 
 2. Nodes and properties under `/memory@*`, permitted only if the base declares no
    memory (no node with `device_type = "memory"`). If the base declares memory,
@@ -261,8 +259,13 @@ If a [`dt:dtbo` fill](#3-new-fill-kind-dtdtbo) is present, the VMM places the
 overlay, unmeasured, in memory the host cannot mutate after launch: private,
 content-unmeasured memory on targets with memory encryption, or ordinary guest
 memory otherwise. The overlay it supplies MUST contain only the content defined
-under [Overlay contents](#overlay-contents); because the overlay is unmeasured,
-the guest, not the VMM, enforces this (see [Guest](#guest)).
+under [Overlay contents](#overlay-contents), and every host-chosen address in it
+MUST lie within the guest's address space, keep `/memory@*` regions clear of the
+base platform and of the loaded and filled sections, and place any address the
+guest writes to or releases through (such as a `cpu-release-addr`) in this private
+overlay memory. Because the overlay is unmeasured, the guest, not the VMM,
+enforces all of this (see [Guest](#guest)): on confidential targets these are
+advisory, and a violation costs at most a guest that cannot boot.
 
 Each target's spec defines the firmware primitives that realize the measured
 base placement and the unmeasured-private overlay placement.
@@ -303,11 +306,47 @@ The guest MUST:
 - reject malformed or disallowed input by halting (a denial of service) rather
   than proceeding or crashing;
 - accept only the content defined under [Overlay contents](#overlay-contents),
-  rejecting any overlay that contributes anything else.
+  rejecting any overlay that contributes anything else;
+- validate every host-chosen address in the overlay before acting on it (see
+  [Address validation](#address-validation)).
 
 An overlay is meaningless without a base to merge onto; if none is present the
 merge fails (a denial of service). How the guest parses and merges the overlay is
 out of scope.
+
+### Address validation
+
+[Overlay contents](#overlay-contents) governs which nodes and properties the
+overlay may carry; their address _values_ are host-chosen and adversarial, so the
+guest MUST validate each one before use. CPU identity and features are never taken
+from the overlay, so arbitrary `cpu@N` properties are inert; the only hazard is an
+address the guest reads from, writes to, or branches through at a host-chosen
+location. The guest MUST verify:
+
+- **In range.** Every host-chosen address, and every `address + size`, lies
+  within the guest physical or IPA width without overflow. That width comes from
+  the architectural or target source: `CPUID Fn8000_0008_EAX` (x86-64, reduced by
+  `Fn8000_001F_EBX` under SEV), the TD `GPAW` from `TDCALL[TDG.VP.INFO]` (TDX),
+  `ID_AA64MMFR0_EL1.PARange` (aarch64 `vm`), or the realm IPA width from
+  `RSI_REALM_CONFIG` (CCA). It is never a hardcoded constant.
+
+- **No overlap.** Host `/memory@*` regions are pairwise disjoint, and disjoint
+  from every base-declared `reg` region and from the guest-physical ranges holding
+  the loaded and filled image (kernel, initrd, command line, base DTB, the
+  consumer, and the overlay itself), which the guest knows from its measured
+  layout. This stops the host from presenting the guest's own code or data back to
+  it as usable RAM.
+
+- **Safe write and release targets.** Any address the guest writes to or releases
+  a secondary vCPU through, notably a `cpu-release-addr`, additionally lies in
+  private, host-immutable memory and overlaps no guest-critical region. A
+  validated `cpu-release-addr` is then a bounded write into memory the guest owns
+  and the host cannot race; the secondary vCPU's initial state before release is a
+  per-target, measured bring-up concern, not an overlay input.
+
+A `cpu@N` `reg` is a CPU identifier, not an address, so it is subject only to
+uniqueness, not to these bounds. The guest halts (a denial of service) on any
+violation.
 
 ## Authorship and attestation predictability
 
