@@ -5,9 +5,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::{Target, Version};
-
-pub use crate::cpu::Profile;
+use crate::{cpu::Profile, Target, Version};
 
 /// `sev` target spec, carried in the `.pmi.sev` PE section.
 ///
@@ -39,7 +37,6 @@ pub struct Spec {
 }
 
 impl Target for Spec {
-    const NAME: &'static str = "sev";
     const SECTION: &'static str = ".pmi.sev";
 }
 

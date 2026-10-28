@@ -29,14 +29,11 @@ pub mod vm;
 
 mod kind;
 
-/// Common interface for a top-level PMI target spec.
+/// Common serialization and PE-section interface for a top-level PMI target spec.
 ///
 /// Each target's CBOR spec lives in its own PE section named by
 /// [`Target::SECTION`].
 pub trait Target: Serialize + de::DeserializeOwned {
-    /// The target's short name (e.g., `"vm"`).
-    const NAME: &'static str;
-
     /// The PE section name carrying this target's spec (e.g., `".pmi.vm"`).
     const SECTION: &'static str;
 }

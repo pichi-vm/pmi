@@ -7,9 +7,8 @@ pub mod vcpu;
 
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
-use crate::{Target, Version};
+use crate::{cpu::Profile, Target, Version};
 
-pub use crate::cpu::Profile;
 pub use crate::kind::{FillKind, LoadKind};
 
 /// `vm` target spec, carried in the `.pmi.vm` PE section.
@@ -43,7 +42,6 @@ pub struct Spec<V> {
 }
 
 impl<V: DeserializeOwned + Serialize> Target for Spec<V> {
-    const NAME: &'static str = "vm";
     const SECTION: &'static str = ".pmi.vm";
 }
 

@@ -5,9 +5,8 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::{Target, Version};
+use crate::{cpu::Profile, Target, Version};
 
-pub use crate::cpu::Profile;
 pub use crate::kind::{FillKind, LoadKind};
 
 /// `cca` target spec, carried in the `.pmi.cca` PE section.
@@ -37,7 +36,6 @@ pub struct Spec {
 }
 
 impl Target for Spec {
-    const NAME: &'static str = "cca";
     const SECTION: &'static str = ".pmi.cca";
 }
 

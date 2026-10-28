@@ -1,6 +1,9 @@
 // SPDX-FileCopyrightText: Advanced Micro Devices, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+//! CCA and any future target reuse these register maps, which live under `vm::`
+//! because the normative text defines them there.
+
 #![allow(missing_docs)]
 
 pub mod aarch64;
