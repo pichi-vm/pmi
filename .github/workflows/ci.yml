@@ -13,14 +13,14 @@ jobs:
     name: license headers
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7.0.1
       - uses: korandoru/hawkeye@v6
 
   cargo-deny:
     name: cargo-deny
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7.0.1
       - uses: EmbarkStudios/cargo-deny-action@v2
         with:
           command: check
@@ -29,7 +29,7 @@ jobs:
     name: commit messages
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 0
       - run: pipx run gitlint --commits "origin/${{ github.base_ref || 'main' }}..HEAD"
@@ -40,7 +40,7 @@ jobs:
     env:
       RUSTFLAGS: -D warnings
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7.0.1
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
