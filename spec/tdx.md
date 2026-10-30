@@ -25,9 +25,8 @@ the Intel TDX firmware ABI onto the five ordered steps:
 4. `KVM_TDX_FINALIZE_VM`, which locks MRTD.
 5. Start the guest.
 
-MRTD extension is reproducible from the image bytes per the order fixed by
-[Measurement determinism](core.md#measurement-determinism) and the per-page
-sub-operation order defined under [`load`](#load) below.
+The [measurement rules](#measurement) fix the order of page operations so MRTD
+is reproducible from the image and supplied measured inputs.
 
 ### Keys
 
@@ -46,25 +45,15 @@ further validation rules.
 `TD_PARAMS` (including `ATTRIBUTES`, `XFAM`, CPUID configuration, and the
 `MRCONFIGID` / `MROWNER` / `MROWNERCONFIG` deployer fields) is host-supplied.
 The VMM passes it to `KVM_TDX_INIT_VM`; PMI does not carry it. None of it
-enters MRTD, which is built only from the pages added by `load` actions, so the
-host cannot perturb the image measurement through `TD_PARAMS`. Each field is
-attested in its own report field; a remote verifier MUST check those separately,
-as it does for SEV's launch policy.
+enters MRTD, which is built from the target's page-add and content-extend
+operations, so the host cannot perturb the image measurement through
+`TD_PARAMS`. Each field is attested in its own report field; a remote verifier
+MUST check those separately, as it does for SEV's launch policy.
 
 ### `load`
 
 On `tdx`, the `default` kind submits the section's pages via
-`KVM_TDX_INIT_MEM_REGION` with `KVM_TDX_MEASURE_MEMORY_REGION` set. MRTD is
-computed at the TDX module's fixed granularity (4 KiB for `TDH.MEM.PAGE.ADD`,
-binding the page GPA, and 256 bytes for `TDH.MR.EXTEND`, binding content),
-independent of the page size the VMM uses to back or map guest memory.
-
-The submission order is fully pinned, so MRTD is reproducible from the image
-bytes: sections in `actions` array order; within a section, pages in ascending
-GPA order; for each page, `TDH.MEM.PAGE.ADD` first, then the sixteen
-`TDH.MR.EXTEND` operations over that page's 256-byte chunks in ascending offset
-order (0, 256, …, 3840), before advancing to the next page. The VMM MUST NOT
-batch all `TDH.MEM.PAGE.ADD` operations ahead of the `TDH.MR.EXTEND` operations.
+`KVM_TDX_INIT_MEM_REGION` with `KVM_TDX_MEASURE_MEMORY_REGION` set.
 
 TDX starts the boot vCPU at the architectural reset vector with its initial
 register state fixed by the TDX module. PMI provides no mechanism to set initial
@@ -80,15 +69,26 @@ kernel; its implementation is out of scope for this spec.
 
 ### `fill`
 
-`tdx` defines no `tdx`-specific `fill` kinds. It realizes the
-[`dt:dtbo`](dt.md) overlay fill via `KVM_TDX_INIT_MEM_REGION` with the measure
-flag clear: the page is added to private guest memory without extending MRTD with
-its content, though the page's GPA still enters MRTD deterministically.
+For the core [fill classes](core.md#measurement), the VMM MUST submit every
+occupied page through `KVM_TDX_INIT_MEM_REGION` into private guest memory.
+`KVM_TDX_MEASURE_MEMORY_REGION` MUST be set for measured fills and clear for
+unmeasured fills.
 
 PMI deliberately does not generate a TD HOB; platform description is delivered
 through the [`dt:dtbo`](dt.md) fill kind instead, which the PMI
 consumer takes TDVF's role in consuming. For why PMI rejects the HOB, see
 [Motivation §2](motivation.md#2-portable-safe-platform-definition-and-attestation).
+
+### Measurement
+
+The TDX module incorporates each 4 KiB page's GPA into MRTD through
+`TDH.MEM.PAGE.ADD`. When content is measured, `TDH.MR.EXTEND` incorporates it
+in 256-byte chunks.
+
+The VMM MUST follow the core's [measurement order](core.md#measurement-determinism).
+For each page whose content is measured, it MUST submit `TDH.MEM.PAGE.ADD`,
+then all sixteen `TDH.MR.EXTEND` operations in ascending offset order
+(0, 256, …, 3840), before advancing to the next page.
 
 ### `cpu:profile`
 
