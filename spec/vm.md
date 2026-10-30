@@ -48,6 +48,12 @@ On `vm`, the [`default`](core.md#kind) kind places the section's bytes in guest
 memory per [section shape](core.md#section-shapes); no measurement is performed.
 Implementations MAY copy or map the contents into guest memory.
 
+### `fill`
+
+Both [measured and unmeasured fills](core.md#measurement) place their supplied
+bytes in ordinary guest RAM. Implementations MAY copy or map the contents.
+The `vm` target produces no launch measurement.
+
 ### `cpu:profile`
 
 The VMM configures the boot vCPU via the host hypervisor's facilities (e.g.,
