@@ -29,17 +29,13 @@ the Arm CCA firmware ABI onto the five ordered steps:
    is derived from PMI image data, and its unmeasured subset is host-supplied.
    The BSP REC is initialized from `cca:vcpu` (see
    [§2](#2-new-target-attribute-ccavcpu)).
-3. Process each entry in `actions` in array order. A measured `default` load
-   uses `RMI_DATA_CREATE` with its content extended into RIM; a Zero section
-   (reserved memory) uses `RMI_DATA_CREATE_UNKNOWN` (zeroed private memory,
-   unmeasured). The unmeasured `dt:dtbo` overlay uses `RMI_DATA_CREATE` with the
-   measure flag (`RmiDataFlags.measure`) clear, placing host content in private
-   memory without extending RIM (see [`dt`](dt.md)).
+3. Process each entry in `actions` in array order using the [`load`](#load)
+   and [`fill`](#fill) operations defined below.
 4. `RMI_REALM_ACTIVATE`, which locks RIM.
 5. Start the guest.
 
-RIM extension is reproducible from the image bytes per the order fixed by
-[Measurement determinism](core.md#measurement-determinism).
+RIM extension is reproducible from the image and supplied measured inputs in
+the order fixed by [Measurement determinism](core.md#measurement-determinism).
 
 ### Keys
 
@@ -114,15 +110,23 @@ this draft is therefore not fully invariant-compliant for the `cca` target.
 
 ### `load`
 
-On `cca`, the `default` kind submits the section's granules via
-`RMI_DATA_CREATE`. The granule content is copied from a non-secure source
-granule to the destination granule, hashed, and the hash is extended into RIM.
+The `default` kind uses `RMI_DATA_CREATE` with `RmiDataFlags.measure` set for
+Data and Padded sections. The RMM copies the supplied bytes into private Realm
+memory. Zero sections use `RMI_DATA_CREATE_UNKNOWN` for zeroed private memory.
 
-RIM is extended at the fixed 4 KiB granule granularity, binding each granule's
-content and IPA; this is independent of the page size the VMM uses to back or map
-guest memory. Granules are submitted in `actions` array order, and within a
-section in ascending IPA order, so RIM is reproducible from the image bytes (see
-[Measurement determinism](core.md#measurement-determinism)).
+### `fill`
+
+For the core [fill classes](core.md#measurement), the VMM MUST submit every
+occupied granule through `RMI_DATA_CREATE` into private Realm memory.
+`RmiDataFlags.measure` MUST be set for measured fills and clear for unmeasured
+fills.
+
+### Measurement
+
+The RMM measures memory at a fixed 4 KiB granularity. Each `RMI_DATA_CREATE`
+binds the granule's IPA and flags into RIM; its content is included when
+`RmiDataFlags.measure` is set. The VMM MUST follow the core's
+[measurement order](core.md#measurement-determinism).
 
 ### `cpu:profile`
 
