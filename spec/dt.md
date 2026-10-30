@@ -117,8 +117,8 @@ uses this kind.
 
 As with every [`fill`](core.md#fill), the action's `section` is a Zero section:
 it reserves the guest-physical range and its size but carries no image bytes. At
-launch the VMM writes a base DTB into that range and folds it into the launch
-measurement (the VMM realizes this per target; see [VMM](#vmm)).
+launch the VMM writes a base DTB into that range. This kind is a
+[measured fill](core.md#measurement).
 
 Which base the VMM writes depends on whether the
 [`dt:dtb`](#1-new-target-attribute-dtdtb) attribute is also present:
@@ -149,10 +149,10 @@ into a reserved Zero section.
 {"type": "fill", "gpa": 0x2011000, "section": ".dtbo", "kind": "dt:dtbo"}
 ```
 
-The overlay is unmeasured and allocates the resources the base leaves open (CPUs,
-memory, and NUMA), so that host resource choices do not change the guest's
-identity. The VMM places it (see [VMM](#vmm)) and the guest validates it (see
-[Guest](#guest)).
+This kind is an [unmeasured fill](core.md#measurement). The overlay allocates
+the resources the base leaves open (CPUs, memory, and NUMA), so that host resource
+choices do not change the guest's identity. The VMM places it (see [VMM](#vmm))
+and the guest validates it (see [Guest](#guest)).
 
 ### Overlay contents
 
@@ -230,10 +230,6 @@ predictability](#authorship-and-attestation-predictability)).
 
 ## VMM
 
-The `dt` extension participates in each target's launch model. This section
-defines the VMM's behavior: how it selects the launch base DTB, places and
-measures it, and places the overlay.
-
 The VMM selects the launch base DTB from the presence of the
 [`dt:dtb`](#1-new-target-attribute-dtdtb) attribute and the
 [`dt:dtb` fill](#2-new-fill-kind-dtdtb) action:
@@ -250,25 +246,14 @@ mode when it has one), it MAY even author that base itself, though the launch
 measurement is then unpredictable (see [Authorship and attestation
 predictability](#authorship-and-attestation-predictability)).
 
-The VMM places the launch base DTB and folds it into the target's launch
-measurement, exactly as it measures a [`default` load](core.md#load). A loaded
-base reaches guest memory as an ordinary [`default` load](core.md#load); a filled
-base as a [`dt:dtb` fill](#2-new-fill-kind-dtdtb).
-
-If a [`dt:dtbo` fill](#3-new-fill-kind-dtdtbo) is present, the VMM places the
-overlay, unmeasured, in memory the host cannot mutate after launch: private,
-content-unmeasured memory on targets with memory encryption, or ordinary guest
-memory otherwise. The overlay it supplies MUST contain only the content defined
-under [Overlay contents](#overlay-contents), and every host-chosen address in it
+If a [`dt:dtbo` fill](#3-new-fill-kind-dtdtbo) is present, its contents MUST conform
+to [Overlay contents](#overlay-contents), and every host-chosen address in it
 MUST lie within the guest's address space, keep `/memory@*` regions clear of the
 base platform and of the loaded and filled sections, and place any address the
-guest writes to or releases through (such as a `cpu-release-addr`) in this private
-overlay memory. Because the overlay is unmeasured, the guest, not the VMM,
-enforces all of this (see [Guest](#guest)): on confidential targets these are
+guest writes to or releases through (such as a `cpu-release-addr`) within the
+overlay's reserved range. Because the overlay is unmeasured, the guest, not the
+VMM, enforces all of this (see [Guest](#guest)): on confidential targets these are
 advisory, and a violation costs at most a guest that cannot boot.
-
-Each target's spec defines the firmware primitives that realize the measured
-base placement and the unmeasured-private overlay placement.
 
 The VMM MUST build a VM that matches the description: every device MMIO region,
 interrupt controller, and transport the base declares MUST be present at its
