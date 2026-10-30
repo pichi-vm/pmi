@@ -282,3 +282,38 @@ fn aarch64_pstate_is_required_and_must_select_el1() {
         ciborium::from_reader(to_cbor(&el1).as_slice()).expect("EL1h pstate is valid");
     assert_eq!(s.pstate.get(), 0x5);
 }
+
+#[test]
+fn lbc_bootconfig_kind_on_every_target() {
+    fn roundtrip<T: serde::Serialize + serde::de::DeserializeOwned>() {
+        let wire = to_cbor(&Value::Map(vec![
+            (Value::Text("type".into()), Value::Text("fill".into())),
+            (Value::Text("gpa".into()), Value::Integer(0x2100000.into())),
+            (Value::Text("section".into()), Value::Text(".bconf".into())),
+            (
+                Value::Text("kind".into()),
+                Value::Text("lbc:bootconfig".into()),
+            ),
+        ]));
+        let action: T = ciborium::from_reader(wire.as_slice()).unwrap();
+        assert_eq!(
+            get(&value_of(&action), "kind"),
+            Some(&Value::Text("lbc:bootconfig".into()))
+        );
+    }
+    roundtrip::<pmi::vm::Action>();
+    roundtrip::<pmi::sev::Action>();
+    roundtrip::<pmi::tdx::Action>();
+    roundtrip::<pmi::cca::Action>();
+}
+
+#[test]
+fn unknown_fill_kinds_are_rejected_on_every_target() {
+    for kind in ["unknown:kind", "lbc:unknown", "lbc:Bootconfig"] {
+        let wire = to_cbor(&Value::Text(kind.into()));
+        assert!(ciborium::from_reader::<pmi::vm::FillKind, _>(wire.as_slice()).is_err());
+        assert!(ciborium::from_reader::<pmi::sev::FillKind, _>(wire.as_slice()).is_err());
+        assert!(ciborium::from_reader::<pmi::tdx::FillKind, _>(wire.as_slice()).is_err());
+        assert!(ciborium::from_reader::<pmi::cca::FillKind, _>(wire.as_slice()).is_err());
+    }
+}

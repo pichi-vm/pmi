@@ -117,7 +117,7 @@ pub struct Fill {
 }
 
 /// `fill` action kinds accepted on the `sev` target: the cross-target
-/// `dt:dtb` and `dt:dtbo`, plus `sev:secrets` and `sev:cpuid`.
+/// `dt` and `lbc` kinds, plus `sev:secrets` and `sev:cpuid`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum FillKind {
     /// `dt:dtb`: the VMM populates the Zero section with the measured base
@@ -129,6 +129,10 @@ pub enum FillKind {
     /// measured base DTB).
     #[serde(rename = "dt:dtbo")]
     DtDtbo,
+
+    /// Native Linux bootconfig, measured over the complete filled reservation.
+    #[serde(rename = "lbc:bootconfig")]
+    LbcBootconfig,
 
     /// `sev:secrets`: a SEV-SNP secrets page.
     #[serde(rename = "sev:secrets")]

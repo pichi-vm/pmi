@@ -85,6 +85,7 @@ The following extensions are registered with PMI.
 | `cca`    | [spec/cca.md](spec/cca.md)       | Arm CCA confidential VMs (draft)            |
 | `dt`     | [spec/dt.md](spec/dt.md)         | Image base DTB + host overlay (split-trust) |
 | `cpu`    | [spec/cpu.md](spec/cpu.md)       | vCPU ISA baseline                           |
+| `lbc`    | [spec/lbc.md](spec/lbc.md)       | Measured Linux bootconfig                  |
 
 To register a new extension, open an issue or pull request against the PMI spec
 repository. Be sure to follow the format in the existing extensions.

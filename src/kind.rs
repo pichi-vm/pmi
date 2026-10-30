@@ -21,7 +21,7 @@ impl LoadKind {
 }
 
 /// `fill` action kind discriminator: the cross-target fill kinds defined by
-/// the `dt` extension, available on every target.
+/// the `dt` and `lbc` extensions, available on every target.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum FillKind {
     /// `dt:dtb`: the section (a Zero section reserving the range) is populated
@@ -35,4 +35,8 @@ pub enum FillKind {
     /// the measured base DTB).
     #[serde(rename = "dt:dtbo")]
     DtDtbo,
+
+    /// Native Linux bootconfig, measured over the complete filled reservation.
+    #[serde(rename = "lbc:bootconfig")]
+    LbcBootconfig,
 }
