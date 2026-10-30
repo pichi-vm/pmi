@@ -25,8 +25,8 @@ the SEV-SNP firmware ABI onto the five ordered steps:
 1. Read the `.pmi.sev` PE section.
 2. `SNP_LAUNCH_START` with the host-supplied launch policy (see
    [Launch policy](#launch-policy)).
-3. Process each entry in `actions` in array order; the firmware path and
-   `PAGE_TYPE` derive from each action's kind (see the kind sections below).
+3. Process each entry in `actions` in array order using the [`load`](#load),
+   [`fill`](#fill), and target-specific kind operations defined below.
 4. `SNP_LAUNCH_FINISH`, passing `sev:id.block` + `sev:id.auth` if `sev:id` is
    present, plus the deployer-supplied `host_data` (see
    [Launch policy](#launch-policy)).
@@ -85,22 +85,26 @@ without transferring data, yielding a different measurement than loading actual
 zeros). The VMM MUST NOT substitute data-page operations for zero-page
 operations or vice versa.
 
-The PSP computes the launch digest at a fixed 4 KiB granularity: each 4 KiB page
-contributes a `PAGE_INFO` record binding its content, GPA, and page type into the
-running digest. This is independent of the page size the VMM uses for
-`SNP_LAUNCH_UPDATE` or for backing/mapping guest memory (a 2 MiB submission
-yields the same digest as the 512 corresponding 4 KiB pages), so the VMM MAY
-choose any page size without affecting the measurement. The VMM MUST submit pages
-in `actions` array order, and within a section in ascending GPA order; the launch
-digest is then reproducible from the image bytes (see [Measurement
-determinism](core.md#measurement-determinism)).
+### `fill`
 
-### `dt:dtbo`
+For the core [fill classes](core.md#measurement), the VMM MUST submit every
+occupied page through `SNP_LAUNCH_UPDATE` into private guest memory:
 
-On `sev`, the [`dt:dtbo`](dt.md) overlay fill submits the page via
-`SNP_LAUNCH_UPDATE` with `PAGE_TYPE_UNMEASURED`: the overlay is placed in
-encrypted (private) guest memory and its content is not measured into the launch
-digest.
+- **Measured fills:** use `PAGE_TYPE_NORMAL`, including for zero-filled pages.
+  The PSP incorporates content, GPA, and page type into the launch digest.
+- **Unmeasured fills:** use `PAGE_TYPE_UNMEASURED`. The PSP binds the GPA and
+  page type while excluding the content.
+
+Target-specific kinds [`sev:secrets`](#4-new-fill-kind-sevsecrets) and
+[`sev:cpuid`](#5-new-fill-kind-sevcpuid) use their dedicated page types.
+
+### Measurement
+
+The PSP computes the launch digest from 4 KiB `PAGE_INFO` records. Each record
+binds the page's GPA, page type, and content as specified by that type. A 2 MiB
+submission produces the same digest as the 512 corresponding 4 KiB submissions.
+The VMM MAY choose the submission page size and MUST follow the core's
+[measurement order](core.md#measurement-determinism).
 
 ### `cpu:profile`
 
