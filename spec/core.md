@@ -109,9 +109,9 @@ The granularity rules ([page granularity](granularity.md)) and the overlap check
 ### Measurement determinism
 
 On targets that produce a launch measurement, the measurement MUST be a
-deterministic function of the image bytes, namely each measured unit's content,
-GPA, and page type, taken in a fixed total order, and MUST NOT depend on the
-page size a VMM chooses to load or map guest memory with.
+deterministic function of the image and supplied measured inputs: each measured
+unit's content, GPA, and page type, taken in a fixed total order. It MUST NOT
+depend on the page size a VMM chooses to load or map guest memory with.
 
 The total order is: actions in `actions` array order; within an action,
 ascending GPA. Where a target's per-page submission involves more than one
@@ -228,15 +228,27 @@ The referenced PE section MUST be a Zero section (`SizeOfRawData == 0`,
 
 #### `kind`
 
-The `kind` value determines the behavior of the `fill` action. It has no
-default; every `fill` action MUST carry a `kind`. The `kind` also determines the
-memory class of the placement, private (encrypted/integrity-protected) or
-shared guest memory, which matters on confidential targets (e.g. `dt:dtbo`
-is unmeasured-private where supported, otherwise shared; see [`dt`](dt.md)).
+The `kind` value defines the fill's content and semantics. It has no default;
+every `fill` action MUST carry a `kind`.
 
 The `kind` value is [extensible](extensions.md). Extensions MAY define `kind`
 values. Extension-defined `kind` values MUST follow all namespacing rules. A VMM
 MUST refuse to launch on a `fill` whose `kind` it does not recognize.
+
+#### Measurement
+
+A fill kind usable across targets MUST declare its content measured or
+unmeasured. On targets with a launch measurement:
+
+- **Measured:** all bytes in the filled reservation and its page padding
+  contribute to the measurement, including all-zero reservations.
+- **Unmeasured:** the content is excluded. Placement metadata, such as the GPA
+  and page type, may still contribute to the measurement.
+
+Each target MUST define the placement, memory class, and launch operations for
+both classes. The VMM supplies the bytes and MUST invoke those operations in
+the order defined by [Measurement determinism](#measurement-determinism).
+The platform computes the measurement where the target provides one.
 
 ## Measured vs. host-controlled inputs
 
@@ -244,14 +256,15 @@ A PMI requirement on the VMM falls into one of two classes, and guests MUST trea
 them differently.
 
 **Measured inputs** fold into the launch measurement (the bytes placed by
-`load`, and each target's measured launch parameters). A deviation changes the
-measurement and is caught at attestation, so a guest backed by a remote
-verifier checking the measurement may rely on them. A measured input is
-usually fixed by the image, but need not be: a host MAY supply its content, for
-example a substituted [`dt:dtb`](dt.md) base, and it remains measured and
-attested. Reliance then rests on the verifier appraising the measurement against
-an expected value, which is predictable only when that value is authored by a
-trusted party (see [`dt` authorship](dt.md#authorship-and-attestation-predictability)).
+`load` and measured `fill` actions, and each target's measured launch parameters).
+A deviation changes the measurement and is caught at attestation, so a guest
+backed by a remote verifier checking the measurement may rely on them. A
+measured input is usually fixed by the image, but need not be: a host MAY supply
+its content, for example a substituted [`dt:dtb`](dt.md) base, and it remains
+measured and attested. Reliance then rests on the verifier appraising the
+measurement against an expected value, which is predictable only when that
+value is authored by a trusted party (see
+[`dt` authorship](dt.md#authorship-and-attestation-predictability)).
 
 **Host-controlled, unmeasured inputs** are those a VMM supplies that do not enter
 the launch measurement: resource allocation (the [`dt`](dt.md) overlay),
