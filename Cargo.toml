@@ -11,3 +11,6 @@ serde = { version = "1", features = ["derive"] }
 
 [dev-dependencies]
 ciborium = "0.2"
+
+[lints.clippy]
+self_named_module_files = "deny"
