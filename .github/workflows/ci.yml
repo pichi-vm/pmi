@@ -1,9 +1,18 @@
 name: CI
 
 on:
+  # Pull request branches get CI through pull_request, so they no longer run twice.
   push:
+    branches: [main]
   pull_request:
   workflow_dispatch:
+
+# A newer push to the same pull request or branch cancels the older run.
+# Each run on main gets its own group, so runs on main are never
+# cancelled or dropped while waiting.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref == 'refs/heads/main' && github.run_id || github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 env:
   CARGO_TERM_COLOR: always
