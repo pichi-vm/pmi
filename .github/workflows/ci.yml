@@ -41,7 +41,25 @@ jobs:
       - uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 0
-      - run: pipx run gitlint --commits "origin/${{ github.base_ref || 'main' }}..HEAD"
+      - env:
+          BASE_REF: ${{ github.base_ref }}
+          PUSH_BEFORE: ${{ github.event.before }}
+        run: |
+          if [ -n "$BASE_REF" ]; then
+            commit_range="origin/$BASE_REF..HEAD"
+          elif [ -n "$PUSH_BEFORE" ] && [ "$PUSH_BEFORE" != "0000000000000000000000000000000000000000" ] &&
+               git cat-file -e "$PUSH_BEFORE^{commit}" 2>/dev/null &&
+               git merge-base --is-ancestor "$PUSH_BEFORE" HEAD; then
+            commit_range="$PUSH_BEFORE..HEAD"
+          else
+            git fetch --no-tags origin main:refs/remotes/origin/main
+            commit_range="origin/main..HEAD"
+            if [ "$(git rev-list --count "$commit_range")" -eq 0 ]; then
+              echo "No new commits to check"
+              exit 0
+            fi
+          fi
+          pipx run gitlint --commits "$commit_range"
 
   ci:
     name: fmt + clippy + test
