@@ -55,5 +55,5 @@ jobs:
           components: rustfmt, clippy
       - uses: Swatinem/rust-cache@v2
       - run: cargo fmt --all -- --check
-      - run: cargo clippy --all-targets --all-features
+      - run: cargo clippy --workspace --all-targets --all-features
       - run: cargo test --all-targets
