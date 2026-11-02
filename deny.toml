@@ -4,7 +4,6 @@
 [licenses]
 allow = [
     "Apache-2.0",   # this crate + deps
-    "MIT",          # serde and its tree (dual MIT/Apache)
     "Unicode-3.0",  # required by `unicode-ident` (AND expression)
 ]
 confidence-threshold = 0.8
