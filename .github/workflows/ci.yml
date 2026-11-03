@@ -23,7 +23,11 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7.0.1
-      - uses: korandoru/hawkeye@v6
+      - name: Install HawkEye
+        uses: taiki-e/install-action@v2.90.0
+        with:
+          tool: hawkeye@6.5.0
+      - run: hawkeye check --config licenserc.toml
 
   cargo-deny:
     name: cargo-deny
