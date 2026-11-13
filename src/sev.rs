@@ -3,16 +3,20 @@
 
 //! `sev` target: AMD SEV-SNP confidential virtual machines.
 
-use serde::{Deserialize, Serialize};
+use core::fmt;
+
+use serde::{de, Deserialize, Deserializer, Serialize};
 
 use crate::{Target, Version};
 
 pub use crate::cpu::Profile;
+pub use crate::kind::LoadKind;
+pub use crate::vm::vcpu::x86_64::CpuState;
 
 /// `sev` target spec, carried in the `.pmi.sev` PE section.
 ///
-/// The `sev` target does not use `vm:vcpu`; the BSP's initial register state
-/// comes solely from the measured `sev:vmsa` load (see `spec/sev.md`).
+/// The VMM builds the measured BSP VMSA from `vm:vcpu` and `sev:features`
+/// (see `spec/sev.md`).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Spec {
@@ -30,6 +34,14 @@ pub struct Spec {
     #[serde(rename = "cpu:profile")]
     pub cpu_profile: Profile,
 
+    /// Boot vCPU register map (`vm:vcpu` target attribute, `vcpu-x64` schema).
+    #[serde(rename = "vm:vcpu")]
+    pub vcpu: CpuState,
+
+    /// VMSA `SEV_FEATURES` word (`sev:features` target attribute).
+    #[serde(rename = "sev:features")]
+    pub features: Features,
+
     /// Optional `dt:dtb` target attribute: PE section holding the bundled
     /// base DTB. Present means a base DTB is bundled in the image, consumed by
     /// a `load` or as the default source of a `dt:dtb` fill; absent means the
@@ -42,6 +54,61 @@ impl Target for Spec {
     const NAME: &'static str = "sev";
     const SECTION: &'static str = ".pmi.sev";
 }
+
+/// `SEV_FEATURES` word of the BSP VMSA, with bit 0 (`SNPActive`) guaranteed
+/// set. Serializes as the underlying `u64`; construction and deserialization
+/// reject any value that clears bit 0 (`spec/sev.md`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(transparent)]
+pub struct Features(u64);
+
+impl Features {
+    /// `SNPActive`: bit 0, required on every `sev` target.
+    pub const SNP_ACTIVE: u64 = 1;
+
+    /// Construct from raw bits.
+    ///
+    /// # Errors
+    /// [`SnpActiveClear`] if bit 0 is not set.
+    pub fn new(bits: u64) -> Result<Self, SnpActiveClear> {
+        if bits & Self::SNP_ACTIVE == 0 {
+            return Err(SnpActiveClear);
+        }
+        Ok(Self(bits))
+    }
+
+    /// The raw `SEV_FEATURES` value.
+    #[must_use]
+    pub fn get(self) -> u64 {
+        self.0
+    }
+}
+
+impl TryFrom<u64> for Features {
+    type Error = SnpActiveClear;
+
+    fn try_from(bits: u64) -> Result<Self, Self::Error> {
+        Self::new(bits)
+    }
+}
+
+impl<'de> Deserialize<'de> for Features {
+    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        Self::new(u64::deserialize(d)?).map_err(de::Error::custom)
+    }
+}
+
+/// A `sev:features` value with bit 0 (`SNPActive`) clear.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SnpActiveClear;
+
+impl fmt::Display for SnpActiveClear {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("sev:features bit 0 (SNPActive) must be set")
+    }
+}
+
+impl std::error::Error for SnpActiveClear {}
 
 /// Signed launch identity: PE-section names for the 96-byte ID block and
 /// the 4 KiB ID auth info.
@@ -78,28 +145,6 @@ pub struct Load {
     /// Load kind; defaults to [`LoadKind::Default`].
     #[serde(default, skip_serializing_if = "LoadKind::is_default")]
     pub kind: LoadKind,
-}
-
-/// `load` action kinds accepted on the `sev` target: the core `default`,
-/// plus `sev:vmsa` for the BSP VMSA page.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub enum LoadKind {
-    /// Core `default` kind: a normal measured load.
-    #[default]
-    #[serde(rename = "default")]
-    Default,
-
-    /// `sev:vmsa`: load the section as the BSP's 4 KiB VMSA page.
-    #[serde(rename = "sev:vmsa")]
-    Vmsa,
-}
-
-impl LoadKind {
-    // `&self` is required by serde's `skip_serializing_if`.
-    #[allow(clippy::trivially_copy_pass_by_ref)]
-    fn is_default(&self) -> bool {
-        matches!(self, LoadKind::Default)
-    }
 }
 
 /// `fill` action: populate a reserved GPA range with kind-specific content.

@@ -317,3 +317,74 @@ fn unknown_fill_kinds_are_rejected_on_every_target() {
         assert!(ciborium::from_reader::<pmi::cca::FillKind, _>(wire.as_slice()).is_err());
     }
 }
+
+fn sev_target(extra: Vec<(Value, Value)>) -> Vec<u8> {
+    let mut map = vec![
+        (Value::Text("version".into()), Value::Integer(1.into())),
+        (
+            Value::Text("cpu:profile".into()),
+            Value::Text("x86-64-v3".into()),
+        ),
+        (
+            Value::Text("actions".into()),
+            Value::Array(vec![Value::Map(vec![
+                (Value::Text("type".into()), Value::Text("load".into())),
+                (Value::Text("gpa".into()), Value::Integer(0x8000000.into())),
+                (Value::Text("section".into()), Value::Text(".svsm".into())),
+            ])]),
+        ),
+    ];
+    map.extend(extra);
+    to_cbor(&Value::Map(map))
+}
+
+fn sev_vcpu() -> (Value, Value) {
+    (
+        Value::Text("vm:vcpu".into()),
+        Value::Map(vec![(
+            Value::Text("rip".into()),
+            Value::Integer(0x8000000.into()),
+        )]),
+    )
+}
+
+fn sev_features(bits: u64) -> (Value, Value) {
+    (
+        Value::Text("sev:features".into()),
+        Value::Integer(bits.into()),
+    )
+}
+
+#[test]
+fn sev_boot_vcpu_comes_from_vm_vcpu_and_sev_features() {
+    let wire = sev_target(vec![sev_vcpu(), sev_features(0x1)]);
+    let spec: pmi::sev::Spec = ciborium::from_reader(wire.as_slice()).unwrap();
+    assert_eq!(spec.vcpu.rip, 0x8000000);
+    assert_eq!(spec.features.get(), 0x1);
+
+    let v = value_of(&spec);
+    assert_eq!(get(&v, "sev:features"), Some(&Value::Integer(1.into())));
+    assert!(get(&v, "vm:vcpu").is_some());
+}
+
+#[test]
+fn sev_requires_vm_vcpu_and_sev_features() {
+    for extra in [vec![sev_vcpu()], vec![sev_features(0x1)]] {
+        let wire = sev_target(extra);
+        assert!(ciborium::from_reader::<pmi::sev::Spec, _>(wire.as_slice()).is_err());
+    }
+}
+
+#[test]
+fn sev_features_require_snp_active() {
+    let wire = sev_target(vec![sev_vcpu(), sev_features(0x4)]);
+    assert!(ciborium::from_reader::<pmi::sev::Spec, _>(wire.as_slice()).is_err());
+    assert!(pmi::sev::Features::new(0x4).is_err());
+    assert_eq!(pmi::sev::Features::new(0x5).map(|f| f.get()), Ok(0x5));
+}
+
+#[test]
+fn sev_rejects_the_removed_vmsa_load_kind() {
+    let wire = to_cbor(&Value::Text("sev:vmsa".into()));
+    assert!(ciborium::from_reader::<pmi::sev::LoadKind, _>(wire.as_slice()).is_err());
+}
