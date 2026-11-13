@@ -8,7 +8,7 @@ points:
 
 1. The new target [`.pmi.sev`](#1-new-target-pmisev).
 2. The new target attribute [`sev:id`](#2-new-target-attribute-sevid).
-3. The new `load` kind [`sev:vmsa`](#3-new-load-kind-sevvmsa).
+3. The new target attribute [`sev:features`](#3-new-target-attribute-sevfeatures).
 4. The new `fill` kind [`sev:secrets`](#4-new-fill-kind-sevsecrets).
 5. The new `fill` kind [`sev:cpuid`](#5-new-fill-kind-sevcpuid).
 
@@ -27,7 +27,10 @@ the SEV-SNP firmware ABI onto the five ordered steps:
    [Launch policy](#launch-policy)).
 3. Process each entry in `actions` in array order using the [`load`](#load),
    [`fill`](#fill), and target-specific kind operations defined below.
-4. `SNP_LAUNCH_FINISH`, passing `sev:id.block` + `sev:id.auth` if `sev:id` is
+4. Build the BSP VMSA from [`vm:vcpu`](vm.md#2-new-target-attribute-vmvcpu)
+   and [`sev:features`](#3-new-target-attribute-sevfeatures), submit it via
+   `SNP_LAUNCH_UPDATE` (see [Boot vCPU](#boot-vcpu)), then call
+   `SNP_LAUNCH_FINISH`, passing `sev:id.block` + `sev:id.auth` if `sev:id` is
    present, plus the deployer-supplied `host_data` (see
    [Launch policy](#launch-policy)).
 5. Start the guest.
@@ -38,18 +41,27 @@ The `.pmi.sev` CBOR map follows the [core target shape](core.md#shape). Its
 `version` MUST be `1`. It adds the following keys:
 
 - **`cpu:profile`**: vCPU ISA baseline (required; see [cpu.md](cpu.md)).
+- **`vm:vcpu`**: boot-vCPU register map (required; the
+  [`vcpu-x64`](vm.md#vcpu-x64) schema; see [Boot vCPU](#boot-vcpu)).
+- **`sev:features`**: the VMSA `SEV_FEATURES` value (required; see
+  [§3](#3-new-target-attribute-sevfeatures)).
 - **`sev:id`**: signed launch identity (optional; see
   [§2](#2-new-target-attribute-sevid)).
 
 ### Validation
 
-The [core validation rules](core.md#validation) apply. The `sev` target adds the
-`sev:id`-pairing rule described under [§2](#2-new-target-attribute-sevid).
+The [core validation rules](core.md#validation) apply. In addition, the VMM MUST
+refuse to launch on any of:
 
-The `sev` target also requires exactly one `load` with `kind = "sev:vmsa"` (the
-BSP VMSA); the VMM MUST refuse to launch on a `sev` target carrying zero or more
-than one. Secondary vCPUs are brought up at runtime via SEV-SNP AP creation,
-independent of PMI.
+- `PE.FileHeader.Machine` is not `0x8664`;
+- a `sev:id` that violates the pairing rule in
+  [§2](#2-new-target-attribute-sevid);
+- a `sev:features` that violates [§3](#3-new-target-attribute-sevfeatures);
+- an action whose `[gpa, gpa + VirtualSize)` range intersects the
+  [VMSA page](#boot-vcpu) `[0xFFFFFFFFF000, 0x1000000000000)`.
+
+Secondary vCPUs are brought up at runtime via SEV-SNP AP creation, independent
+of PMI.
 
 ### Launch policy
 
@@ -104,7 +116,58 @@ The PSP computes the launch digest from 4 KiB `PAGE_INFO` records. Each record
 binds the page's GPA, page type, and content as specified by that type. A 2 MiB
 submission produces the same digest as the 512 corresponding 4 KiB submissions.
 The VMM MAY choose the submission page size and MUST follow the core's
-[measurement order](core.md#measurement-determinism).
+[measurement order](core.md#measurement-determinism). The BSP VMSA page is
+measured last, after every action (see [Boot vCPU](#boot-vcpu)).
+
+### Boot vCPU
+
+The BSP's initial register state comes from `vm:vcpu`, using the `vm`
+extension's [`vcpu-x64`](vm.md#vcpu-x64) schema and its rules (defaults,
+`rflags`, segment-attribute encoding). At step 4 the VMM builds a 4096-byte VM
+Save Area (VMSA), in the layout defined by the AMD SEV-SNP firmware ABI, as a
+deterministic function of `vm:vcpu` and `sev:features` alone:
+
+| VMSA field                          | Value                                                          |
+| ----------------------------------- | -------------------------------------------------------------- |
+| `rax`–`r15`, `rip`, `rsp`, `rflags` | the `vm:vcpu` value                                            |
+| `cr0`, `cr3`                        | the `vm:vcpu` value                                            |
+| `cr4`                               | `vm:vcpu.cr4` with bit 6 (`MCE`) set                           |
+| `efer`                              | `vm:vcpu.efer` with bit 12 (`SVME`) set                        |
+| `es`, `cs`, `ss`, `ds`, `fs`, `gs`  | the `vm:vcpu` `selector`, `attributes`, `limit`, `base`        |
+| `gdtr`, `idtr`                      | the `vm:vcpu` `limit` and `base`; selector and attributes zero |
+| `cpl`                               | the DPL of `vm:vcpu.ss` (attribute bits 5–6)                   |
+| `ldtr`                              | selector `0`, attributes `0x0082`, limit `0xFFFF`, base `0`    |
+| `tr`                                | selector `0`, attributes `0x008B`, limit `0xFFFF`, base `0`    |
+| `dr6`                               | `0xFFFF0FF0`                                                   |
+| `dr7`                               | `0x400`                                                        |
+| `g_pat`                             | `0x0007040600070406`                                           |
+| `xcr0`                              | `0x1`                                                          |
+| `mxcsr`                             | `0x1F80`                                                       |
+| `x87_fcw`                           | `0x037F`                                                       |
+| `sev_features`                      | the `sev:features` value                                       |
+| `vmpl`                              | `0`                                                            |
+| every other byte                    | `0`                                                            |
+
+The fixed values are the conventional x86 reset values, so the image need not
+restate them.
+The forced `MCE` and `SVME` bits match what common hypervisors impose on the
+guest save area; `SVME` is architecturally required for `VMRUN`.
+
+The VMM submits the VMSA via `SNP_LAUNCH_UPDATE` with `PAGE_TYPE_VMSA` at GPA
+`0xFFFFFFFFF000`, after every action and before `SNP_LAUNCH_FINISH`. The PSP
+measures the page with its content, so the launch digest binds the BSP's
+initial register state. The GPA is fixed because it enters the digest; it is the
+last page below 2^48 and is not guest memory, so no action may place bytes there
+(see [Validation](#validation)). The VMM MUST NOT submit any other VMSA before
+`SNP_LAUNCH_FINISH`.
+
+The VMM MUST refuse to launch if it cannot produce exactly this VMSA, since any
+other content yields a different launch digest. On Linux KVM, which builds the
+VMSA itself from vCPU state, the VMM sets the registers through the ordinary
+vCPU ioctls (including `ldtr` and `tr` as above), passes `sev:features` without
+the `SNPActive` bit (which KVM adds) as `KVM_SEV_INIT2.vmsa_features`, disables
+`KVM_X86_QUIRK_CD_NW_CLEARED` so `cr0` is kept verbatim, and creates only the
+BSP before `KVM_SEV_SNP_LAUNCH_FINISH` (informative).
 
 ### `cpu:profile`
 
@@ -155,22 +218,20 @@ sections are never placed in guest memory, and `PointerToRawData` MUST be
 Pairing is structural: when `sev:id` is present, both `block` and `auth` keys
 MUST be present; the VMM MUST refuse to launch on a spec that contains only one.
 
-## 3. New `load` kind: `sev:vmsa`
+## 3. New target attribute: `sev:features`
 
-The VMM submits the PE section's 4 KiB contents via `SNP_LAUNCH_UPDATE` with
-`PAGE_TYPE_VMSA`. The section's contents are the VMPL0 BSP register state at
-launch, in the layout defined by the AMD SEV-SNP firmware ABI. The PSP installs
-the VMSA at the named GPA. The page is measured with its actual content, so the
-launch digest binds the BSP's initial register state. The VMSA is the 4096-byte
-VM Save Area defined by the AMD SEV-SNP firmware ABI; the referenced PE section
-MUST be a Data section (`SizeOfRawData == 4096`, `VirtualSize == 4096`).
+`sev:features` is the 64-bit `SEV_FEATURES` value of the BSP VMSA, in the
+encoding defined by the AMD SEV-SNP firmware ABI. It is measured as part of the
+VMSA.
 
-The `sev` target does not use the `vm` extension's `vm:vcpu` / `vcpu-x64`. The
-BSP's initial register state is established solely by this measured `sev:vmsa`
-load: the VMSA is the complete, hardware-defined save area, installed by the PSP
-and bound into the launch digest byte-for-byte. A partial register map would be
-both redundant with the VMSA and unable to express its full contents, so the
-`sev` target carries the whole VMSA rather than a register subset.
+```cddl
+sev-features = uint                 ; u64; bit 0 (SNPActive) MUST be 1
+```
+
+The VMM MUST refuse to launch if bit 0 (`SNPActive`) is clear, or if the host
+cannot enable every feature the value requests. The VMM MUST NOT enable a
+feature the value does not request. APs created at runtime carry the same
+value; the platform rejects AP VMSAs whose `SEV_FEATURES` differ.
 
 ## 4. New `fill` kind: `sev:secrets`
 
@@ -201,6 +262,14 @@ identity, with secrets and CPUID pages:
 {
   "version": 1,
   "cpu:profile": "x86-64-v3",
+  "vm:vcpu": {
+    "rip": 0x8000000, "cr0": 0x11,
+    "cs": {"selector": 0x8,  "attributes": 0xC9B, "limit": 0xFFFFFFFF},
+    "ds": {"selector": 0x10, "attributes": 0xC93, "limit": 0xFFFFFFFF},
+    "es": {"selector": 0x10, "attributes": 0xC93, "limit": 0xFFFFFFFF},
+    "ss": {"selector": 0x10, "attributes": 0xC93, "limit": 0xFFFFFFFF}
+  },
+  "sev:features": 0x1,
   "sev:id": {"block": ".sev.id.block", "auth": ".sev.id.auth"},
   "dt:dtb": ".dtb",
   "actions": [
@@ -212,8 +281,7 @@ identity, with secrets and CPUID pages:
     {"type": "load", "gpa": 0x2001000,  "section": ".dtb"},
     {"type": "fill", "gpa": 0x2011000,  "section": ".dtbo", "kind": "dt:dtbo"},
     {"type": "fill", "gpa": 0x2021000,  "section": ".sev.secrets", "kind": "sev:secrets"},
-    {"type": "fill", "gpa": 0x2022000,  "section": ".sev.cpuid", "kind": "sev:cpuid"},
-    {"type": "load", "gpa": 0x2023000,  "section": ".sev.vmsa", "kind": "sev:vmsa"}
+    {"type": "fill", "gpa": 0x2022000,  "section": ".sev.cpuid", "kind": "sev:cpuid"}
   ]
 }
 ```
@@ -221,8 +289,10 @@ identity, with secrets and CPUID pages:
 `SNP_LAUNCH_START` verifies the host policy against the policy embedded in the
 signed `.sev.id.block`. The `default` loads submit `PAGE_TYPE_NORMAL` pages
 (including the base `.dtb`); `.dtbo` goes in unmeasured for the guest to
-validate and merge; `.sev.secrets`, `.sev.cpuid`, and `.sev.vmsa` submit
-`PAGE_TYPE_SECRETS`, `PAGE_TYPE_CPUID`, and `PAGE_TYPE_VMSA`.
+validate and merge; `.sev.secrets` and `.sev.cpuid` submit
+`PAGE_TYPE_SECRETS` and `PAGE_TYPE_CPUID`. The VMM then builds the BSP VMSA from
+`vm:vcpu` (32-bit flat protected mode at the SVSM entry point) and
+`sev:features` (`SNPActive` only) and submits it as `PAGE_TYPE_VMSA`.
 `SNP_LAUNCH_FINISH` passes `id_block` and `id_auth` from `.sev.id.block` /
 `.sev.id.auth`. The SVSM starts at VMPL0, transitions OVMF to VMPL1, and OVMF
 boots the kernel.

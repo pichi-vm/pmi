@@ -70,6 +70,10 @@ against the host here.
 The schema is selected by `PE.FileHeader.Machine`: [`vcpu-x64`](#vcpu-x64) for
 `0x8664`, [`vcpu-aarch64`](#vcpu-aarch64) for `0xAA64`.
 
+Other targets MAY adopt `vm:vcpu` with the same schema and rules; each such
+target defines how it applies the map (e.g. [`sev`](sev.md#boot-vcpu) builds the
+measured BSP VMSA from it).
+
 Missing keys default to zero except where noted; on aarch64, `pstate` is
 **required** and has no valid default (see [pstate](#pstate)). The VMM MUST
 reject any unknown key. The VMM MUST reject any value exceeding the field width
