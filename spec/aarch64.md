@@ -39,4 +39,19 @@ Armv9.1-A on Armv8.6-A, Armv9.2-A on Armv8.7-A, and so on). A host satisfying
 vice versa. Image authors choosing between an `armv8.x-a` and `armv9.y-a`
 profile should consult the Arm ARM for the relevant baseline.
 
+## Boot vCPU
+
+The aarch64 boot vCPU state is EL1 with the MMU and caches disabled, at address
+`0x0`.
+
+| Register                                      | Value                                                          |
+| --------------------------------------------- | -------------------------------------------------------------- |
+| `PC`                                          | `0x0`                                                          |
+| `PSTATE`                                      | `0x3C5` in the SPSR encoding (EL1h; `D`, `A`, `I`, `F` masked) |
+| `SCTLR_EL1`                                   | `M`, `C`, `I`, and `EE` clear; other bits unspecified          |
+| general-purpose registers, `SP_EL0`, `SP_EL1` | `0`                                                            |
+
+An image entered in this state MUST NOT rely on a field or bit this section
+leaves unspecified, or on any register the table does not list.
+
 [arm-arm]: https://developer.arm.com/documentation/ddi0487/latest
