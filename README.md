@@ -35,17 +35,19 @@ Confidential Computing][anssi-cc]:
 > — ANSSI, _Technical Position Paper on Confidential Computing_, v1.0, October
 > 2025
 
-PMI moves those declarations into the image. The host delivers them or refuses
-to launch. One artifact, one measurement, full-chain attestation that does not
-depend on which cloud or hypervisor provisioned the VM or how many resources are
-given to it.
+PMI takes those choices away from the host: the image declares its CPU features,
+platform description, and first bytes, and PMI itself fixes the initial register
+state. The host delivers them or refuses to launch. One artifact, one
+measurement, full-chain attestation that does not depend on which cloud or
+hypervisor provisioned the VM or how many resources are given to it.
 
 ## What does a PMI image contain?
 
 PMI is a container; the payload is your choice. Some possible compositions:
 
-- **`PMI(Linux)`** — a kernel, initrd, and command line, direct-boot. Replaces
-  `qemu -kernel` provisioning and the parallel UKI build.
+- **`PMI(Linux)`** — a kernel, initrd, and command line, with boot code where
+  the boot vCPU starts. Replaces `qemu -kernel` provisioning and the parallel
+  UKI build.
 - **`PMI(OVMF, Linux)`** — UEFI guest firmware plus a Linux UKI. The same file
   boots as a UKI on bare metal — where the platform's own UEFI runs it and the
   embedded OVMF is unused — and under that embedded OVMF as guest firmware in a

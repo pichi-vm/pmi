@@ -58,16 +58,18 @@ choices at all. It does not. The host has no real reason to choose the guest's
 CPU features, its initial register state, the bytes at its reset vector, or the
 platform it runs on: where its devices live, which interrupt controller it has,
 how its transports are wired. Historically it did because firmware did, not
-because the choice belonged to it. PMI moves all four declarations into the
-image. The host delivers them or refuses to launch.
+because the choice belonged to it. PMI takes all four away from the host: it
+fixes the initial register state itself, and the image declares the other three.
+The host delivers them or refuses to launch.
 
 ### Splitting platform definition from resource allocation
 
-The first three inputs invert outright: the image states them and the host has
-nothing to add. The fourth, the platform description, is the only one with a
-slice the host can own, namely _resource allocation_: CPU count, memory size,
-and NUMA topology typically vary per deployment. So PMI splits the platform
-description by trust model and inverts the half that admits it:
+The CPU features, the initial register state, and the boot bytes invert
+outright: PMI fixes the register state, the image states the other two, and the
+host has nothing to add. The platform description is the only input with a slice
+the host can own, namely _resource allocation_: CPU count, memory size, and NUMA
+topology typically vary per deployment. So PMI splits the platform description
+by trust model and inverts the half that admits it:
 
 - **Platform definition** (the device MMIO map, interrupt controller, transport
   choice, and device topology) is image-owned. The host does not describe it to
