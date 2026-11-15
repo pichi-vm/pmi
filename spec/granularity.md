@@ -19,7 +19,8 @@ Therefore, to facilitate efficient VMM construction, PMI makes the following
 alignment rules. They constrain only the _start_ of a section, its `gpa` and
 `PointerToRawData`. A section's `SizeOfRawData` is not otherwise constrained (it
 follows PE's own `FileAlignment`); a section occupies whole 4 KiB guest pages,
-and any bytes in its final page beyond the section's data are zero.
+and a loaded section's contents are defined under
+[Section Shapes](core.md#section-shapes).
 
 ## Large Sections (≥ 2M)
 
