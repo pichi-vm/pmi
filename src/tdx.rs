@@ -12,9 +12,9 @@ pub use crate::x86_64::Profile;
 
 /// `tdx` target spec, carried in the `.pmi.tdx` PE section.
 ///
-/// The `tdx` target defines no `vm:vcpu`: TDX fixes the initial register state
-/// in the module, and the measured consumer derives platform facts from
-/// `TDG.VP.INFO` rather than from registers (see `spec/tdx.md`).
+/// TDX fixes the initial register state in the module, and the measured
+/// consumer derives platform facts from `TDG.VP.INFO` rather than from
+/// registers (see `spec/tdx.md`).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Spec {
