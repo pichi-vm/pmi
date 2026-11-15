@@ -21,10 +21,11 @@
 
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
-pub mod cpu;
+pub mod aarch64;
 pub mod sev;
 pub mod tdx;
 pub mod vm;
+pub mod x86_64;
 
 mod kind;
 

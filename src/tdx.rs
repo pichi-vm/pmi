@@ -7,8 +7,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::{Target, Version};
 
-pub use crate::cpu::Profile;
 pub use crate::kind::{FillKind, LoadKind};
+pub use crate::x86_64::Profile;
 
 /// `tdx` target spec, carried in the `.pmi.tdx` PE section.
 ///
