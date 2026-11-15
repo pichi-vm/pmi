@@ -25,7 +25,7 @@ collision-resistant name (when used in an unregistered extension).
 | Class        | Form              | Examples              | Defined in                                                       |
 | ------------ | ----------------- | --------------------- | ---------------------------------------------------------------- |
 | Unprefixed   | `name`            | `version`, `actions`  | PMI core specification                                           |
-| Registered   | `<prefix>:<name>` | `vm:vcpu`             | spec linked from the [registry](../README.md#extension-registry) |
+| Registered   | `<prefix>:<name>` | `sev:id`              | spec linked from the [registry](../README.md#extension-registry) |
 | Unregistered | `<prefix>:<name>` | `com.foo.bar:my-data` | wherever the extension publishes                                 |
 
 An unknown map key always causes the launch to fail. PMI decodes every CBOR map
