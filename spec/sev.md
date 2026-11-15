@@ -48,8 +48,7 @@ The [core validation rules](core.md#validation) apply. The `sev` target adds the
 
 The `sev` target also requires exactly one `load` with `kind = "sev:vmsa"` (the
 BSP VMSA); the VMM MUST refuse to launch on a `sev` target carrying zero or more
-than one. Secondary vCPUs are brought up at runtime via SEV-SNP AP creation,
-independent of PMI.
+than one.
 
 ### Launch policy
 

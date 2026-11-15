@@ -67,6 +67,13 @@ A VMM launches a target by executing this ordered sequence:
    finalize the CC measurement).
 5. **Start the guest.**
 
+A guest starts with a single active vCPU, the boot vCPU (BSP). The guest starts
+its other vCPUs during or after boot through the platform's mechanism (e.g.
+INIT-SIPI or PSCI `CPU_ON`, or SEV-SNP AP creation). The exception is a platform
+that gives the guest no such mechanism, such as TDX: there every vCPU runs from
+launch, and the image's entry code MUST hold the others until the guest releases
+them.
+
 ## Architectures
 
 `PE.FileHeader.Machine` identifies an image's architecture. Each architecture
