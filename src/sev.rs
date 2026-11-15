@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{Target, Version};
 
-pub use crate::cpu::Profile;
+pub use crate::x86_64::Profile;
 
 /// `sev` target spec, carried in the `.pmi.sev` PE section.
 ///

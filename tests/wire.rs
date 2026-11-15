@@ -10,6 +10,7 @@ use ciborium::value::{Integer, Value};
 
 use pmi::vm::vcpu::x86_64::CpuState;
 use pmi::vm::{Action, Fill, FillKind, Load, LoadKind, Spec};
+use pmi::x86_64::Profile;
 use pmi::Version;
 
 fn to_cbor<T: serde::Serialize>(v: &T) -> Vec<u8> {
@@ -39,7 +40,7 @@ fn get<'a>(v: &'a Value, key: &str) -> Option<&'a Value> {
 
 /// The bundled `.pmi.vm` example from `spec/dt.md`: base bundled + loaded, host
 /// overlay via `dt:dtbo`.
-fn bundled_example() -> Spec<CpuState> {
+fn bundled_example() -> Spec<CpuState, Profile> {
     Spec {
         version: Version::default(),
         vcpu: CpuState {
@@ -47,7 +48,7 @@ fn bundled_example() -> Spec<CpuState> {
             rsp: 0x80000,
             ..CpuState::default()
         },
-        cpu_profile: "x86-64-v2".into(),
+        cpu_profile: Profile::V2,
         dt_dtb: Some(".dtb".to_owned()),
         actions: vec![
             Action::Load(Load {
@@ -72,7 +73,8 @@ fn bundled_example() -> Spec<CpuState> {
 #[test]
 fn bundled_example_round_trips() {
     let bytes = to_cbor(&bundled_example());
-    let back: Spec<CpuState> = ciborium::from_reader(bytes.as_slice()).expect("decode Spec");
+    let back: Spec<CpuState, Profile> =
+        ciborium::from_reader(bytes.as_slice()).expect("decode Spec");
 
     assert_eq!(back.version, Version::<1>::default());
     assert_eq!(back.dt_dtb.as_deref(), Some(".dtb"));
@@ -140,7 +142,8 @@ fn detached_mode_omits_the_attribute() {
         "absent attribute is skipped, marking detached mode"
     );
 
-    let back: Spec<CpuState> = ciborium::from_reader(to_cbor(&spec).as_slice()).expect("decode");
+    let back: Spec<CpuState, Profile> =
+        ciborium::from_reader(to_cbor(&spec).as_slice()).expect("decode");
     assert_eq!(back.dt_dtb, None);
     match &back.actions[1] {
         Action::Fill(f) => assert_eq!(f.kind, FillKind::DtDtb),
@@ -162,7 +165,7 @@ fn wrong_version_is_rejected() {
 
     let bytes = to_cbor(&v);
     assert!(
-        ciborium::from_reader::<Spec<CpuState>, _>(bytes.as_slice()).is_err(),
+        ciborium::from_reader::<Spec<CpuState, Profile>, _>(bytes.as_slice()).is_err(),
         "Version<1> must reject version 2"
     );
 }
@@ -177,7 +180,7 @@ fn unknown_key_is_rejected() {
 
     let bytes = to_cbor(&v);
     assert!(
-        ciborium::from_reader::<Spec<CpuState>, _>(bytes.as_slice()).is_err(),
+        ciborium::from_reader::<Spec<CpuState, Profile>, _>(bytes.as_slice()).is_err(),
         "deny_unknown_fields must reject an unknown target key"
     );
 }
@@ -247,7 +250,7 @@ fn unknown_key_in_a_load_is_rejected() {
 
     let bytes = to_cbor(&v);
     assert!(
-        ciborium::from_reader::<Spec<CpuState>, _>(bytes.as_slice()).is_err(),
+        ciborium::from_reader::<Spec<CpuState, Profile>, _>(bytes.as_slice()).is_err(),
         "an unknown key inside a load action must be rejected"
     );
 }
@@ -313,5 +316,34 @@ fn unknown_fill_kinds_are_rejected_on_every_target() {
         assert!(ciborium::from_reader::<pmi::vm::FillKind, _>(wire.as_slice()).is_err());
         assert!(ciborium::from_reader::<pmi::sev::FillKind, _>(wire.as_slice()).is_err());
         assert!(ciborium::from_reader::<pmi::tdx::FillKind, _>(wire.as_slice()).is_err());
+    }
+}
+
+#[test]
+fn cpu_profile_values_use_their_spec_names() {
+    fn check<P>(profile: P, name: &str)
+    where
+        P: serde::Serialize + serde::de::DeserializeOwned + PartialEq + std::fmt::Debug,
+    {
+        assert_eq!(value_of(&profile), Value::Text(name.to_owned()));
+        let back: P = ciborium::from_reader(to_cbor(&profile).as_slice()).expect("decode profile");
+        assert_eq!(back, profile);
+    }
+    check(pmi::x86_64::Profile::V1, "x86-64-v1");
+    check(pmi::x86_64::Profile::V4, "x86-64-v4");
+    check(pmi::aarch64::Profile::V8_0, "armv8.0-a");
+    check(pmi::aarch64::Profile::V9_8, "armv9.8-a");
+}
+
+#[test]
+fn cpu_profile_values_are_per_architecture() {
+    let decode = |name: &str| to_cbor(&Value::Text(name.into()));
+    for name in ["x86-64", "x86-64-v5", "armv8.0-a"] {
+        assert!(ciborium::from_reader::<pmi::x86_64::Profile, _>(decode(name).as_slice()).is_err());
+    }
+    for name in ["armv8-a", "armv9.9-a", "x86-64-v1"] {
+        assert!(
+            ciborium::from_reader::<pmi::aarch64::Profile, _>(decode(name).as_slice()).is_err()
+        );
     }
 }

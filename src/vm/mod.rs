@@ -9,17 +9,18 @@ use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 use crate::{Target, Version};
 
-pub use crate::cpu::Profile;
 pub use crate::kind::{FillKind, LoadKind};
 
 /// `vm` target spec, carried in the `.pmi.vm` PE section.
 ///
-/// `V` is the boot-vCPU register map; it MUST match `PE.FileHeader.Machine`.
-/// Use [`vcpu::x86_64::CpuState`] for `0x8664` and [`vcpu::aarch64::CpuState`]
-/// for `0xAA64`. The caller selects `V` from the PE header before decoding.
+/// `V` is the boot-vCPU register map and `P` the `cpu:profile` type; both
+/// MUST match `PE.FileHeader.Machine`. Use [`vcpu::x86_64::CpuState`] and
+/// [`crate::x86_64::Profile`] for `0x8664`, [`vcpu::aarch64::CpuState`] and
+/// [`crate::aarch64::Profile`] for `0xAA64`. The caller selects them from the
+/// PE header before decoding.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct Spec<V> {
+pub struct Spec<V, P> {
     /// Schema version; MUST be `1`.
     pub version: Version<1>,
 
@@ -32,7 +33,7 @@ pub struct Spec<V> {
 
     /// vCPU ISA baseline (`cpu:profile` target attribute).
     #[serde(rename = "cpu:profile")]
-    pub cpu_profile: Profile,
+    pub cpu_profile: P,
 
     /// Optional `dt:dtb` target attribute: PE section holding the bundled
     /// base DTB. Present means a base DTB is bundled in the image, consumed by
@@ -42,7 +43,7 @@ pub struct Spec<V> {
     pub dt_dtb: Option<String>,
 }
 
-impl<V: DeserializeOwned + Serialize> Target for Spec<V> {
+impl<V: DeserializeOwned + Serialize, P: DeserializeOwned + Serialize> Target for Spec<V, P> {
     const NAME: &'static str = "vm";
     const SECTION: &'static str = ".pmi.vm";
 }
