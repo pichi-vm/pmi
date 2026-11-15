@@ -7,12 +7,13 @@ use serde::{Deserialize, Serialize};
 
 use crate::{Target, Version};
 
+pub use crate::kind::LoadKind;
 pub use crate::x86_64::Profile;
 
 /// `sev` target spec, carried in the `.pmi.sev` PE section.
 ///
-/// The `sev` target does not use `vm:vcpu`; the BSP's initial register state
-/// comes solely from the measured `sev:vmsa` load (see `spec/sev.md`).
+/// The VMM builds the BSP's VMSA as the Boot vCPU section of `spec/sev.md`
+/// defines.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Spec {
@@ -78,28 +79,6 @@ pub struct Load {
     /// Load kind; defaults to [`LoadKind::Default`].
     #[serde(default, skip_serializing_if = "LoadKind::is_default")]
     pub kind: LoadKind,
-}
-
-/// `load` action kinds accepted on the `sev` target: the core `default`,
-/// plus `sev:vmsa` for the BSP VMSA page.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub enum LoadKind {
-    /// Core `default` kind: a normal measured load.
-    #[default]
-    #[serde(rename = "default")]
-    Default,
-
-    /// `sev:vmsa`: load the section as the BSP's 4 KiB VMSA page.
-    #[serde(rename = "sev:vmsa")]
-    Vmsa,
-}
-
-impl LoadKind {
-    // `&self` is required by serde's `skip_serializing_if`.
-    #[allow(clippy::trivially_copy_pass_by_ref)]
-    fn is_default(&self) -> bool {
-        matches!(self, LoadKind::Default)
-    }
 }
 
 /// `fill` action: populate a reserved GPA range with kind-specific content.
