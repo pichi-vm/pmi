@@ -23,7 +23,7 @@ that tells a VMM how to assemble and start a guest VM. Different targets
 express different launch paths:
 
 1. a traditional virtual machine
-2. a confidential virtual machine on AMD SEV, Arm CCA or Intel TDX
+2. a confidential virtual machine on AMD SEV or Intel TDX
 
 A single PMI image MAY support multiple targets, one `.pmi.<target>` section per
 target; a VMM reads only the section for the target it launches. Distinct
@@ -269,12 +269,11 @@ value is authored by a trusted party (see
 **Host-controlled, unmeasured inputs** are those a VMM supplies that do not enter
 the launch measurement: resource allocation (the [`dt`](dt.md) overlay),
 and per-target launch configuration such as TDX `TD_PARAMS` (including `XFAM` and
-`CPUID_VALUES`), SEV's launch policy, `host_data`, and CPUID-page contents, the
-unmeasured `RmiRealmParams` subset on CCA, and the initial register state where
-the platform fixes it. For these, a "the VMM MUST …" requirement in this
-specification describes a _conformant_ host; the launch measurement does not
-enforce it, and a non-conformant or malicious host can violate it undetected by
-the measurement.
+`CPUID_VALUES`), SEV's launch policy, `host_data`, and CPUID-page contents, and
+the initial register state where the platform fixes it. For these, a "the VMM
+MUST …" requirement in this specification describes a _conformant_ host; the
+launch measurement does not enforce it, and a non-conformant or malicious host
+can violate it undetected by the measurement.
 
 An input is permitted to be host-controlled and unmeasured only when a host
 deviation can cause at most denial of service, which a host can always
@@ -294,5 +293,4 @@ validated by the guest. Accordingly:
 A guest MUST NOT assume an unmeasured "MUST" was honored. Where it depends on an
 unmeasured property beyond denial of service, it MUST verify it and fail safe,
 drawing on an authoritative architectural source: `CPUID` and the ID registers
-(`MIDR_EL1`, `ID_AA64*`), `TDCALL[TDG.VP.INFO]`, `RSI_REALM_CONFIG`, or the
-validated overlay.
+(`MIDR_EL1`, `ID_AA64*`), `TDCALL[TDG.VP.INFO]`, or the validated overlay.

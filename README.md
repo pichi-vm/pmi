@@ -82,7 +82,6 @@ The following extensions are registered with PMI.
 | `vm`     | [spec/vm.md](spec/vm.md)         | Non-CC virtual machine target               |
 | `sev`    | [spec/sev.md](spec/sev.md)       | AMD SEV 3.0 (SEV-SNP) confidential VMs      |
 | `tdx`    | [spec/tdx.md](spec/tdx.md)       | Intel TDX confidential VMs (draft)          |
-| `cca`    | [spec/cca.md](spec/cca.md)       | Arm CCA confidential VMs (draft)            |
 | `dt`     | [spec/dt.md](spec/dt.md)         | Image base DTB + host overlay (split-trust) |
 | `cpu`    | [spec/cpu.md](spec/cpu.md)       | vCPU ISA baseline                           |
 | `lbc`    | [spec/lbc.md](spec/lbc.md)       | Measured Linux bootconfig                  |

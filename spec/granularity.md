@@ -55,6 +55,6 @@ contiguously within a 2M-aligned region (including the freed tail of a large
 section, above). The benefit is target-specific: on SEV a VMM MAY then submit a
 densely-filled 2M-aligned region as a single 2M `SNP_LAUNCH_UPDATE` (fewer PSP
 round-trips; the launch digest is unchanged, being computed per 4K), and any
-target MAY back the dense region with a 2M guest page. On TDX and CCA the
-measured-load primitive is 4K-granular, so packing does not reduce the number of
-target API calls.
+target MAY back the dense region with a 2M guest page. On TDX the measured-load
+primitive is 4K-granular, so packing does not reduce the number of target API
+calls.

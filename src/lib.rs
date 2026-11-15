@@ -21,7 +21,6 @@
 
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
-pub mod cca;
 pub mod cpu;
 pub mod sev;
 pub mod tdx;

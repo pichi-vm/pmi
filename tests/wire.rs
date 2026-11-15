@@ -304,7 +304,6 @@ fn lbc_bootconfig_kind_on_every_target() {
     roundtrip::<pmi::vm::Action>();
     roundtrip::<pmi::sev::Action>();
     roundtrip::<pmi::tdx::Action>();
-    roundtrip::<pmi::cca::Action>();
 }
 
 #[test]
@@ -314,6 +313,5 @@ fn unknown_fill_kinds_are_rejected_on_every_target() {
         assert!(ciborium::from_reader::<pmi::vm::FillKind, _>(wire.as_slice()).is_err());
         assert!(ciborium::from_reader::<pmi::sev::FillKind, _>(wire.as_slice()).is_err());
         assert!(ciborium::from_reader::<pmi::tdx::FillKind, _>(wire.as_slice()).is_err());
-        assert!(ciborium::from_reader::<pmi::cca::FillKind, _>(wire.as_slice()).is_err());
     }
 }
