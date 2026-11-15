@@ -11,21 +11,18 @@ Targets opt in by listing `cpu:profile` as a required key in their target spec.
 
 ## 1. New target attribute: `cpu:profile`
 
-`cpu:profile` names the ISA baseline the guest is built against, drawn from a
-small per-architecture set. The schema is selected by `PE.FileHeader.Machine`
-and defined in the [architecture's document](core.md#architectures):
-
-- [`profile-x64`](x86-64.md#cpuprofile) for `0x8664`,
-- [`profile-aarch64`](aarch64.md#cpuprofile) for `0xAA64`.
+`cpu:profile` names the ISA baseline the guest is built against. Each
+[architecture's document](core.md#architectures) lists the values valid for that
+architecture.
 
 ```cddl
-cpu-profile = profile-x64 / profile-aarch64
+cpu-profile = tstr
 ```
 
 A VMM MUST refuse to launch on any of:
 
-- the `cpu:profile` variant does not match `PE.FileHeader.Machine`;
-- the VMM does not recognize the requested profile;
+- the value is not listed by the document for the image's
+  `PE.FileHeader.Machine`;
 - the host cannot deliver every feature mandated by the requested profile.
 
 When determining whether the host satisfies the requested profile, the VMM MUST
