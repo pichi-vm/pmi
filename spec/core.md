@@ -175,6 +175,11 @@ There are three PE-section shapes:
    zero-filled. No disk data is loaded. This is how reserved memory regions are
    expressed.
 
+A loaded section is placed in guest memory as whole 4 KiB pages. The first
+`SizeOfRawData` bytes are the section's bytes from the file, and every byte after
+them, up to the end of the section's last page, is zero. File bytes past
+`SizeOfRawData` are never loaded.
+
 #### `kind`
 
 The `kind` value determines the behavior of the `load` action. If `kind` is
