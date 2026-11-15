@@ -66,6 +66,13 @@ A VMM launches a target by executing this ordered sequence:
    finalize the CC measurement).
 5. **Start the guest.**
 
+A guest starts with a single active vCPU, the boot vCPU (BSP). Its other vCPUs
+become active during or after boot, when the guest starts them through the
+platform's mechanism (e.g. INIT-SIPI or PSCI `CPU_ON`, or SEV-SNP AP creation).
+Where the platform gives the guest no way to start a vCPU, as on TDX, every vCPU
+runs from launch: the other vCPUs enter the image's entry code and MUST wait
+there until the guest releases them.
+
 ## Validation
 
 A VMM MUST refuse to launch on any of:
