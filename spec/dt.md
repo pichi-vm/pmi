@@ -378,7 +378,6 @@ The host allocates CPUs, memory, and NUMA via the overlay:
 ```cbor-diag
 {
   "version": 1,
-  "vm:vcpu": {"rip": 0x100000, "rsp": 0x80000, "rflags": 0x2},
   "cpu:profile": "x86-64-v2",
   "dt:dtb": ".dtb",
   "actions": [
@@ -398,7 +397,6 @@ out-of-band, tenant-authored base into it (measured):
 ```cbor-diag
 {
   "version": 1,
-  "vm:vcpu": {"rip": 0x100000, "rsp": 0x80000, "rflags": 0x2},
   "cpu:profile": "x86-64-v2",
   "actions": [
     {"type": "load", "gpa": 0x100000,  "section": ".linux"},
