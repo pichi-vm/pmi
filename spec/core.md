@@ -130,12 +130,22 @@ deterministic function of the image and supplied measured inputs: each measured
 unit's content, GPA, and page type, taken in a fixed total order. It MUST NOT
 depend on the page size a VMM chooses to load or map guest memory with.
 
-The total order is: actions in `actions` array order; within an action,
-ascending GPA. Where a target's per-page submission involves more than one
-measured sub-operation (e.g. TDX's page-add followed by content-extend), the
-target's spec MUST additionally define the order of those sub-operations. Each
-target's spec states its fixed measurement granularity and any such
-sub-operation order.
+The total order is:
+
+1. Anything measured before the actions.
+2. The actions, in `actions` array order; within an action, ascending GPA.
+3. Anything measured after the actions.
+
+A target's spec MUST list anything measured before the actions and anything
+measured after them, in the order they are measured. If nothing is measured
+outside the actions, the spec need not say so.
+
+Some targets measure one page in more than one step. For example, on TDX, adding
+a page measures its GPA. Then, unless the page belongs to an unmeasured fill,
+its content is measured. Such a target's spec MUST give the order of these
+steps.
+
+Each target's spec also gives its fixed measurement granularity.
 
 ### `load`
 
@@ -278,7 +288,7 @@ A PMI requirement on the VMM falls into one of two classes, and guests MUST trea
 them differently.
 
 **Measured inputs** fold into the launch measurement (the bytes placed by
-`load` and measured `fill` actions, and each target's measured launch parameters).
+`load` and measured `fill` actions, and anything else a target measures).
 A deviation changes the measurement and is caught at attestation, so a guest
 backed by a remote verifier checking the measurement may rely on them. A
 measured input is usually fixed by the image, but need not be: a host MAY supply
