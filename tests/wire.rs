@@ -3,12 +3,10 @@
 
 //! Wire-schema tests: encode the types to real CBOR and assert the per-target
 //! schema from `spec/dt.md` — the `dt:dtb`/`dt:dtbo` names, `Version<N>`
-//! acceptance, `deny_unknown_fields`, the optional `dt:dtb` attribute, and the
-//! `rflags` default/skip behavior.
+//! acceptance, `deny_unknown_fields`, and the optional `dt:dtb` attribute.
 
 use ciborium::value::{Integer, Value};
 
-use pmi::vm::vcpu::x86_64::CpuState;
 use pmi::vm::{Action, Fill, FillKind, Load, LoadKind, Spec};
 use pmi::x86_64::Profile;
 use pmi::Version;
@@ -40,14 +38,9 @@ fn get<'a>(v: &'a Value, key: &str) -> Option<&'a Value> {
 
 /// The bundled `.pmi.vm` example from `spec/dt.md`: base bundled + loaded, host
 /// overlay via `dt:dtbo`.
-fn bundled_example() -> Spec<CpuState, Profile> {
+fn bundled_example() -> Spec<Profile> {
     Spec {
         version: Version::default(),
-        vcpu: CpuState {
-            rip: 0x100000,
-            rsp: 0x80000,
-            ..CpuState::default()
-        },
         cpu_profile: Profile::V2,
         dt_dtb: Some(".dtb".to_owned()),
         actions: vec![
@@ -73,17 +66,10 @@ fn bundled_example() -> Spec<CpuState, Profile> {
 #[test]
 fn bundled_example_round_trips() {
     let bytes = to_cbor(&bundled_example());
-    let back: Spec<CpuState, Profile> =
-        ciborium::from_reader(bytes.as_slice()).expect("decode Spec");
+    let back: Spec<Profile> = ciborium::from_reader(bytes.as_slice()).expect("decode Spec");
 
     assert_eq!(back.version, Version::<1>::default());
     assert_eq!(back.dt_dtb.as_deref(), Some(".dtb"));
-    assert_eq!(back.vcpu.rip, 0x100000);
-    assert_eq!(
-        back.vcpu.rflags.get(),
-        0x2,
-        "rflags default survives the round trip"
-    );
     assert_eq!(back.actions.len(), 3);
     match &back.actions[2] {
         Action::Fill(f) => assert_eq!(f.kind, FillKind::DtDtbo),
@@ -97,7 +83,6 @@ fn wire_keys_use_the_dt_prefix() {
 
     // Target attribute rename.
     assert_eq!(get(&v, "dt:dtb"), Some(&Value::Text(".dtb".to_owned())));
-    assert!(get(&v, "vm:vcpu").is_some());
     assert!(get(&v, "cpu:profile").is_some());
 
     // The fill action carries the renamed kind; the default loads omit `kind`.
@@ -142,8 +127,7 @@ fn detached_mode_omits_the_attribute() {
         "absent attribute is skipped, marking detached mode"
     );
 
-    let back: Spec<CpuState, Profile> =
-        ciborium::from_reader(to_cbor(&spec).as_slice()).expect("decode");
+    let back: Spec<Profile> = ciborium::from_reader(to_cbor(&spec).as_slice()).expect("decode");
     assert_eq!(back.dt_dtb, None);
     match &back.actions[1] {
         Action::Fill(f) => assert_eq!(f.kind, FillKind::DtDtb),
@@ -165,7 +149,7 @@ fn wrong_version_is_rejected() {
 
     let bytes = to_cbor(&v);
     assert!(
-        ciborium::from_reader::<Spec<CpuState, Profile>, _>(bytes.as_slice()).is_err(),
+        ciborium::from_reader::<Spec<Profile>, _>(bytes.as_slice()).is_err(),
         "Version<1> must reject version 2"
     );
 }
@@ -180,55 +164,8 @@ fn unknown_key_is_rejected() {
 
     let bytes = to_cbor(&v);
     assert!(
-        ciborium::from_reader::<Spec<CpuState, Profile>, _>(bytes.as_slice()).is_err(),
+        ciborium::from_reader::<Spec<Profile>, _>(bytes.as_slice()).is_err(),
         "deny_unknown_fields must reject an unknown target key"
-    );
-}
-
-#[test]
-fn default_vcpu_serializes_empty_and_defaults_rflags() {
-    // A default vCPU skips every register (rflags == 0x2 is its own default).
-    let v = value_of(&CpuState::default());
-    assert!(entries(&v).is_empty(), "default vCPU is the empty map");
-
-    // Decoding the empty map restores the reserved rflags bit.
-    let empty = Value::Map(Vec::new());
-    let back: CpuState = ciborium::from_reader(to_cbor(&empty).as_slice()).expect("decode vcpu");
-    assert_eq!(back.rflags.get(), 0x2);
-    assert_eq!(back.rip, 0);
-}
-
-#[test]
-fn rflags_reserved_bit_is_enforced() {
-    // A present rflags that clears bit 1 is rejected on decode.
-    let bad = Value::Map(vec![(
-        Value::Text("rflags".to_owned()),
-        Value::Integer(Integer::from(0u64)),
-    )]);
-    assert!(
-        ciborium::from_reader::<CpuState, _>(to_cbor(&bad).as_slice()).is_err(),
-        "rflags with bit 1 clear must be rejected"
-    );
-
-    // A value with bit 1 set decodes fine.
-    let ok = Value::Map(vec![(
-        Value::Text("rflags".to_owned()),
-        Value::Integer(Integer::from(0x202u64)),
-    )]);
-    let s: CpuState = ciborium::from_reader(to_cbor(&ok).as_slice()).expect("valid rflags");
-    assert_eq!(s.rflags.get(), 0x202);
-}
-
-#[test]
-fn reserved_segment_attribute_bits_are_rejected() {
-    let bad = Value::Map(vec![(
-        Value::Text("attributes".to_owned()),
-        Value::Integer(Integer::from(0x1000u64)),
-    )]);
-    assert!(
-        ciborium::from_reader::<pmi::vm::vcpu::x86_64::SegReg, _>(to_cbor(&bad).as_slice())
-            .is_err(),
-        "segment attribute bits 12-15 must be zero"
     );
 }
 
@@ -250,40 +187,9 @@ fn unknown_key_in_a_load_is_rejected() {
 
     let bytes = to_cbor(&v);
     assert!(
-        ciborium::from_reader::<Spec<CpuState, Profile>, _>(bytes.as_slice()).is_err(),
+        ciborium::from_reader::<Spec<Profile>, _>(bytes.as_slice()).is_err(),
         "an unknown key inside a load action must be rejected"
     );
-}
-
-#[test]
-fn aarch64_pstate_is_required_and_must_select_el1() {
-    use pmi::vm::vcpu::aarch64;
-
-    // Omitting pstate is rejected (it is required).
-    let no_pstate = Value::Map(vec![(
-        Value::Text("pc".to_owned()),
-        Value::Integer(Integer::from(0x100000u64)),
-    )]);
-    assert!(
-        ciborium::from_reader::<aarch64::CpuState, _>(to_cbor(&no_pstate).as_slice()).is_err(),
-        "missing pstate must be rejected"
-    );
-
-    // A non-EL1 pstate is rejected.
-    let el0 = Value::Map(vec![(
-        Value::Text("pstate".to_owned()),
-        Value::Integer(Integer::from(0u64)),
-    )]);
-    assert!(ciborium::from_reader::<aarch64::CpuState, _>(to_cbor(&el0).as_slice()).is_err());
-
-    // EL1h decodes.
-    let el1 = Value::Map(vec![(
-        Value::Text("pstate".to_owned()),
-        Value::Integer(Integer::from(0x5u64)),
-    )]);
-    let s: aarch64::CpuState =
-        ciborium::from_reader(to_cbor(&el1).as_slice()).expect("EL1h pstate is valid");
-    assert_eq!(s.pstate.get(), 0x5);
 }
 
 #[test]
