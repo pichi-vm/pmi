@@ -12,7 +12,8 @@ same PE container.
 
 This document defines the PMI core: the [target](#targets) shape, the
 [launch model](#launch-model), the [validation rules](#validation), and the
-[`load`](#load) and [`fill`](#fill) actions. Everything else, every launch
+[`load`](#load) and [`fill`](#fill) actions. The [architecture](#architectures)
+documents define its architecture-specific parts. Everything else, every launch
 target and platform mechanism, is an [extension](extensions.md).
 
 ## Targets
@@ -65,6 +66,15 @@ A VMM launches a target by executing this ordered sequence:
 4. **Finalize.** Apply post-action state (e.g., write boot-vCPU registers,
    finalize the CC measurement).
 5. **Start the guest.**
+
+## Architectures
+
+`PE.FileHeader.Machine` identifies an image's architecture. Each architecture
+PMI supports has its own document, which defines the architecture-specific parts
+of this specification and of its extensions:
+
+- [x86-64](x86-64.md)
+- [aarch64](aarch64.md)
 
 ## Validation
 
