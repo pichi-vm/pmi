@@ -6,18 +6,31 @@ image is aarch64 when its `PE.FileHeader.Machine` is `0xAA64`.
 ## `cpu:profile`
 
 The aarch64 values of the
-[`cpu:profile`](cpu.md#1-new-target-attribute-cpuprofile) target attribute:
+[`cpu:profile`](cpu.md#1-new-target-attribute-cpuprofile) target attribute are
+the A-profile architecture revisions of the [Arm Architecture Reference
+Manual][arm-arm]:
 
-```cddl
-profile-aarch64 = tstr                      ; Armv8-A / Armv9-A revision
-```
+- `armv8.0-a`
+- `armv8.1-a`
+- `armv8.2-a`
+- `armv8.3-a`
+- `armv8.4-a`
+- `armv8.5-a`
+- `armv8.6-a`
+- `armv8.7-a`
+- `armv8.8-a`
+- `armv8.9-a`
+- `armv9.0-a`
+- `armv9.1-a`
+- `armv9.2-a`
+- `armv9.3-a`
+- `armv9.4-a`
+- `armv9.5-a`
+- `armv9.6-a`
+- `armv9.7-a`
+- `armv9.8-a`
 
-A `profile-aarch64` value is an Armv8-A or Armv9-A architecture revision name
-of the form `armvN.M-a` (e.g., `armv8.2-a`, `armv9.0-a`), as defined by the
-[Arm Architecture Reference Manual for A-profile architecture][arm-arm]. The
-set of mandatory features at each revision is fixed by the Arm ARM. Revisions
-added by future editions of the Arm ARM are valid `cpu:profile` values without
-updates to this specification.
+The Arm ARM fixes the mandatory features of each revision.
 
 Armv9.x-A is not a strict superset of Armv8.(x+n)-A for n>0: each Armv9.x-A
 revision is built on a fixed Armv8-A baseline (Armv9.0-A on Armv8.5-A,
