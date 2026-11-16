@@ -48,7 +48,7 @@ The VMM passes it to `KVM_TDX_INIT_VM`; PMI does not carry it. None of it
 enters MRTD, which is built from the target's page-add and content-extend
 operations, so the host cannot perturb the image measurement through
 `TD_PARAMS`. Each field is attested in its own report field; a remote verifier
-MUST check those separately, as it does for SEV's launch policy.
+MUST check those separately.
 
 ### `load`
 
@@ -73,9 +73,7 @@ occupied page through `KVM_TDX_INIT_MEM_REGION` into private guest memory.
 `KVM_TDX_MEASURE_MEMORY_REGION` MUST be set for measured fills and clear for
 unmeasured fills.
 
-PMI deliberately does not generate a TD HOB; platform description is delivered
-through the [`dt:dtbo`](dt.md) fill kind instead, which the PMI
-consumer takes TDVF's role in consuming. For why PMI rejects the HOB, see
+PMI deliberately does not generate a TD HOB. For why PMI rejects the HOB, see
 [Motivation §2](motivation.md#2-portable-safe-platform-definition-and-attestation).
 
 ### Measurement
