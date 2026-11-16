@@ -544,6 +544,9 @@ specification and of its extensions:
 - x86-64 (Section 14);
 - aarch64 (Section 15).
 
+The guest physical address width is the one the guest's architecture chapter
+defines, except where its target's spec defines another.
+
 ## 5.3 Validation
 
 A VMM **MUST** refuse to launch on any of:
@@ -1379,10 +1382,8 @@ reads from, writes to, or branches through at a host-chosen location. The guest
 **MUST** verify:
 
 - **In range.** Every host-chosen address, and every `address + size`, lies within
-  the guest physical or IPA width without overflow. That width comes from the
-  architectural or target source: `CPUID Fn8000_0008_EAX` (x86-64, reduced by
-  `Fn8000_001F_EBX` under SEV), the TD `GPAW` from `TDCALL[TDG.VP.INFO]` (TDX),
-  or `ID_AA64MMFR0_EL1.PARange` (aarch64 `vm`). It is never a hardcoded constant.
+  the guest physical address width without overflow. The core (Section 5.2) says
+  which chapter gives that width. It is never a hardcoded constant.
 
 - **No overlap.** Host `/memory@*` regions are pairwise disjoint, and disjoint from
   every base-declared `reg` region and from the guest-physical ranges holding the
@@ -1597,7 +1598,15 @@ The VMM **MUST** submit exactly one VMSA, the BSP's, via `SNP_LAUNCH_UPDATE` wit
 page type, and content, so the launch digest binds the BSP's initial register state.
 No action places the VMSA, so this spec fixes its GPA.
 
-### 11.1.9 `cpu:profile`
+### 11.1.9 Guest Physical Address Width
+
+The guest physical address width is the x86-64 width (Section 14.3), or the C-bit
+position, `CPUID Fn8000_001F_EBX[5:0]` (`CbitPosition`), if that is smaller. A guest
+marks its private pages with the C-bit, so no guest address may set it. The physical
+address reduction in `CPUID Fn8000_001F_EBX[PhysAddrReduction]` does not apply to a
+guest.
+
+### 11.1.10 `cpu:profile`
 
 The VMM populates the CPUID page (via the `sev:cpuid` fill kind, Section 11.4) with
 entries that advertise at least the profile. The PSP validates each entry against
@@ -1814,7 +1823,13 @@ whose content is measured, it **MUST** submit `TDH.MEM.PAGE.ADD`, then all sixte
 `TDH.MR.EXTEND` operations in ascending offset order (0, 256, …, 3840), before
 advancing to the next page.
 
-### 12.1.8 `cpu:profile`
+### 12.1.8 Guest Physical Address Width
+
+The guest physical address width is one less than `GPAW`, which
+`TDCALL[TDG.VP.INFO]` returns in `RCX[5:0]`. Bit `GPAW - 1` is the shared bit: it is
+set for shared pages and clear for private pages.
+
+### 12.1.9 `cpu:profile`
 
 The VMM builds `XFAM` and `CPUID_VALUES` in `TD_PARAMS` from the profile and passes
 them to `KVM_TDX_INIT_VM`. `TD_PARAMS` does not enter MRTD; the VMM **MAY** configure
@@ -1954,6 +1969,11 @@ set). `AVL` and `L` are clear on `cs`, `ds`, `es`, `fs`, `gs`, `ss`, and `tr`. A
 image entered in this state **MUST NOT** rely on a field or bit this section leaves
 unspecified, or on any register or MSR the table does not list.
 
+## 14.3 Guest Physical Address Width
+
+A guest learns its guest physical address width from `CPUID Fn8000_0008_EAX[7:0]`
+(`PhysAddrSize`).
+
 ---
 
 # 15 The aarch64 Architecture
@@ -2011,6 +2031,11 @@ The aarch64 boot vCPU state is EL1 with the MMU and caches disabled, at address
 
 An image entered in this state **MUST NOT** rely on a field or bit this section
 leaves unspecified, or on any register the table does not list.
+
+## 15.3 Guest Physical Address Width
+
+A guest learns its guest physical address (IPA) width from
+`ID_AA64MMFR0_EL1.PARange`.
 
 ---
 
