@@ -324,9 +324,10 @@ location. The guest MUST verify:
 
 - **In range.** Every host-chosen address, and every `address + size`, lies
   within the guest physical or IPA width without overflow. That width comes from
-  the architectural or target source: `CPUID Fn8000_0008_EAX` (x86-64, reduced by
-  `Fn8000_001F_EBX` under SEV), the TD `GPAW` from `TDCALL[TDG.VP.INFO]` (TDX),
-  or `ID_AA64MMFR0_EL1.PARange` (aarch64 `vm`). It is never a hardcoded
+  the architectural or target source: `CPUID Fn8000_0008_EAX[7:0]` (x86-64;
+  under SEV, no more than the C-bit position, `Fn8000_001F_EBX[5:0]`), the TD
+  `GPAW` from `TDCALL[TDG.VP.INFO]`, less the top bit, which is the shared bit
+  (TDX), or `ID_AA64MMFR0_EL1.PARange` (aarch64 `vm`). It is never a hardcoded
   constant.
 
 - **No overlap.** Host `/memory@*` regions are pairwise disjoint, and disjoint
