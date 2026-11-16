@@ -223,7 +223,7 @@ This document defines the following terms:
   and launches the guest.
 - **Guest**: The software launched from the PMI image inside the virtual machine.
 - **Consumer**: A measured, image-carried component (required on some targets,
-  e.g. TDX) that runs early in the guest and establishes boot state.
+  e.g. TDX) that runs early in the guest and hands off to the kernel.
 - **Channel**: The `dt` facility governing how the base DTB reaches the guest —
   **bundled**, **detached**, or **optional**.
 
@@ -524,11 +524,13 @@ A VMM launches a target by executing this ordered sequence:
    the CC measurement).
 5. **Start the guest.**
 
-A guest starts with a single active vCPU, the boot vCPU (BSP). The guest starts its
-other vCPUs during or after boot through the platform's mechanism (e.g. INIT-SIPI or
-PSCI `CPU_ON`, or SEV-SNP AP creation). The exception is a platform that gives the
-guest no such mechanism, such as TDX: there every vCPU runs from launch, and the
-image's entry code **MUST** hold the others until the guest releases them.
+A guest starts with a single active vCPU, the boot vCPU (BSP), in the boot vCPU
+state its architecture's chapter (Section 5.2) defines, except where its target's
+spec says otherwise. The guest starts its other vCPUs during or after boot through
+the platform's mechanism (e.g. INIT-SIPI or PSCI `CPU_ON`, or SEV-SNP AP creation).
+The exception is a platform that gives the guest no such mechanism, such as TDX:
+there every vCPU runs from launch in that state, and the image's entry code **MUST**
+hold the others until the guest releases them.
 
 ## 5.2 Architectures
 
@@ -873,7 +875,7 @@ Table I summarizes the three name classes.
 | Class        | Form              | Examples              | Defined in                                        |
 | :----------- | :---------------- | :-------------------- | :------------------------------------------------ |
 | Unprefixed   | `name`            | `version`, `actions`  | PMI core specification                            |
-| Registered   | `<prefix>:<name>` | `vm:vcpu`             | spec linked from the registry (Annex C)           |
+| Registered   | `<prefix>:<name>` | `sev:id`              | spec linked from the registry (Annex C)           |
 | Unregistered | `<prefix>:<name>` | `com.foo.bar:my-data` | wherever the extension publishes                  |
 
 An unknown map key always causes the launch to fail. PMI decodes every CBOR map in
@@ -980,10 +982,9 @@ firmware ABI inputs.
 **Prefix:** `vm`. This is a registered extension (Annex C).
 
 The `vm` extension provides the essential functionality for launching a PMI as a
-traditional virtual machine. It defines two extension points:
+traditional virtual machine. It defines one extension point:
 
-1. the new target `.pmi.vm` (Section 9.1);
-2. the new target attribute `vm:vcpu` (Section 9.2).
+1. the new target `.pmi.vm` (Section 9.1).
 
 ## 9.1 New Target: `.pmi.vm`
 
@@ -997,27 +998,21 @@ The VMM executes the launch in five ordered steps:
 1. Read the `.pmi.vm` PE section.
 2. Initialize hypervisor state.
 3. Process each entry in `actions` in array order.
-4. Initialize the boot vCPU from `vm:vcpu` (Section 9.2).
+4. Initialize the boot vCPU to its architecture's boot vCPU state (see x86-64,
+   Section 14.2, and aarch64, Section 15.2).
 5. Start the guest.
 
 ### 9.1.2 Keys
 
 The `.pmi.vm` CBOR map follows the core target shape (Section 5.1.1). Its `version`
-**MUST** be `1`. It adds two required keys:
+**MUST** be `1`. It adds one required key:
 
-- **`vm:vcpu`** — boot-vCPU register map (see Section 9.2). The variant
-  (`vcpu-x64`, Section 9.3, or `vcpu-aarch64`, Section 9.4) **MUST** match
-  `PE.FileHeader.Machine`.
 - **`cpu:profile`** — vCPU ISA baseline (see Section 8).
 
 ### 9.1.3 Validation
 
 The core validation rules (Section 5.3) apply. In addition, the VMM **MUST** refuse
-to launch on any of:
-
-- `PE.FileHeader.Machine` is neither `0x8664` nor `0xAA64`;
-- the `vm:vcpu` variant does not match `PE.FileHeader.Machine` (the spec carries a
-  `vcpu-x64` map under `0xAA64`, or a `vcpu-aarch64` map under `0x8664`).
+to launch if `PE.FileHeader.Machine` is neither `0x8664` nor `0xAA64`.
 
 ### 9.1.4 `load`
 
@@ -1040,151 +1035,33 @@ measurement; the VMM **MAY** pass additional host-supported features through to 
 guest. With no attestation, the measured/host-controlled distinction does not apply
 to `vm`: the guest cannot, and need not, defend against the host here.
 
-## 9.2 New Target Attribute: `vm:vcpu`
+## 9.2 Example (Informative)
 
-`vm:vcpu` is a CBOR map of boot-vCPU register values applied at launch step 4. The
-schema is selected by `PE.FileHeader.Machine`: `vcpu-x64` (Section 9.3) for
-`0x8664`, `vcpu-aarch64` (Section 9.4) for `0xAA64`.
-
-Missing keys default to zero except where noted; on aarch64, `pstate` is
-**required** and has no valid default (see Section 9.4.1). The VMM **MUST** reject
-any unknown key. The VMM **MUST** reject any value exceeding the field width
-defined by the architecture schema.
-
-## 9.3 `vcpu-x64`
-
-```cddl
-vcpu-x64 = {
-  ? "rip"    => uint,                     ; u64
-  ? "rsp"    => uint,                     ; u64
-  ? "rflags" => uint,                     ; u64; bit 1 MUST be 1; default 0x2
-  ; GPRs below: all u64
-  ? "rax" => uint, ? "rbx" => uint, ? "rcx" => uint, ? "rdx" => uint,
-  ? "rsi" => uint, ? "rdi" => uint, ? "rbp" => uint,
-  ? "r8"  => uint, ? "r9"  => uint, ? "r10" => uint, ? "r11" => uint,
-  ? "r12" => uint, ? "r13" => uint, ? "r14" => uint, ? "r15" => uint,
-  ; control registers and EFER: all u64
-  ? "cr0"  => uint, ? "cr3" => uint, ? "cr4" => uint, ? "efer" => uint,
-  ? "cs"   => seg-reg,
-  ? "ds"   => seg-reg, ? "es" => seg-reg, ? "fs" => seg-reg,
-  ? "gs"   => seg-reg, ? "ss" => seg-reg,
-  ? "gdtr" => dtr,
-  ? "idtr" => dtr,
-}
-
-seg-reg = {
-  ? "selector"   => uint,                 ; u16
-  ? "attributes" => uint,                 ; u16; encoding below
-  ? "limit"      => uint,                 ; u32
-  ? "base"       => uint,                 ; u64
-}
-
-dtr = {
-  ? "limit" => uint,                      ; u16
-  ? "base"  => uint,                      ; u64
-}
-```
-
-`rflags` defaults to `0x2`. If specified, bit 1 **MUST** be 1.
-
-### 9.3.1 Segment-Register Attributes Encoding
-
-Table II gives the segment-register `attributes` bit encoding.
-
-**Table II:** Segment-register `attributes` encoding.
-
-| Bits    | Meaning                                                 |
-| :------ | :------------------------------------------------------ |
-| `0–3`   | Type (Intel SDM Vol. 3 §3.4.5.1 / AMD APM Vol. 2 §4.7). |
-| `4`     | S — 0 = system, 1 = code/data.                          |
-| `5–6`   | DPL — 0–3.                                              |
-| `7`     | P.                                                      |
-| `8`     | AVL.                                                    |
-| `9`     | L — 64-bit code segment (CS only; ignored elsewhere).   |
-| `10`    | D/B — 0 = 16/64-bit, 1 = 32-bit.                        |
-| `11`    | G — 0 = byte, 1 = 4 KiB.                                |
-| `12–15` | Reserved. **MUST** be zero.                             |
-
-## 9.4 `vcpu-aarch64`
-
-```cddl
-vcpu-aarch64 = {
-  ; x0..x30: all u64
-  ? "x0"  => uint, ? "x1"  => uint, ? "x2"  => uint, ? "x3"  => uint,
-  ? "x4"  => uint, ? "x5"  => uint, ? "x6"  => uint, ? "x7"  => uint,
-  ? "x8"  => uint, ? "x9"  => uint, ? "x10" => uint, ? "x11" => uint,
-  ? "x12" => uint, ? "x13" => uint, ? "x14" => uint, ? "x15" => uint,
-  ? "x16" => uint, ? "x17" => uint, ? "x18" => uint, ? "x19" => uint,
-  ? "x20" => uint, ? "x21" => uint, ? "x22" => uint, ? "x23" => uint,
-  ? "x24" => uint, ? "x25" => uint, ? "x26" => uint, ? "x27" => uint,
-  ? "x28" => uint, ? "x29" => uint, ? "x30" => uint,
-  ? "sp_el1" => uint,                     ; u64
-  ? "pc"     => uint,                     ; u64
-    "pstate" => uint,                     ; u64; required; SPSR encoding below
-  ; system registers below: all u64
-  ? "sctlr_el1" => uint, ? "tcr_el1"   => uint,
-  ? "ttbr0_el1" => uint, ? "ttbr1_el1" => uint,
-  ? "mair_el1"  => uint, ? "vbar_el1"  => uint,
-  ? "cpacr_el1" => uint,
-}
-```
-
-System-register keys (`sctlr_el1` through `cpacr_el1`) follow the encodings in the
-Arm Architecture Reference Manual for ARMv8-A and later [ARM-ARM].
-
-### 9.4.1 `pstate`
-
-Table III gives the `pstate` bit encoding.
-
-**Table III:** `pstate` (SPSR) encoding.
-
-| Bits    | Meaning                                                                 |
-| :------ | :---------------------------------------------------------------------- |
-| `0–3`   | M[3:0] — target exception mode. **MUST** select EL1 (e.g., `0x5` for EL1h). |
-| `4`     | M[4] — execution state. **MUST** be 0 (AArch64).                        |
-| `5`     | Reserved. **MUST** be zero.                                             |
-| `6`     | F — FIQ mask.                                                           |
-| `7`     | I — IRQ mask.                                                           |
-| `8`     | A — SError mask.                                                        |
-| `9`     | D — debug mask.                                                         |
-| `10–27` | Reserved or architecture-defined. See Arm ARM.                          |
-| `28–31` | NZCV.                                                                   |
-| `32–63` | Reserved or architecture-defined. See Arm ARM.                          |
-
-`pstate` is **required** on aarch64 and **MUST** select EL1: `M[3:0]` is `0b0100`
-(EL1t) or `0b0101` (EL1h), which also fixes `M[4] = 0` (AArch64). It has no default
-because no single `pstate` is universally correct (EL1t vs EL1h, and the DAIF masks
-are image choices). The VMM **MUST** reject a `vm:vcpu` that omits `pstate`, or
-whose `pstate` selects any EL other than EL1.
-
-## 9.5 Example (Informative)
-
-A direct-boot `.pmi.vm` that loads a kernel, initrd, and command line, supplies a
-host devicetree, and sets the boot vCPU:
+An x86-64 `.pmi.vm` that loads boot code at the reset vector, a kernel, initrd, and
+command line, and supplies a host devicetree:
 
 ```cbor-diag
 {
   "version": 1,
   "cpu:profile": "x86-64-v3",
-  "vm:vcpu": {"rip": 0x100000, "rsp": 0x80000, "rflags": 0x2},
   "dt:dtb": ".dtb",
   "actions": [
-    {"type": "load", "gpa": 0x100000,  "section": ".linux"},
-    {"type": "load", "gpa": 0x1000000, "section": ".initrd"},
-    {"type": "load", "gpa": 0x2000000, "section": ".cmdline"},
-    {"type": "load", "gpa": 0x2001000, "section": ".dtb"},
-    {"type": "fill", "gpa": 0x2011000, "section": ".dtbo", "kind": "dt:dtbo"}
+    {"type": "load", "gpa": 0xFFFF0000, "section": ".boot"},
+    {"type": "load", "gpa": 0x100000,   "section": ".linux"},
+    {"type": "load", "gpa": 0x1000000,  "section": ".initrd"},
+    {"type": "load", "gpa": 0x2000000,  "section": ".cmdline"},
+    {"type": "load", "gpa": 0x2001000,  "section": ".dtb"},
+    {"type": "fill", "gpa": 0x2011000,  "section": ".dtbo", "kind": "dt:dtbo"}
   ]
 }
 ```
 
-The VMM reads `.pmi.vm` and processes the actions in order. It loads `.linux`,
-`.initrd`, `.cmdline`, and the base `.dtb` into guest memory, then fills `.dtbo`
-with the host-supplied overlay the guest will merge onto the base. It applies the
-`vm:vcpu` register map to the boot vCPU and starts the guest. (The omitted
-`vm:vcpu` keys default to zero; a real boot image would set `cs`, `cr0`, `cr3`,
-`cr4`, `efer`, `gdtr`, and `idtr` to match its entry-point code.) The same image
-might boot on bare metal under UEFI as a UKI, ignoring `.pmi.vm` entirely.
+The VMM reads `.pmi.vm` and processes the actions in order. It loads `.boot`,
+`.linux`, `.initrd`, `.cmdline`, and the base `.dtb` into guest memory, then fills
+`.dtbo` with the host-supplied overlay the guest will merge onto the base. It starts
+the boot vCPU in the x86-64 boot vCPU state (Section 14.2), where `.boot` enters
+64-bit mode and boots the kernel. The same image might boot on bare metal under UEFI
+as a UKI, ignoring `.pmi.vm` entirely.
 
 ---
 
@@ -1409,9 +1286,9 @@ Section 10.7).
 ## 10.5 VMM
 
 The VMM selects the launch base DTB from the presence of the `dt:dtb` attribute
-(Section 10.1) and the `dt:dtb` fill action (Section 10.2), per Table IV.
+(Section 10.1) and the `dt:dtb` fill action (Section 10.2), per Table II.
 
-**Table IV:** Channel-mode selection and launch base DTB.
+**Table II:** Channel-mode selection and launch base DTB.
 
 | `dt:dtb` attribute | `dt:dtb` fill | Mode     | Launch base DTB                                                                                     |
 | :----------------- | :------------ | :------- | :------------------------------------------------------------------------------------------------- |
@@ -1552,7 +1429,6 @@ host allocates CPUs, memory, and NUMA via the overlay:
 ```cbor-diag
 {
   "version": 1,
-  "vm:vcpu": {"rip": 0x100000, "rsp": 0x80000, "rflags": 0x2},
   "cpu:profile": "x86-64-v2",
   "dt:dtb": ".dtb",
   "actions": [
@@ -1572,7 +1448,6 @@ out-of-band, tenant-authored base into it (measured):
 ```cbor-diag
 {
   "version": 1,
-  "vm:vcpu": {"rip": 0x100000, "rsp": 0x80000, "rflags": 0x2},
   "cpu:profile": "x86-64-v2",
   "actions": [
     {"type": "load", "gpa": 0x100000,  "section": ".linux"},
@@ -1591,13 +1466,12 @@ out-of-band, tenant-authored base into it (measured):
 **Prefix:** `sev`. This is a registered extension (Annex C).
 
 The `sev` extension provides the essential functionality for launching a PMI as a
-virtual machine on AMD SEV (3.0+; a.k.a. SEV-SNP). It defines five extension points:
+virtual machine on AMD SEV (3.0+; a.k.a. SEV-SNP). It defines four extension points:
 
 1. the new target `.pmi.sev` (Section 11.1);
 2. the new target attribute `sev:id` (Section 11.2);
-3. the new `load` kind `sev:vmsa` (Section 11.3);
-4. the new `fill` kind `sev:secrets` (Section 11.4);
-5. the new `fill` kind `sev:cpuid` (Section 11.5).
+3. the new `fill` kind `sev:secrets` (Section 11.3);
+4. the new `fill` kind `sev:cpuid` (Section 11.4).
 
 ## 11.1 New Target: `.pmi.sev`
 
@@ -1607,15 +1481,16 @@ granularity rules (Section 6).
 ### 11.1.1 Launch Model
 
 The `sev` target follows the core launch model (Section 5.1.2), layering the
-SEV-SNP firmware ABI onto the five ordered steps:
+SEV-SNP firmware ABI onto it in six ordered steps:
 
 1. Read the `.pmi.sev` PE section.
 2. `SNP_LAUNCH_START` with the host-supplied launch policy (see Section 11.1.4).
 3. Process each entry in `actions` in array order using the `load` (Section 11.1.5),
    `fill` (Section 11.1.6), and target-specific kind operations defined below.
-4. `SNP_LAUNCH_FINISH`, passing `sev:id.block` + `sev:id.auth` if `sev:id` is
+4. Submit the BSP's VMSA (see Section 11.1.8).
+5. `SNP_LAUNCH_FINISH`, passing `sev:id.block` + `sev:id.auth` if `sev:id` is
    present, plus the deployer-supplied `host_data` (see Section 11.1.4).
-5. Start the guest.
+6. Start the guest.
 
 ### 11.1.2 Keys
 
@@ -1630,9 +1505,9 @@ The `.pmi.sev` CBOR map follows the core target shape (Section 5.1.1). Its `vers
 The core validation rules (Section 5.3) apply. The `sev` target adds the
 `sev:id`-pairing rule described under Section 11.2.
 
-The `sev` target also requires exactly one `load` with `kind = "sev:vmsa"` (the BSP
-VMSA); the VMM **MUST** refuse to launch on a `sev` target carrying zero or more
-than one.
+The VMM **MUST** also refuse to launch if an action's `[gpa, gpa + VirtualSize)`
+range intersects the VMSA page `[0xFFFFFFFFF000, 0x1000000000000)` (see
+Section 11.1.8).
 
 ### 11.1.4 Launch Policy
 
@@ -1674,7 +1549,7 @@ page through `SNP_LAUNCH_UPDATE` into private guest memory:
 - **Unmeasured fills:** use `PAGE_TYPE_UNMEASURED`. The PSP binds the GPA and page
   type while excluding the content.
 
-Target-specific kinds `sev:secrets` (Section 11.4) and `sev:cpuid` (Section 11.5)
+Target-specific kinds `sev:secrets` (Section 11.3) and `sev:cpuid` (Section 11.4)
 use their dedicated page types.
 
 ### 11.1.7 Measurement
@@ -1683,11 +1558,40 @@ The PSP computes the launch digest from 4 KiB `PAGE_INFO` records. Each record b
 the page's GPA, page type, and content as specified by that type. A 2 MiB submission
 produces the same digest as the 512 corresponding 4 KiB submissions. The VMM **MAY**
 choose the submission page size and **MUST** follow the core's measurement order
-(Section 5.4.2).
+(Section 5.4.2). Nothing is measured before the actions. The BSP's VMSA is the only
+thing measured after them (see Section 11.1.1).
 
-### 11.1.8 `cpu:profile`
+### 11.1.8 Boot vCPU
 
-The VMM populates the CPUID page (via the `sev:cpuid` fill kind, Section 11.5) with
+The BSP starts in the x86-64 boot vCPU state (Section 14.2), except that `EFER.SVME`
+is set, as `VMRUN` requires. The VMM builds the BSP's VMSA from that state. The VMSA
+layout and field names come from the AMD64 Architecture Programmer's Manual (APM),
+Volume 2. Each register the state lists goes in the VMSA field with the same name in
+upper case, except that `IA32_PAT` goes in `G_PAT` and `FCW` goes in `X87_FCW`.
+Table III gives the encoded segment attributes, the encoded x87 tag word, and every
+byte the state does not list. Each `attrib` value uses the APM's 12-bit encoding of
+the segment attributes. Together, the state and the table fix every VMSA byte, so
+every compliant VMM produces the same bytes.
+
+**Table III:** VMSA fields the boot vCPU state does not give.
+
+| VMSA field                                                      | Value               |
+| :-------------------------------------------------------------- | :------------------ |
+| `CS.attrib`                                                     | `0x0C9B`            |
+| `DS.attrib`, `ES.attrib`, `FS.attrib`, `GS.attrib`, `SS.attrib` | `0x0C93`            |
+| `TR.attrib`                                                     | `0x008B`            |
+| `X87_FTW`                                                       | `0`                 |
+| `SEV_FEATURES`                                                  | `0x1` (`SNPActive`) |
+| every other byte                                                | `0`                 |
+
+The VMM **MUST** submit exactly one VMSA, the BSP's, via `SNP_LAUNCH_UPDATE` with
+`PAGE_TYPE_VMSA` at the fixed GPA `0xFFFFFFFFF000`. The PSP measures the page's GPA,
+page type, and content, so the launch digest binds the BSP's initial register state.
+No action places the VMSA, so this spec fixes its GPA.
+
+### 11.1.9 `cpu:profile`
+
+The VMM populates the CPUID page (via the `sev:cpuid` fill kind, Section 11.4) with
 entries that advertise at least the profile. The PSP validates each entry against
 the actual processor and rejects entries claiming functionality the processor does
 not support. The launch digest binds the page type and GPA, not the content;
@@ -1712,7 +1616,7 @@ sev-id = {
 ```
 
 The VMM passes the two sections to `SNP_LAUNCH_FINISH` as `id_block` and `id_auth`
-at step 4.
+at step 5.
 
 Both PE sections **MUST** be non-loaded (`IMAGE_SCN_MEM_DISCARDABLE`). They are not
 loaded into guest memory; the VMM reads them from the file and copies them into the
@@ -1732,24 +1636,7 @@ Pairing is structural: when `sev:id` is present, both `block` and `auth` keys
 **MUST** be present; the VMM **MUST** refuse to launch on a spec that contains only
 one.
 
-## 11.3 New `load` Kind: `sev:vmsa`
-
-The VMM submits the PE section's 4 KiB contents via `SNP_LAUNCH_UPDATE` with
-`PAGE_TYPE_VMSA`. The section's contents are the VMPL0 BSP register state at launch,
-in the layout defined by the AMD SEV-SNP firmware ABI. The PSP installs the VMSA at
-the named GPA. The page is measured with its actual content, so the launch digest
-binds the BSP's initial register state. The VMSA is the 4096-byte VM Save Area
-defined by the AMD SEV-SNP firmware ABI; the referenced PE section **MUST** be a Data
-section (`SizeOfRawData == 4096`, `VirtualSize == 4096`).
-
-The `sev` target does not use the `vm` extension's `vm:vcpu` / `vcpu-x64`. The BSP's
-initial register state is established solely by this measured `sev:vmsa` load: the
-VMSA is the complete, hardware-defined save area, installed by the PSP and bound into
-the launch digest byte-for-byte. A partial register map would be both redundant with
-the VMSA and unable to express its full contents, so the `sev` target carries the
-whole VMSA rather than a register subset.
-
-## 11.4 New `fill` Kind: `sev:secrets`
+## 11.3 New `fill` Kind: `sev:secrets`
 
 The VMM submits the page via `SNP_LAUNCH_UPDATE` with `PAGE_TYPE_SECRETS`. No
 content is supplied; the PSP populates the page with platform secrets in encrypted
@@ -1757,7 +1644,7 @@ guest memory at launch. The referenced PE section **MUST** be a Zero section
 (`SizeOfRawData == 0`) with `VirtualSize == 4096`. The page contributes to the
 launch digest as a typed page: the GPA and page type are bound, the content is not.
 
-## 11.5 New `fill` Kind: `sev:cpuid`
+## 11.4 New `fill` Kind: `sev:cpuid`
 
 The VMM constructs the CPUID table it wants to expose to the guest in the layout
 defined by the AMD SEV-SNP firmware ABI, then submits the table via
@@ -1768,10 +1655,10 @@ a Zero section (`SizeOfRawData == 0`) with `VirtualSize == 4096`. The page
 contributes to the launch digest as a typed page: the GPA and page type are bound,
 the content is not.
 
-## 11.6 Example (Informative)
+## 11.5 Example (Informative)
 
-A `.pmi.sev` that launches a service module (SVSM) and OVMF under a signed identity,
-with secrets and CPUID pages:
+A `.pmi.sev` that launches OVMF and a kernel under a signed identity, with secrets
+and CPUID pages:
 
 ```cbor-diag
 {
@@ -1780,7 +1667,6 @@ with secrets and CPUID pages:
   "sev:id": {"block": ".sev.id.block", "auth": ".sev.id.auth"},
   "dt:dtb": ".dtb",
   "actions": [
-    {"type": "load", "gpa": 0x8000000,  "section": ".svsm"},
     {"type": "load", "gpa": 0xFFC00000, "section": ".ovmf"},
     {"type": "load", "gpa": 0x1000000,  "section": ".linux"},
     {"type": "load", "gpa": 0x4000000,  "section": ".initrd"},
@@ -1788,8 +1674,7 @@ with secrets and CPUID pages:
     {"type": "load", "gpa": 0x2001000,  "section": ".dtb"},
     {"type": "fill", "gpa": 0x2011000,  "section": ".dtbo", "kind": "dt:dtbo"},
     {"type": "fill", "gpa": 0x2021000,  "section": ".sev.secrets", "kind": "sev:secrets"},
-    {"type": "fill", "gpa": 0x2022000,  "section": ".sev.cpuid", "kind": "sev:cpuid"},
-    {"type": "load", "gpa": 0x2023000,  "section": ".sev.vmsa", "kind": "sev:vmsa"}
+    {"type": "fill", "gpa": 0x2022000,  "section": ".sev.cpuid", "kind": "sev:cpuid"}
   ]
 }
 ```
@@ -1797,10 +1682,11 @@ with secrets and CPUID pages:
 `SNP_LAUNCH_START` verifies the host policy against the policy embedded in the signed
 `.sev.id.block`. The `default` loads submit `PAGE_TYPE_NORMAL` pages (including the
 base `.dtb`); `.dtbo` goes in unmeasured for the guest to validate and merge;
-`.sev.secrets`, `.sev.cpuid`, and `.sev.vmsa` submit `PAGE_TYPE_SECRETS`,
-`PAGE_TYPE_CPUID`, and `PAGE_TYPE_VMSA`. `SNP_LAUNCH_FINISH` passes `id_block` and
-`id_auth` from `.sev.id.block` / `.sev.id.auth`. The SVSM starts at VMPL0,
-transitions OVMF to VMPL1, and OVMF boots the kernel.
+`.sev.secrets` and `.sev.cpuid` submit `PAGE_TYPE_SECRETS` and `PAGE_TYPE_CPUID`.
+Then the VMM submits the BSP's VMSA with `PAGE_TYPE_VMSA` (see Section 11.1.8).
+`SNP_LAUNCH_FINISH` passes `id_block` and `id_auth` from `.sev.id.block` /
+`.sev.id.auth`. The BSP starts at the reset vector inside `.ovmf`, and OVMF boots
+the kernel.
 
 ---
 
@@ -1861,17 +1747,15 @@ for SEV's launch policy.
 On `tdx`, the `default` kind submits the section's pages via
 `KVM_TDX_INIT_MEM_REGION` with `KVM_TDX_MEASURE_MEMORY_REGION` set.
 
-TDX starts the boot vCPU at the architectural reset vector with its initial register
-state fixed by the TDX module. PMI provides no mechanism to set initial register
-contents on TDX; the `tdx` target defines no `vm:vcpu`/`vcpu-x64`. A compliant VMM
-**MUST** set to zero any initial register value it can influence, notably R8, which
-the module mirrors into RCX. This state does not enter MRTD and is not attestable, so
-the image **MUST** carry a measured PMI consumer, loaded at the reset vector via a
-`default` load (and thus part of MRTD), that establishes boot state itself: it
-obtains platform facts (GPAW, vCPU index, attributes) from `TDCALL[TDG.VP.INFO]` and
-**MUST NOT** rely on the initial register contents, including R8/RCX. The consumer
-performs vCPU rendezvous and hands off to the kernel; its implementation is out of
-scope for this spec.
+TDX starts every vCPU at launch in the x86-64 boot vCPU state (Section 14.2), which
+the TDX module establishes. A compliant VMM **MUST** set to zero any initial
+register value it can influence, notably R8, which the module mirrors into RCX.
+Those values do not enter MRTD and are not attestable; R8/RCX is outside that state,
+so the image cannot rely on it. The image **MUST** carry a measured PMI consumer,
+loaded at the reset vector via a `default` load (and thus part of MRTD), that
+obtains platform facts (GPAW, vCPU index, attributes) from `TDCALL[TDG.VP.INFO]`.
+The consumer performs vCPU rendezvous and hands off to the kernel; its
+implementation is out of scope for this spec.
 
 ### 12.1.6 `fill`
 
@@ -2009,7 +1893,7 @@ superset of the one below.
 The x86-64 boot vCPU state is 32-bit protected mode with paging disabled, at the
 reset vector `0xFFFFFFF0`.
 
-**Table V:** x86-64 boot vCPU state.
+**Table IV:** x86-64 boot vCPU state.
 
 | Register                     | Value                                                                                        |
 | :--------------------------- | :------------------------------------------------------------------------------------------- |
@@ -2081,7 +1965,7 @@ Arm ARM for the relevant baseline.
 The aarch64 boot vCPU state is EL1 with the MMU and caches disabled, at address
 `0x0`.
 
-**Table VI:** aarch64 boot vCPU state.
+**Table V:** aarch64 boot vCPU state.
 
 | Register                                      | Value                                                          |
 | :-------------------------------------------- | :------------------------------------------------------------- |
@@ -2409,7 +2293,7 @@ a prefix (used per the namespacing rules of Section 7.2) and is defined by the
 corresponding section of this specification. To register a new extension, open a pull
 request against the PMI specification repository.
 
-**Table VII:** Registered PMI extensions.
+**Table VI:** Registered PMI extensions.
 
 | Prefix | Defined in  | Description                                        |
 | :----- | :---------- | :------------------------------------------------- |
