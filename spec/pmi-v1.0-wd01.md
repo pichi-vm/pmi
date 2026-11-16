@@ -2418,6 +2418,10 @@ changes from a previous version.
 - 2026-08-12, Working Draft 01 — Initial pre-submission working draft assembled
   from the upstream PMI specification (`core`, `granularity`, `extensions`, `cpu`,
   `vm`, `dt`, `sev`, `tdx`, `cca`) into the OASIS specification template.
+- 2026-11-16, Working Draft 01 — Brought up to date with the upstream PMI
+  specification at commit `0254909`. The `cca` chapter is removed. The `lbc`,
+  `x86-64` and `aarch64` chapters are added. The other chapters follow the upstream
+  changes.
 
 ---
 
