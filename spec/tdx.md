@@ -55,16 +55,16 @@ MUST check those separately, as it does for SEV's launch policy.
 On `tdx`, the `default` kind submits the section's pages via
 `KVM_TDX_INIT_MEM_REGION` with `KVM_TDX_MEASURE_MEMORY_REGION` set.
 
-TDX starts the boot vCPU at the architectural reset vector with its initial
-register state fixed by the TDX module. A compliant VMM MUST set to zero any
-initial register value it can influence, notably R8, which the module mirrors
-into RCX. This state does not enter MRTD and is not attestable, so the image
-MUST carry a measured PMI consumer, loaded at the reset vector via a `default`
-load (and thus part of MRTD), that establishes boot state itself: it obtains
-platform facts (GPAW, vCPU index, attributes) from `TDCALL[TDG.VP.INFO]` and
-MUST NOT rely on the initial register contents, including R8/RCX. The consumer
-performs vCPU rendezvous and hands off to the kernel; its implementation is out
-of scope for this spec.
+TDX starts every vCPU at launch in the
+[x86-64 boot vCPU state](x86-64.md#boot-vcpu), which the TDX module establishes.
+A compliant VMM MUST set to zero any initial register value it can influence,
+notably R8, which the module mirrors into RCX. Those values do not enter MRTD
+and are not attestable; R8/RCX is outside that state, so the image cannot rely
+on it. The image MUST carry a measured PMI consumer, loaded at the reset vector
+via a `default` load (and thus part of MRTD), that obtains platform facts (GPAW,
+vCPU index, attributes) from `TDCALL[TDG.VP.INFO]`. The consumer performs vCPU
+rendezvous and hands off to the kernel; its implementation is out of scope for
+this spec.
 
 ### `fill`
 
