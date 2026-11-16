@@ -560,9 +560,9 @@ The granularity rules (Section 6) and the overlap check (Section 5.2) operate on
 ### 5.3.2 Measurement Determinism
 
 On targets that produce a launch measurement, the measurement **MUST** be a
-deterministic function of the image bytes — namely each measured unit's content,
-GPA, and page type, taken in a fixed total order — and **MUST NOT** depend on the
-page size a VMM chooses to load or map guest memory with.
+deterministic function of the image and supplied measured inputs: each measured
+unit's content, GPA, and page type, taken in a fixed total order. It **MUST NOT**
+depend on the page size a VMM chooses to load or map guest memory with.
 
 The total order is: actions in `actions` array order; within an action, ascending
 GPA. Where a target's per-page submission involves more than one measured
@@ -675,29 +675,42 @@ The referenced PE section **MUST** be a Zero section (`SizeOfRawData == 0`,
 
 #### 5.3.4.4 `kind`
 
-The `kind` value determines the behavior of the `fill` action. It has no default;
-every `fill` action **MUST** carry a `kind`. The `kind` also determines the memory
-class of the placement — private (encrypted/integrity-protected) or shared guest
-memory — which matters on confidential targets (e.g. `dt:dtbo` is
-unmeasured-private where supported, otherwise shared; see Section 10).
+The `kind` value defines the fill's content and semantics. It has no default; every
+`fill` action **MUST** carry a `kind`.
 
 The `kind` value is extensible (Section 7). Extensions **MAY** define `kind`
 values. Extension-defined `kind` values **MUST** follow all namespacing rules. A
 VMM **MUST** refuse to launch on a `fill` whose `kind` it does not recognize.
+
+#### 5.3.4.5 Measurement
+
+A fill kind usable across targets **MUST** declare its content measured or
+unmeasured. On targets with a launch measurement:
+
+- **Measured:** all bytes in the filled reservation and its page padding contribute
+  to the measurement, including all-zero reservations.
+- **Unmeasured:** the content is excluded. Placement metadata, such as the GPA and
+  page type, may still contribute to the measurement.
+
+Each target **MUST** define the placement, memory class, and launch operations for
+both classes. The VMM supplies the bytes and **MUST** invoke those operations in the
+order defined by Section 5.3.2. The platform computes the measurement where the
+target provides one.
 
 ## 5.4 Measured vs. Host-Controlled Inputs
 
 A PMI requirement on the VMM falls into one of two classes, and guests **MUST**
 treat them differently.
 
-**Measured inputs** fold into the launch measurement (the bytes placed by `load`,
-and each target's measured launch parameters). A deviation changes the measurement
-and is caught at attestation, so a guest backed by a remote verifier checking the
-measurement may rely on them. A measured input is usually fixed by the image, but
-need not be: a host **MAY** supply its content, for example a substituted `dt:dtb`
-base (Section 10), and it remains measured and attested. Reliance then rests on the
-verifier appraising the measurement against an expected value, which is predictable
-only when that value is authored by a trusted party (see Section 10.7).
+**Measured inputs** fold into the launch measurement (the bytes placed by `load` and
+measured `fill` actions, and each target's measured launch parameters). A deviation
+changes the measurement and is caught at attestation, so a guest backed by a remote
+verifier checking the measurement may rely on them. A measured input is usually
+fixed by the image, but need not be: a host **MAY** supply its content, for example
+a substituted `dt:dtb` base (Section 10), and it remains measured and attested.
+Reliance then rests on the verifier appraising the measurement against an expected
+value, which is predictable only when that value is authored by a trusted party (see
+Section 10.7).
 
 **Host-controlled, unmeasured inputs** are those a VMM supplies that do not enter
 the launch measurement: resource allocation (the `dt` overlay, Section 10), and
@@ -1012,7 +1025,13 @@ On `vm`, the `default` kind (Section 5.3.3.4) places the section's bytes in gues
 memory per section shape (Section 5.3.3.3); no measurement is performed.
 Implementations **MAY** copy or map the contents into guest memory.
 
-### 9.1.5 `cpu:profile`
+### 9.1.5 `fill`
+
+Both measured and unmeasured fills (Section 5.3.4.5) place their supplied bytes in
+ordinary guest RAM. Implementations **MAY** copy or map the contents. The `vm`
+target produces no launch measurement.
+
+### 9.1.6 `cpu:profile`
 
 The VMM configures the boot vCPU via the host hypervisor's facilities (e.g., KVM's
 `KVM_SET_CPUID2` on x86-64; `KVM_ARM_VCPU_INIT` feature bits and ID register writes
@@ -1280,8 +1299,8 @@ base travels in the image and reaches guest memory by an ordinary `default` load
 
 As with every `fill` (Section 5.3.4), the action's `section` is a Zero section: it
 reserves the guest-physical range and its size but carries no image bytes. At launch
-the VMM writes a base DTB into that range and folds it into the launch measurement
-(the VMM realizes this per target; see Section 10.5).
+the VMM writes a base DTB into that range. This kind is a measured fill
+(Section 5.3.4.5).
 
 Which base the VMM writes depends on whether the `dt:dtb` attribute (Section 10.1)
 is also present:
@@ -1311,9 +1330,10 @@ reserved Zero section.
 {"type": "fill", "gpa": 0x2011000, "section": ".dtbo", "kind": "dt:dtbo"}
 ```
 
-The overlay is unmeasured and allocates the resources the base leaves open (CPUs,
-memory, and NUMA), so that host resource choices do not change the guest's identity.
-The VMM places it (see Section 10.5) and the guest validates it (see Section 10.6).
+This kind is an unmeasured fill (Section 5.3.4.5). The overlay allocates the
+resources the base leaves open (CPUs, memory, and NUMA), so that host resource
+choices do not change the guest's identity. The VMM places it (see Section 10.5) and
+the guest validates it (see Section 10.6).
 
 ### 10.3.1 Overlay Contents
 
@@ -1388,10 +1408,6 @@ Section 10.7).
 
 ## 10.5 VMM
 
-The `dt` extension participates in each target's launch model. This section defines
-the VMM's behavior: how it selects the launch base DTB, places and measures it, and
-places the overlay.
-
 The VMM selects the launch base DTB from the presence of the `dt:dtb` attribute
 (Section 10.1) and the `dt:dtb` fill action (Section 10.2), per Table IV.
 
@@ -1408,25 +1424,14 @@ When the VMM supplies an out-of-band base DTB (in detached mode, and in optional
 mode when it has one), it **MAY** even author that base itself, though the launch
 measurement is then unpredictable (see Section 10.7).
 
-The VMM places the launch base DTB and folds it into the target's launch
-measurement, exactly as it measures a `default` load (Section 5.3.3). A loaded base
-reaches guest memory as an ordinary `default` load; a filled base as a `dt:dtb` fill
-(Section 10.2).
-
-If a `dt:dtbo` fill (Section 10.3) is present, the VMM places the overlay,
-unmeasured, in memory the host cannot mutate after launch: private,
-content-unmeasured memory on targets with memory encryption, or ordinary guest
-memory otherwise. The overlay it supplies **MUST** contain only the content defined
-under Section 10.3.1, and every host-chosen address in it **MUST** lie within the
-guest's address space, keep `/memory@*` regions clear of the base platform and of
-the loaded and filled sections, and place any address the guest writes to or
-releases through (such as a `cpu-release-addr`) in this private overlay memory.
-Because the overlay is unmeasured, the guest, not the VMM, enforces all of this (see
+If a `dt:dtbo` fill (Section 10.3) is present, its contents **MUST** conform to
+Section 10.3.1, and every host-chosen address in it **MUST** lie within the guest's
+address space, keep `/memory@*` regions clear of the base platform and of the loaded
+and filled sections, and place any address the guest writes to or releases through
+(such as a `cpu-release-addr`) within the overlay's reserved range. Because the
+overlay is unmeasured, the guest, not the VMM, enforces all of this (see
 Section 10.6): on confidential targets these are advisory, and a violation costs at
 most a guest that cannot boot.
-
-Each target's spec defines the firmware primitives that realize the measured base
-placement and the unmeasured-private overlay placement.
 
 The VMM **MUST** build a VM that matches the description: every device MMIO region,
 interrupt controller, and transport the base declares **MUST** be present at its
@@ -1606,8 +1611,8 @@ SEV-SNP firmware ABI onto the five ordered steps:
 
 1. Read the `.pmi.sev` PE section.
 2. `SNP_LAUNCH_START` with the host-supplied launch policy (see Section 11.1.4).
-3. Process each entry in `actions` in array order; the firmware path and `PAGE_TYPE`
-   derive from each action's kind (see the kind sections below).
+3. Process each entry in `actions` in array order using the `load` (Section 11.1.5),
+   `fill` (Section 11.1.6), and target-specific kind operations defined below.
 4. `SNP_LAUNCH_FINISH`, passing `sev:id.block` + `sev:id.auth` if `sev:id` is
    present, plus the deployer-supplied `host_data` (see Section 11.1.4).
 5. Start the guest.
@@ -1660,22 +1665,28 @@ as `PAGE_TYPE_ZERO` (validated as zero without transferring data, yielding a
 different measurement than loading actual zeros). The VMM **MUST NOT** substitute
 data-page operations for zero-page operations or vice versa.
 
-The PSP computes the launch digest at a fixed 4 KiB granularity: each 4 KiB page
-contributes a `PAGE_INFO` record binding its content, GPA, and page type into the
-running digest. This is independent of the page size the VMM uses for
-`SNP_LAUNCH_UPDATE` or for backing/mapping guest memory (a 2 MiB submission yields
-the same digest as the 512 corresponding 4 KiB pages), so the VMM **MAY** choose any
-page size without affecting the measurement. The VMM **MUST** submit pages in
-`actions` array order, and within a section in ascending GPA order; the launch digest
-is then reproducible from the image bytes (see Section 5.3.2).
+### 11.1.6 `fill`
 
-### 11.1.6 `dt:dtbo`
+For the core fill classes (Section 5.3.4.5), the VMM **MUST** submit every occupied
+page through `SNP_LAUNCH_UPDATE` into private guest memory:
 
-On `sev`, the `dt:dtbo` overlay fill (Section 10.3) submits the page via
-`SNP_LAUNCH_UPDATE` with `PAGE_TYPE_UNMEASURED`: the overlay is placed in encrypted
-(private) guest memory and its content is not measured into the launch digest.
+- **Measured fills:** use `PAGE_TYPE_NORMAL`, including for zero-filled pages. The
+  PSP incorporates content, GPA, and page type into the launch digest.
+- **Unmeasured fills:** use `PAGE_TYPE_UNMEASURED`. The PSP binds the GPA and page
+  type while excluding the content.
 
-### 11.1.7 `cpu:profile`
+Target-specific kinds `sev:secrets` (Section 11.4) and `sev:cpuid` (Section 11.5)
+use their dedicated page types.
+
+### 11.1.7 Measurement
+
+The PSP computes the launch digest from 4 KiB `PAGE_INFO` records. Each record binds
+the page's GPA, page type, and content as specified by that type. A 2 MiB submission
+produces the same digest as the 512 corresponding 4 KiB submissions. The VMM **MAY**
+choose the submission page size and **MUST** follow the core's measurement order
+(Section 5.3.2).
+
+### 11.1.8 `cpu:profile`
 
 The VMM populates the CPUID page (via the `sev:cpuid` fill kind, Section 11.5) with
 entries that advertise at least the profile. The PSP validates each entry against
@@ -1821,8 +1832,8 @@ TDX firmware ABI onto the five ordered steps:
 4. `KVM_TDX_FINALIZE_VM`, which locks MRTD.
 5. Start the guest.
 
-MRTD extension is reproducible from the image bytes per the order fixed by
-Section 5.3.2 and the per-page sub-operation order defined under Section 12.1.5.
+The measurement rules (Section 12.1.7) fix the order of page operations so MRTD is
+reproducible from the image and supplied measured inputs.
 
 ### 12.1.2 Keys
 
@@ -1841,25 +1852,15 @@ validation rules.
 `TD_PARAMS` (including `ATTRIBUTES`, `XFAM`, CPUID configuration, and the
 `MRCONFIGID` / `MROWNER` / `MROWNERCONFIG` deployer fields) is host-supplied. The VMM
 passes it to `KVM_TDX_INIT_VM`; PMI does not carry it. None of it enters MRTD, which
-is built only from the pages added by `load` actions, so the host cannot perturb the
-image measurement through `TD_PARAMS`. Each field is attested in its own report
-field; a remote verifier **MUST** check those separately, as it does for SEV's launch
-policy.
+is built from the target's page-add and content-extend operations, so the host
+cannot perturb the image measurement through `TD_PARAMS`. Each field is attested in
+its own report field; a remote verifier **MUST** check those separately, as it does
+for SEV's launch policy.
 
 ### 12.1.5 `load`
 
 On `tdx`, the `default` kind submits the section's pages via
-`KVM_TDX_INIT_MEM_REGION` with `KVM_TDX_MEASURE_MEMORY_REGION` set. MRTD is computed
-at the TDX module's fixed granularity (4 KiB for `TDH.MEM.PAGE.ADD`, binding the
-page GPA, and 256 bytes for `TDH.MR.EXTEND`, binding content), independent of the
-page size the VMM uses to back or map guest memory.
-
-The submission order is fully pinned, so MRTD is reproducible from the image bytes:
-sections in `actions` array order; within a section, pages in ascending GPA order;
-for each page, `TDH.MEM.PAGE.ADD` first, then the sixteen `TDH.MR.EXTEND` operations
-over that page's 256-byte chunks in ascending offset order (0, 256, …, 3840), before
-advancing to the next page. The VMM **MUST NOT** batch all `TDH.MEM.PAGE.ADD`
-operations ahead of the `TDH.MR.EXTEND` operations.
+`KVM_TDX_INIT_MEM_REGION` with `KVM_TDX_MEASURE_MEMORY_REGION` set.
 
 TDX starts the boot vCPU at the architectural reset vector with its initial register
 state fixed by the TDX module. PMI provides no mechanism to set initial register
@@ -1875,16 +1876,27 @@ scope for this spec.
 
 ### 12.1.6 `fill`
 
-`tdx` defines no `tdx`-specific `fill` kinds. It realizes the `dt:dtbo` overlay fill
-(Section 10.3) via `KVM_TDX_INIT_MEM_REGION` with the measure flag clear: the page is
-added to private guest memory without extending MRTD with its content, though the
-page's GPA still enters MRTD deterministically.
+For the core fill classes (Section 5.3.4.5), the VMM **MUST** submit every occupied
+page through `KVM_TDX_INIT_MEM_REGION` into private guest memory.
+`KVM_TDX_MEASURE_MEMORY_REGION` **MUST** be set for measured fills and clear for
+unmeasured fills.
 
 PMI deliberately does not generate a TD HOB; platform description is delivered
 through the `dt:dtbo` fill kind (Section 10.3) instead, which the PMI consumer takes
 TDVF's role in consuming. For why PMI rejects the HOB, see Section 4.2.
 
-### 12.1.7 `cpu:profile`
+### 12.1.7 Measurement
+
+The TDX module incorporates each 4 KiB page's GPA into MRTD through
+`TDH.MEM.PAGE.ADD`. When content is measured, `TDH.MR.EXTEND` incorporates it in
+256-byte chunks.
+
+The VMM **MUST** follow the core's measurement order (Section 5.3.2). For each page
+whose content is measured, it **MUST** submit `TDH.MEM.PAGE.ADD`, then all sixteen
+`TDH.MR.EXTEND` operations in ascending offset order (0, 256, …, 3840), before
+advancing to the next page.
+
+### 12.1.8 `cpu:profile`
 
 The VMM builds `XFAM` and `CPUID_VALUES` in `TD_PARAMS` from the profile and passes
 them to `KVM_TDX_INIT_VM`. `TD_PARAMS` does not enter MRTD; the VMM **MAY** configure
