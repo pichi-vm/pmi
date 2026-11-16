@@ -1715,8 +1715,7 @@ and CPUID pages:
 }
 ```
 
-`SNP_LAUNCH_START` verifies the host policy against the policy embedded in the signed
-`.sev.id.block`. The `default` loads submit `PAGE_TYPE_NORMAL` pages (including the
+The `default` loads submit `PAGE_TYPE_NORMAL` pages (including the
 base `.dtb`); `.dtbo` goes in unmeasured for the guest to validate and merge;
 `.sev.secrets` and `.sev.cpuid` submit `PAGE_TYPE_SECRETS` and `PAGE_TYPE_CPUID`.
 Then the VMM submits the BSP's VMSA with `PAGE_TYPE_VMSA` (see Section 11.1.8).
