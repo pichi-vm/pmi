@@ -6,7 +6,9 @@
 //! acceptance, `deny_unknown_fields`, and the optional `dt:dtb` attribute.
 
 use ciborium::value::{Integer, Value};
+use flagset::{FlagSet, Flags};
 
+use pmi::sev::Feature;
 use pmi::vm::{Action, Fill, FillKind, Load, LoadKind, Spec};
 use pmi::x86_64::Profile;
 use pmi::Version;
@@ -251,5 +253,69 @@ fn cpu_profile_values_are_per_architecture() {
         assert!(
             ciborium::from_reader::<pmi::aarch64::Profile, _>(decode(name).as_slice()).is_err()
         );
+    }
+}
+
+#[test]
+fn sev_features_is_an_optional_bit_field() {
+    let target = |features: Option<u64>| {
+        let mut map = vec![
+            (Value::Text("version".into()), Value::Integer(1.into())),
+            (
+                Value::Text("cpu:profile".into()),
+                Value::Text("x86-64-v3".into()),
+            ),
+            (
+                Value::Text("actions".into()),
+                Value::Array(vec![Value::Map(vec![
+                    (Value::Text("type".into()), Value::Text("load".into())),
+                    (
+                        Value::Text("gpa".into()),
+                        Value::Integer(0xFFC0_0000u32.into()),
+                    ),
+                    (Value::Text("section".into()), Value::Text(".ovmf".into())),
+                ])]),
+            ),
+        ];
+        if let Some(bits) = features {
+            map.push((
+                Value::Text("sev:features".into()),
+                Value::Integer(bits.into()),
+            ));
+        }
+        to_cbor(&Value::Map(map))
+    };
+    let decode = |bytes: Vec<u8>| ciborium::from_reader::<pmi::sev::Spec, _>(bytes.as_slice());
+
+    let absent = decode(target(None)).expect("absent");
+    assert!(absent.features.is_empty());
+    assert!(get(&value_of(&absent), "sev:features").is_none());
+
+    let spec = decode(target(Some(1 << 5 | 1 << 9))).expect("offered bits");
+    assert_eq!(
+        spec.features,
+        Feature::DebugVirtualization | Feature::SecureTsc
+    );
+    assert_eq!(
+        get(&value_of(&spec), "sev:features"),
+        Some(&Value::Integer((1u64 << 5 | 1 << 9).into()))
+    );
+
+    // SNPActive (bit 0), vTOM (bit 1), and SecureAvic (bit 16).
+    for bit in [0, 1, 16] {
+        assert!(decode(target(Some(1 << bit))).is_err());
+    }
+}
+
+#[test]
+fn sev_feature_values_are_their_spec_bits() {
+    let table = [(Feature::DebugVirtualization, 5), (Feature::SecureTsc, 9)];
+    assert_eq!(
+        Feature::LIST,
+        table.map(|(feature, _)| feature),
+        "Feature lists every spec bit"
+    );
+    for (feature, bit) in table {
+        assert_eq!(FlagSet::from(feature).bits(), 1 << bit);
     }
 }
