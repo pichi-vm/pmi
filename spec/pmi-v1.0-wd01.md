@@ -70,14 +70,14 @@ that boots unchanged on bare metal, in a traditional virtual machine, and in a
 confidential virtual machine on AMD SEV-SNP and Intel TDX. PMI is an additive layer
 on the Portable Executable (PE) format: it adds non-loaded PE sections that a
 PMI-aware Virtual Machine Monitor (VMM) reads to compose and launch a guest, and
-that non-PMI loaders ignore. PMI moves the declaration of the guest platform — CPU
+that non-PMI loaders ignore. PMI takes the choice of the guest platform — CPU
 features, initial register state, platform description, and first-executed bytes —
-from the host into the measured image, so that a compliant VMM produces a
-byte-identical launch measurement regardless of which host or hypervisor provisioned
-the machine. This specification defines the PMI core (the target shape, launch
-model, validation rules, and the `load` and `fill` actions) together with the
-registered extensions that make it usable: `cpu`, `vm`, `dt`, `sev`, `tdx`, and
-`lbc`.
+away from the host: PMI fixes the initial register state, and the measured image
+declares the rest, so that a compliant VMM produces a byte-identical launch
+measurement regardless of which host or hypervisor provisioned the machine. This
+specification defines the PMI core (the target shape, launch model, validation
+rules, and the `load` and `fill` actions) together with the registered extensions
+that make it usable: `cpu`, `vm`, `dt`, `sev`, `tdx`, and `lbc`.
 
 ### Citation format
 
@@ -307,10 +307,11 @@ Computing [ANSSI-CC]:
 > entire User-provided TCB has not been compromised by an admin attack, but it is
 > impossible to perform on current cloud offerings for confidential VMs.
 
-PMI moves those declarations into the image. The host delivers them or refuses to
-launch. One artifact, one measurement, full-chain attestation that does not depend
-on which cloud or hypervisor provisioned the VM or how many resources are given to
-it.
+PMI takes those choices away from the host: the image declares its CPU features,
+platform description, and first bytes, and PMI itself fixes the initial register
+state. The host delivers them or refuses to launch. One artifact, one measurement,
+full-chain attestation that does not depend on which cloud or hypervisor provisioned
+the VM or how many resources are given to it.
 
 PMI is intentionally narrow. It covers how to load pages into a VM and how to
 safely communicate the VM platform definition without sacrificing portability
@@ -369,16 +370,18 @@ at all. It does not. The host has no real reason to choose the guest's CPU
 features, its initial register state, the bytes at its reset vector, or the
 platform it runs on — where its devices live, which interrupt controller it has,
 how its transports are wired. Historically it did because firmware did, not
-because the choice belonged to it. PMI moves all four declarations into the image.
-The host delivers them or refuses to launch.
+because the choice belonged to it. PMI takes all four away from the host: it fixes
+the initial register state itself, and the image declares the other three. The host
+delivers them or refuses to launch.
 
 ### 4.2.1 Splitting Platform Definition From Resource Allocation
 
-The first three inputs invert outright: the image states them and the host has
-nothing to add. The fourth, the platform description, is the only one with a slice
-the host can own, namely *resource allocation*: CPU count, memory size, and NUMA
-topology typically vary per deployment. So PMI splits the platform description by
-trust model and inverts the half that admits it:
+The CPU features, the initial register state, and the boot bytes invert outright:
+PMI fixes the register state, the image states the other two, and the host has
+nothing to add. The platform description is the only input with a slice the host can
+own, namely *resource allocation*: CPU count, memory size, and NUMA topology
+typically vary per deployment. So PMI splits the platform description by trust model
+and inverts the half that admits it:
 
 - **Platform definition** (the device MMIO map, interrupt controller, transport
   choice, and device topology) is image-owned. The host does not describe it to
@@ -430,8 +433,8 @@ touched.
 PMI is a container; the payload is the image author's choice. Some possible
 compositions are:
 
-- **`PMI(Linux)`** — a kernel, initrd, and command line, direct-boot. Replaces
-  `qemu -kernel` provisioning and the parallel UKI build.
+- **`PMI(Linux)`** — a kernel, initrd, and command line, with boot code where the
+  boot vCPU starts. Replaces `qemu -kernel` provisioning and the parallel UKI build.
 - **`PMI(OVMF, Linux)`** — UEFI guest firmware plus a Linux UKI. The same file
   boots as a UKI on bare metal — where the platform's own UEFI runs it and the
   embedded OVMF is unused — and under that embedded OVMF as guest firmware in a
