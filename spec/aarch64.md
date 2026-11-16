@@ -54,4 +54,9 @@ The aarch64 boot vCPU state is EL1 with the MMU and caches disabled, at address
 An image entered in this state MUST NOT rely on a field or bit this section
 leaves unspecified, or on any register the table does not list.
 
+## Guest physical address width
+
+A guest learns its guest physical address (IPA) width from
+`ID_AA64MMFR0_EL1.PARange`.
+
 [arm-arm]: https://developer.arm.com/documentation/ddi0487/latest
