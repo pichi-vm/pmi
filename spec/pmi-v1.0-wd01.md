@@ -524,6 +524,12 @@ A VMM launches a target by executing this ordered sequence:
    the CC measurement).
 5. **Start the guest.**
 
+A guest starts with a single active vCPU, the boot vCPU (BSP). The guest starts its
+other vCPUs during or after boot through the platform's mechanism (e.g. INIT-SIPI or
+PSCI `CPU_ON`, or SEV-SNP AP creation). The exception is a platform that gives the
+guest no such mechanism, such as TDX: there every vCPU runs from launch, and the
+image's entry code **MUST** hold the others until the guest releases them.
+
 ## 5.2 Architectures
 
 `PE.FileHeader.Machine` identifies an image's architecture. Each architecture PMI
@@ -580,11 +586,21 @@ deterministic function of the image and supplied measured inputs: each measured
 unit's content, GPA, and page type, taken in a fixed total order. It **MUST NOT**
 depend on the page size a VMM chooses to load or map guest memory with.
 
-The total order is: actions in `actions` array order; within an action, ascending
-GPA. Where a target's per-page submission involves more than one measured
-sub-operation (e.g. TDX's page-add followed by content-extend), the target's spec
-**MUST** additionally define the order of those sub-operations. Each target's spec
-states its fixed measurement granularity and any such sub-operation order.
+The total order is:
+
+1. Anything measured before the actions.
+2. The actions, in `actions` array order; within an action, ascending GPA.
+3. Anything measured after the actions.
+
+A target's spec **MUST** list anything measured before the actions and anything
+measured after them, in the order they are measured. If nothing is measured outside
+the actions, the spec need not say so.
+
+Some targets measure one page in more than one step. For example, on TDX, adding a
+page measures its GPA. Then, unless the page belongs to an unmeasured fill, its
+content is measured. Such a target's spec **MUST** give the order of these steps.
+
+Each target's spec also gives its fixed measurement granularity.
 
 ### 5.4.3 `load`
 
@@ -724,14 +740,13 @@ A PMI requirement on the VMM falls into one of two classes, and guests **MUST**
 treat them differently.
 
 **Measured inputs** fold into the launch measurement (the bytes placed by `load` and
-measured `fill` actions, and each target's measured launch parameters). A deviation
-changes the measurement and is caught at attestation, so a guest backed by a remote
-verifier checking the measurement may rely on them. A measured input is usually
-fixed by the image, but need not be: a host **MAY** supply its content, for example
-a substituted `dt:dtb` base (Section 10), and it remains measured and attested.
-Reliance then rests on the verifier appraising the measurement against an expected
-value, which is predictable only when that value is authored by a trusted party (see
-Section 10.7).
+measured `fill` actions, and anything else a target measures). A deviation changes
+the measurement and is caught at attestation, so a guest backed by a remote verifier
+checking the measurement may rely on them. A measured input is usually fixed by the
+image, but need not be: a host **MAY** supply its content, for example a substituted
+`dt:dtb` base (Section 10), and it remains measured and attested. Reliance then
+rests on the verifier appraising the measurement against an expected value, which is
+predictable only when that value is authored by a trusted party (see Section 10.7).
 
 **Host-controlled, unmeasured inputs** are those a VMM supplies that do not enter
 the launch measurement: resource allocation (the `dt` overlay, Section 10), and
@@ -1617,8 +1632,7 @@ The core validation rules (Section 5.3) apply. The `sev` target adds the
 
 The `sev` target also requires exactly one `load` with `kind = "sev:vmsa"` (the BSP
 VMSA); the VMM **MUST** refuse to launch on a `sev` target carrying zero or more
-than one. Secondary vCPUs are brought up at runtime via SEV-SNP AP creation,
-independent of PMI.
+than one.
 
 ### 11.1.4 Launch Policy
 
@@ -1990,6 +2004,37 @@ microarchitecture levels of the System V x86-64 psABI [SYSV-ABI]:
 The psABI fixes the mandatory features of each level; each level is a strict
 superset of the one below.
 
+## 14.2 Boot vCPU
+
+The x86-64 boot vCPU state is 32-bit protected mode with paging disabled, at the
+reset vector `0xFFFFFFF0`.
+
+**Table V:** x86-64 boot vCPU state.
+
+| Register                     | Value                                                                                        |
+| :--------------------------- | :------------------------------------------------------------------------------------------- |
+| `rip`                        | `0xFFFFFFF0`                                                                                 |
+| `rflags`                     | `0x2`                                                                                        |
+| `cr0`                        | `0x21` (`PE`, `NE`)                                                                          |
+| `cr3`                        | `0`                                                                                          |
+| `cr4`                        | `0x40` (`MCE`)                                                                               |
+| `efer`                       | `0x901` (`SCE`, `LME`, `NXE`)                                                                |
+| `cs`                         | selector `0`, base `0`, limit `0xFFFFFFFF`: 32-bit code, execute/read, non-conforming, DPL 0 |
+| `ds`, `es`, `fs`, `gs`, `ss` | selector `0`, base `0`, limit `0xFFFFFFFF`: 32-bit data, read/write, expand-up, DPL 0        |
+| `tr`                         | selector `0`, base `0`, limit `0xFFFF`: present, busy 32-bit TSS, DPL 0, byte-granular       |
+| `ldtr`                       | selector `0` (no LDT); other fields unspecified                                              |
+| `gdtr`                       | base `0`, limit `0xFFFF`                                                                     |
+| `idtr`                       | base `0`, limit `0`                                                                          |
+| `dr6`, `dr7`                 | `0xFFFF0FF0`, `0x400`                                                                        |
+| `IA32_PAT`                   | `0x0007040600070406`                                                                         |
+| `xcr0`                       | `0x1`                                                                                        |
+| x87 and SSE state            | `FCW` `0x037F`, `MXCSR` `0x1F80`, x87 registers empty, all else `0`                          |
+
+Code and data segments are present, accessed, 4 KiB-granular, and 32-bit (`D/B`
+set). `AVL` and `L` are clear on `cs`, `ds`, `es`, `fs`, `gs`, `ss`, and `tr`. An
+image entered in this state **MUST NOT** rely on a field or bit this section leaves
+unspecified, or on any register or MSR the table does not list.
+
 ---
 
 # 15 The aarch64 Architecture
@@ -2030,6 +2075,23 @@ Armv8.6-A, Armv9.2-A on Armv8.7-A, and so on). A host satisfying `armv9.0-a`
 therefore does not necessarily satisfy `armv8.6-a` or higher, and vice versa. Image
 authors choosing between an `armv8.x-a` and `armv9.y-a` profile should consult the
 Arm ARM for the relevant baseline.
+
+## 15.2 Boot vCPU
+
+The aarch64 boot vCPU state is EL1 with the MMU and caches disabled, at address
+`0x0`.
+
+**Table VI:** aarch64 boot vCPU state.
+
+| Register                                      | Value                                                          |
+| :-------------------------------------------- | :------------------------------------------------------------- |
+| `PC`                                          | `0x0`                                                          |
+| `PSTATE`                                      | `0x3C5` in the SPSR encoding (EL1h; `D`, `A`, `I`, `F` masked) |
+| `SCTLR_EL1`                                   | `M`, `C`, `I`, and `EE` clear; other bits unspecified          |
+| general-purpose registers, `SP_EL0`, `SP_EL1` | `0`                                                            |
+
+An image entered in this state **MUST NOT** rely on a field or bit this section
+leaves unspecified, or on any register the table does not list.
 
 ---
 
@@ -2347,7 +2409,7 @@ a prefix (used per the namespacing rules of Section 7.2) and is defined by the
 corresponding section of this specification. To register a new extension, open a pull
 request against the PMI specification repository.
 
-**Table V:** Registered PMI extensions.
+**Table VII:** Registered PMI extensions.
 
 | Prefix | Defined in  | Description                                        |
 | :----- | :---------- | :------------------------------------------------- |
