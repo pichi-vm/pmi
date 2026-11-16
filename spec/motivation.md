@@ -98,9 +98,10 @@ standardized parsers in safe Rust and in libfdt, is universally available on
 aarch64; on x86 it can be translated to ACPI in-guest by firmware such as
 OVMF, and direct kernel support is improving.
 
-Image-controlled bytes alone determine the measurement; host hardware, host
-resources, and host VMM version never appear. Every compliant VMM produces
-byte-identical measurements from the same PMI image. Every extension that
+The image and any measured inputs the host supplies, such as a detached base
+DTB, determine the measurement; host hardware, host resources, and host VMM
+version never appear. Every compliant VMM produces byte-identical measurements
+from the same PMI image and the same measured inputs. Every extension that
 participates in a target's launch measurement MUST preserve this invariant.
 
 ## 3. Reuse of Existing Tooling and Formats
