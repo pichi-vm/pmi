@@ -3,6 +3,7 @@
 
 //! `sev` target: AMD SEV-SNP confidential virtual machines.
 
+use flagset::FlagSet;
 use serde::{Deserialize, Serialize};
 
 use crate::{Target, Version};
@@ -31,6 +32,16 @@ pub struct Spec {
     #[serde(rename = "cpu:profile")]
     pub cpu_profile: Profile,
 
+    /// SEV-SNP features the BSP's VMSA enables beyond `SNPActive`
+    /// (`sev:features` target attribute). Empty when absent.
+    #[serde(
+        rename = "sev:features",
+        default,
+        skip_serializing_if = "features::is_empty",
+        deserialize_with = "features::deserialize"
+    )]
+    pub features: FlagSet<Feature>,
+
     /// Optional `dt:dtb` target attribute: PE section holding the bundled
     /// base DTB. Present means a base DTB is bundled in the image, consumed by
     /// a `load` or as the default source of a `dt:dtb` fill; absent means the
@@ -42,6 +53,41 @@ pub struct Spec {
 impl Target for Spec {
     const NAME: &'static str = "sev";
     const SECTION: &'static str = ".pmi.sev";
+}
+
+flagset::flags! {
+    /// A `sev:features` bit: a SEV-SNP feature the BSP's VMSA enables beyond
+    /// `SNPActive`. Each value is the feature's `SEV_FEATURES` bit.
+    pub enum Feature: u64 {
+        /// `DebugVirtualization` (`SEV_FEATURES` bit 5).
+        DebugVirtualization = 1 << 5,
+
+        /// `SecureTSC` (`SEV_FEATURES` bit 9).
+        SecureTsc = 1 << 9,
+    }
+}
+
+/// `sev:features` on the wire: `FlagSet`'s integer form, refusing bits the
+/// spec does not offer.
+mod features {
+    use flagset::FlagSet;
+    use serde::de::Error;
+    use serde::{Deserialize, Deserializer};
+
+    use super::Feature;
+
+    // `&FlagSet` is required by serde's `skip_serializing_if`.
+    #[allow(clippy::trivially_copy_pass_by_ref)]
+    pub(super) fn is_empty(set: &FlagSet<Feature>) -> bool {
+        set.is_empty()
+    }
+
+    pub(super) fn deserialize<'de, D: Deserializer<'de>>(
+        deserializer: D,
+    ) -> Result<FlagSet<Feature>, D::Error> {
+        FlagSet::new(u64::deserialize(deserializer)?)
+            .map_err(|_| D::Error::custom("sev:features sets a bit the spec does not offer"))
+    }
 }
 
 /// Signed launch identity: PE-section names for the 96-byte ID block and
