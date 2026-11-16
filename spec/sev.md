@@ -3,13 +3,15 @@
 **Prefix:** `sev`.
 
 The `sev` extension provides the essential functionality for launching a PMI as
-a virtual machine on AMD SEV (3.0+; a.k.a. SEV-SNP). It defines four extension
+a virtual machine on AMD SEV (3.0+; a.k.a. SEV-SNP). It defines five extension
 points:
 
 1. The new target [`.pmi.sev`](#1-new-target-pmisev).
 2. The new target attribute [`sev:id`](#2-new-target-attribute-sevid).
 3. The new `fill` kind [`sev:secrets`](#3-new-fill-kind-sevsecrets).
 4. The new `fill` kind [`sev:cpuid`](#4-new-fill-kind-sevcpuid).
+5. The new target attribute
+   [`sev:features`](#5-new-target-attribute-sevfeatures).
 
 ## 1. New target: `.pmi.sev`
 
@@ -23,7 +25,9 @@ the SEV-SNP firmware ABI onto it in six ordered steps:
 
 1. Read the `.pmi.sev` PE section.
 2. `SNP_LAUNCH_START` with the host-supplied launch policy (see
-   [Launch policy](#launch-policy)).
+   [Launch policy](#launch-policy)). If `sev:features` sets `SecureTSC`, also
+   pass the host-supplied TSC frequency (see
+   [§5](#5-new-target-attribute-sevfeatures)).
 3. Process each entry in `actions` in array order using the [`load`](#load),
    [`fill`](#fill), and target-specific kind operations defined below.
 4. Submit the BSP's VMSA (see [Boot vCPU](#boot-vcpu)).
@@ -38,13 +42,17 @@ The `.pmi.sev` CBOR map follows the [core target shape](core.md#shape). Its
 `version` MUST be `1`. It adds the following keys:
 
 - **`cpu:profile`**: vCPU ISA baseline (required; see [cpu.md](cpu.md)).
+- **`sev:features`**: SEV-SNP features to enable (optional; see
+  [§5](#5-new-target-attribute-sevfeatures)).
 - **`sev:id`**: signed launch identity (optional; see
   [§2](#2-new-target-attribute-sevid)).
 
 ### Validation
 
 The [core validation rules](core.md#validation) apply. The `sev` target adds the
-`sev:id`-pairing rule described under [§2](#2-new-target-attribute-sevid).
+`sev:id`-pairing rule described under [§2](#2-new-target-attribute-sevid) and
+the `sev:features` rules described under
+[§5](#5-new-target-attribute-sevfeatures).
 
 The VMM MUST also refuse to launch if an action's `[gpa, gpa + VirtualSize)`
 range intersects the VMSA page `[0xFFFFFFFFF000, 0x1000000000000)` (see
@@ -120,14 +128,14 @@ Each `attrib` value uses the APM's 12-bit encoding of the segment attributes.
 Together, the state and the table fix every VMSA byte, so every compliant VMM
 produces the same bytes.
 
-| VMSA field                                                      | Value               |
-| --------------------------------------------------------------- | ------------------- |
-| `CS.attrib`                                                     | `0x0C9B`            |
-| `DS.attrib`, `ES.attrib`, `FS.attrib`, `GS.attrib`, `SS.attrib` | `0x0C93`            |
-| `TR.attrib`                                                     | `0x008B`            |
-| `X87_FTW`                                                       | `0`                 |
-| `SEV_FEATURES`                                                  | `0x1` (`SNPActive`) |
-| every other byte                                                | `0`                 |
+| VMSA field                                                      | Value                                                 |
+| --------------------------------------------------------------- | ----------------------------------------------------- |
+| `CS.attrib`                                                     | `0x0C9B`                                              |
+| `DS.attrib`, `ES.attrib`, `FS.attrib`, `GS.attrib`, `SS.attrib` | `0x0C93`                                              |
+| `TR.attrib`                                                     | `0x008B`                                              |
+| `X87_FTW`                                                       | `0`                                                   |
+| `SEV_FEATURES`                                                  | `SNPActive` (bit 0) plus the bits `sev:features` sets |
+| every other byte                                                | `0`                                                   |
 
 The VMM MUST submit exactly one VMSA, the BSP's, via `SNP_LAUNCH_UPDATE` with
 `PAGE_TYPE_VMSA` at the fixed GPA `0xFFFFFFFFF000`. The PSP measures the page's
@@ -202,6 +210,33 @@ functionality the processor does not support. The referenced PE section MUST be
 a Zero section (`SizeOfRawData == 0`) with `VirtualSize == 4096`. The page
 contributes to the launch digest as a typed page: the GPA and page type are
 bound, the content is not.
+
+## 5. New target attribute: `sev:features`
+
+`sev:features` selects the SEV-SNP features the BSP's VMSA enables beyond
+`SNPActive` (see [Boot vCPU](#boot-vcpu)). It is an unsigned integer. Each bit
+has the meaning it has in the VMSA's `SEV_FEATURES` field. When `sev:features`
+is absent, no feature is selected.
+
+```cddl
+sev-features = uint                 ; bits from the table below
+```
+
+| Bit | Feature               |
+| --- | --------------------- |
+| 5   | `DebugVirtualization` |
+| 9   | `SecureTSC`           |
+
+The VMM MUST refuse to launch if `sev:features` sets a bit the table does not
+list. It MUST also refuse to launch if the host cannot enable a feature that
+`sev:features` sets.
+
+When `sev:features` sets `SecureTSC`, the VMM passes a host-supplied TSC
+frequency to `SNP_LAUNCH_START`. This value is not measured. A bad value can
+only make the guest's clock run fast or slow. The host already controls the
+guest's wall-clock time. A guest cannot rely on its clock for security. The
+value can therefore cause at most denial of service (see [Measured vs.
+host-controlled inputs](core.md#measured-vs-host-controlled-inputs)).
 
 ## Example
 
