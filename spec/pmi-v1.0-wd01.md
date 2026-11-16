@@ -76,7 +76,8 @@ from the host into the measured image, so that a compliant VMM produces a
 byte-identical launch measurement regardless of which host or hypervisor provisioned
 the machine. This specification defines the PMI core (the target shape, launch
 model, validation rules, and the `load` and `fill` actions) together with the
-registered extensions that make it usable: `cpu`, `vm`, `dt`, `sev`, and `tdx`.
+registered extensions that make it usable: `cpu`, `vm`, `dt`, `sev`, `tdx`, and
+`lbc`.
 
 ### Citation format
 
@@ -134,8 +135,9 @@ contributed to an OASIS TC; no OASIS copyright is asserted here. -->
 - [10 The dt Extension](#10-the-dt-extension)
 - [11 The sev Extension](#11-the-sev-extension)
 - [12 The tdx Extension](#12-the-tdx-extension)
-- [13 Safety, Security, and Data Protection Considerations](#13-safety-security-and-data-protection-considerations)
-- [14 Conformance](#14-conformance)
+- [13 The lbc Extension](#13-the-lbc-extension)
+- [14 Safety, Security, and Data Protection Considerations](#14-safety-security-and-data-protection-considerations)
+- [15 Conformance](#15-conformance)
 - [Annex A License, Document Status and Notices](#annex-a-license-document-status-and-notices)
 - [Annex B References](#annex-b-references)
 - [Annex C Extension Registry](#annex-c-extension-registry)
@@ -159,8 +161,8 @@ machine and how to communicate the virtual-machine platform definition safely,
 without sacrificing portability across targets, attestation measurements, or VMM
 implementations. This specification defines the PMI core — the target shape, the
 launch model, the validation rules, and the `load` and `fill` actions — and a set
-of registered extensions (`cpu`, `vm`, `dt`, `sev`, and `tdx`) that together provide
-enough functionality to launch a guest on each supported target.
+of registered extensions (`cpu`, `vm`, `dt`, `sev`, `tdx`, and `lbc`) that together
+provide enough functionality to launch a guest on each supported target.
 
 Higher-level concerns — image signing policy, registry distribution, guest
 operating-system behavior after boot, and the internal implementation of a PMI
@@ -1942,13 +1944,58 @@ kernel.
 
 ---
 
-# 13 Safety, Security, and Data Protection Considerations
+# 13 The `lbc` Extension
+
+**Prefix:** `lbc`. This is a registered extension (Annex C).
+
+The `lbc:bootconfig` fill supplies Linux boot configuration as a measured fill
+(Section 5.3.4.5). A PMI image **MAY** declare this fill; each target's action list
+**MUST** contain at most one.
+
+```cbor-diag
+{"type": "fill", "gpa": 0x2100000, "section": ".bconf",
+ "kind": "lbc:bootconfig"}
+```
+
+## 13.1 Wire Representation
+
+The fill **MUST** name a Zero section whose `VirtualSize` sets the reservation
+capacity. Placement and zero page padding follow the core `fill` (Section 5.3.4) and
+page granularity (Section 6) rules.
+
+For nonempty input, the VMM **MUST** place the complete native Linux bootconfig
+block at the end of the reservation and zero the unused prefix. It **MUST** reject
+input that exceeds the reservation capacity or native framing bounds:
+
+```text
+[unused zeros][bootconfig data and padding][size: LE32][checksum: LE32][#BOOTCONFIG\n]
+```
+
+The 12-byte magic ends exactly at the end of `VirtualSize`. Size counts the
+bootconfig data, including its NUL and padding; checksum is the sum of those bytes
+modulo 2^32.
+
+The format, alignment, padding, syntax, operators and limits follow upstream Linux
+bootconfig [LINUX-BOOTCONFIG], including its implementation and native tool.
+
+When input is absent or empty, the VMM **MUST** zero the entire reservation.
+
+## 13.2 Linux Handoff
+
+An image declaring this fill **MUST** pass the supplied block through Linux's native
+bootconfig path, providing kernel support, activation, appropriate initrd bounds,
+and the `/proc/bootconfig` interface. Linux handles parsing, interpretation,
+exposure and errors. Consumers are responsible for checking settings they require.
+
+---
+
+# 14 Safety, Security, and Data Protection Considerations
 
 PMI is a boot-image format whose central purpose is to strengthen the security
 posture of virtual machines, particularly confidential virtual machines. The
 following considerations apply.
 
-## 13.1 Threat Model
+## 14.1 Threat Model
 
 On confidential targets (`sev`, `tdx`), the host and the VMM are untrusted. The
 guest's security rests on the launch measurement and the target's attestation
@@ -1959,7 +2006,7 @@ deviation can cause at most denial of service. Any input a malicious host could
 exploit beyond denial of service **MUST** be measured, attested in a verifier-checked
 report field, or validated by the guest.
 
-## 13.2 Attestation Portability Invariant
+## 14.2 Attestation Portability Invariant
 
 Every extension that participates in a target's launch measurement **MUST** preserve
 the invariant of Section 4.2: image-controlled bytes alone determine the measurement,
@@ -1968,7 +2015,7 @@ image. A violation of this invariant does not weaken confidentiality directly, b
 breaks the ability of a remote verifier to appraise a measurement against a
 predictable reference value, undermining attestation in practice.
 
-## 13.3 Host-Supplied Overlay
+## 14.3 Host-Supplied Overlay
 
 The devicetree overlay (`dt:dtbo`, Section 10.3) is unmeasured and, on confidential
 targets, adversarial. The guest is its sole security boundary and **MUST** validate
@@ -1979,14 +2026,14 @@ resource-allocation nodes (Section 10.3.1); CPU identity and features **MUST** b
 derived from architectural registers and attestation reports, never from the
 host-supplied `compatible` property.
 
-## 13.4 Strict Decoding and Fail-Safe Behavior
+## 14.4 Strict Decoding and Fail-Safe Behavior
 
 PMI decodes every CBOR map in strict mode: an unknown key, action type, or kind
 causes the launch to fail rather than proceed with a subtly misconfigured VM
 (Sections 5.2, 7.2). Guests **MUST** fail safe (halt) on any validation failure
 rather than proceeding or crashing (Section 10.6).
 
-## 13.5 Signing and Identity
+## 14.5 Signing and Identity
 
 The `sev:id` attribute (Section 11.2) carries a signed launch identity enforced by
 the PSP at `SNP_LAUNCH_FINISH`. TDX does not carry image-side signed identity in
@@ -1995,7 +2042,7 @@ attestation report. Image signing at the PE level (for example via `sbsign` for 
 UEFI/UKI path) is independent of and complementary to these mechanisms and is out of
 scope for this specification.
 
-## 13.6 Data Protection and Privacy
+## 14.6 Data Protection and Privacy
 
 PMI images carry boot code and platform definitions, not personal data, and PMI
 defines no processing of personally identifiable information. No specific data
@@ -2003,15 +2050,15 @@ protection or privacy considerations arise from the format itself.
 
 ---
 
-# 14 Conformance
+# 15 Conformance
 
 An implementation conforms to this specification as one or more of the following
 conformance targets. A conformance claim **MUST** identify the PMI target(s)
 (`vm`, `sev`, `tdx`) and role(s) for which conformance is claimed.
 
-## 14.1 Conformance Targets
+## 15.1 Conformance Targets
 
-**14.1.1 Conformant PMI image (Producer).** A PMI image is conformant with respect
+**15.1.1 Conformant PMI image (Producer).** A PMI image is conformant with respect
 to a named PMI target if it is a valid Portable Executable that carries a
 `.pmi.<target>` section whose CBOR document satisfies the core target shape
 (Section 5.1.1), the requirements of that target's extension section (Sections
@@ -2019,7 +2066,7 @@ to a named PMI target if it is a valid Portable Executable that carries a
 (Section 7.2), and if every requirement stated with **MUST**/**SHALL**/**REQUIRED**
 for a producer of that target is satisfied.
 
-**14.1.2 Conformant VMM.** A VMM is conformant with respect to a named PMI target if,
+**15.1.2 Conformant VMM.** A VMM is conformant with respect to a named PMI target if,
 for every conformant PMI image carrying that target, it performs the launch model
 for that target (Section 5.1.2 as specialized in Sections 9–12), enforces every
 validation rule stated with **MUST**/**SHALL** (Section 5.2 and the target's
@@ -2027,12 +2074,12 @@ additional rules), refuses to launch in every case this specification requires
 refusal, and preserves the measurement-determinism (Section 5.3.2) and attestation
 portability (Section 4.2) invariants on targets that produce a launch measurement.
 
-**14.1.3 Conformant guest.** A guest is conformant with respect to a named PMI target
+**15.1.3 Conformant guest.** A guest is conformant with respect to a named PMI target
 if it treats measured and host-controlled inputs as required by Section 5.4 and, when
 a `dt:dtbo` overlay is present, validates and merges it as required by Section 10.6,
 including the address validation of Section 10.6.1, failing safe on any violation.
 
-## 14.2 Interpreting Requirements
+## 15.2 Interpreting Requirements
 
 A conformant implementation **MUST NOT** claim conformance to a target it only
 partially implements. Requirements expressed against a "conformant host" that are not
@@ -2218,6 +2265,13 @@ architecture*, DDI 0487. [Online]. Available:
 https://developer.arm.com/documentation/ddi0487/latest
 <!-- EDITOR NOTE: cite the specific issue/edition relied upon. -->
 
+**[LINUX-BOOTCONFIG]** The Linux kernel developers, *Boot Configuration*, with its
+implementation (`lib/bootconfig.c`) and native tool (`tools/bootconfig`). [Online].
+Available: https://docs.kernel.org/admin-guide/bootconfig.html,
+https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/lib/bootconfig.c,
+https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/tools/bootconfig
+<!-- EDITOR NOTE: cite a specific kernel release for a normative reference. -->
+
 ## B.2 Informative References
 
 The following referenced documents are not required for the application of this
@@ -2257,6 +2311,7 @@ request against the PMI specification repository.
 | `dt`   | Section 10  | Image base DTB + host overlay (split-trust)        |
 | `sev`  | Section 11  | AMD SEV 3.0 (SEV-SNP) confidential VMs             |
 | `tdx`  | Section 12  | Intel TDX confidential VMs (draft; see Appendix 3) |
+| `lbc`  | Section 13  | Measured Linux bootconfig                          |
 
 ---
 
