@@ -67,17 +67,16 @@ Portable Machine Image (PMI) is a file format for distributing an operating
 system's early boot code — Linux kernels, guest firmware, bootloaders,
 paravisors, and Confidential Computing service modules — as a single artifact
 that boots unchanged on bare metal, in a traditional virtual machine, and in a
-confidential virtual machine on AMD SEV-SNP, Intel TDX, and Arm CCA. PMI is an
-additive layer on the Portable Executable (PE) format: it adds non-loaded PE
-sections that a PMI-aware Virtual Machine Monitor (VMM) reads to compose and
-launch a guest, and that non-PMI loaders ignore. PMI moves the declaration of
-the guest platform — CPU features, initial register state, platform
-description, and first-executed bytes — from the host into the measured image,
-so that a compliant VMM produces a byte-identical launch measurement regardless
-of which host or hypervisor provisioned the machine. This specification defines
-the PMI core (the target shape, launch model, validation rules, and the `load`
-and `fill` actions) together with the registered extensions that make it usable:
-`cpu`, `vm`, `dt`, `sev`, `tdx`, and `cca`.
+confidential virtual machine on AMD SEV-SNP and Intel TDX. PMI is an additive layer
+on the Portable Executable (PE) format: it adds non-loaded PE sections that a
+PMI-aware Virtual Machine Monitor (VMM) reads to compose and launch a guest, and
+that non-PMI loaders ignore. PMI moves the declaration of the guest platform — CPU
+features, initial register state, platform description, and first-executed bytes —
+from the host into the measured image, so that a compliant VMM produces a
+byte-identical launch measurement regardless of which host or hypervisor provisioned
+the machine. This specification defines the PMI core (the target shape, launch
+model, validation rules, and the `load` and `fill` actions) together with the
+registered extensions that make it usable: `cpu`, `vm`, `dt`, `sev`, and `tdx`.
 
 ### Citation format
 
@@ -135,9 +134,8 @@ contributed to an OASIS TC; no OASIS copyright is asserted here. -->
 - [10 The dt Extension](#10-the-dt-extension)
 - [11 The sev Extension](#11-the-sev-extension)
 - [12 The tdx Extension](#12-the-tdx-extension)
-- [13 The cca Extension](#13-the-cca-extension)
-- [14 Safety, Security, and Data Protection Considerations](#14-safety-security-and-data-protection-considerations)
-- [15 Conformance](#15-conformance)
+- [13 Safety, Security, and Data Protection Considerations](#13-safety-security-and-data-protection-considerations)
+- [14 Conformance](#14-conformance)
 - [Annex A License, Document Status and Notices](#annex-a-license-document-status-and-notices)
 - [Annex B References](#annex-b-references)
 - [Annex C Extension Registry](#annex-c-extension-registry)
@@ -152,17 +150,17 @@ contributed to an OASIS TC; no OASIS copyright is asserted here. -->
 This specification defines Portable Machine Image (PMI), a container format for
 an operating system's early boot code that is designed to boot unchanged across
 bare metal, traditional virtual machines, and confidential virtual machines on
-AMD SEV-SNP, Intel TDX, and Arm CCA. PMI is defined as an additive layer on the
-Portable Executable (PE) format; it adds non-loaded PE sections that a PMI-aware
-VMM reads and that non-PMI loaders ignore.
+AMD SEV-SNP and Intel TDX. PMI is defined as an additive layer on the Portable
+Executable (PE) format; it adds non-loaded PE sections that a PMI-aware VMM reads
+and that non-PMI loaders ignore.
 
 PMI is intentionally narrow. It specifies how to load pages into a virtual
 machine and how to communicate the virtual-machine platform definition safely,
 without sacrificing portability across targets, attestation measurements, or VMM
 implementations. This specification defines the PMI core — the target shape, the
 launch model, the validation rules, and the `load` and `fill` actions — and a set
-of registered extensions (`cpu`, `vm`, `dt`, `sev`, `tdx`, and `cca`) that
-together provide enough functionality to launch a guest on each supported target.
+of registered extensions (`cpu`, `vm`, `dt`, `sev`, and `tdx`) that together provide
+enough functionality to launch a guest on each supported target.
 
 Higher-level concerns — image signing policy, registry distribution, guest
 operating-system behavior after boot, and the internal implementation of a PMI
@@ -193,8 +191,7 @@ This document uses the following terms defined elsewhere:
   by [RFC8949], used to encode PMI target documents.
 - **Launch measurement**: A cryptographic digest produced by confidential-compute
   hardware or firmware over the initial guest state, used as the basis of remote
-  attestation. Realized per target as the SEV-SNP launch digest, the TDX MRTD, or
-  the CCA Realm Initial Measurement (RIM).
+  attestation. Realized per target as the SEV-SNP launch digest or the TDX MRTD.
 
 ### 2.1.2 Terms Defined in This Document
 
@@ -246,9 +243,6 @@ This document uses the following abbreviations and acronyms:
 - **OVMF**: Open Virtual Machine Firmware
 - **PE / PE/COFF**: Portable Executable / Common Object File Format
 - **PSP**: Platform Security Processor (AMD)
-- **REC**: Realm Execution Context (Arm CCA)
-- **RIM**: Realm Initial Measurement (Arm CCA)
-- **RMM**: Realm Management Monitor (Arm CCA)
 - **SEV-SNP**: Secure Encrypted Virtualization – Secure Nested Paging (AMD)
 - **SVSM**: Secure VM Service Module (e.g., COCONUT-SVSM)
 - **TDX**: Trust Domain Extensions (Intel)
@@ -274,7 +268,7 @@ shown here.
 
 Fixed-width (`monospace`) font denotes PE section names (for example `.pmi.vm`),
 CBOR keys and values (for example `cpu:profile`, `"load"`), firmware ABI symbols
-(for example `SNP_LAUNCH_UPDATE`, `RMI_DATA_CREATE`), and register names.
+(for example `SNP_LAUNCH_UPDATE`), and register names.
 
 Schema fragments are given in Concise Data Definition Language (CDDL) [RFC8610] in
 fenced code blocks marked `cddl`. Illustrative target documents are given in CBOR
@@ -480,7 +474,7 @@ A PMI **target** is a launch recipe: a CBOR-encoded specification, carried in a
 VM. Different targets express different launch paths:
 
 1. a traditional virtual machine;
-2. a confidential virtual machine on AMD SEV, Arm CCA, or Intel TDX.
+2. a confidential virtual machine on AMD SEV or Intel TDX.
 
 A single PMI image **MAY** support multiple targets, one `.pmi.<target>` section
 per target; a VMM reads only the section for the target it launches. Distinct
@@ -708,12 +702,11 @@ only when that value is authored by a trusted party (see Section 10.7).
 **Host-controlled, unmeasured inputs** are those a VMM supplies that do not enter
 the launch measurement: resource allocation (the `dt` overlay, Section 10), and
 per-target launch configuration such as TDX `TD_PARAMS` (including `XFAM` and
-`CPUID_VALUES`), SEV's launch policy, `host_data`, and CPUID-page contents, the
-unmeasured `RmiRealmParams` subset on CCA, and the initial register state where the
-platform fixes it. For these, a "the VMM **MUST** …" requirement in this
-specification describes a *conformant* host; the launch measurement does not
-enforce it, and a non-conformant or malicious host can violate it undetected by the
-measurement.
+`CPUID_VALUES`), SEV's launch policy, `host_data`, and CPUID-page contents, and the
+initial register state where the platform fixes it. For these, a "the VMM **MUST**
+…" requirement in this specification describes a *conformant* host; the launch
+measurement does not enforce it, and a non-conformant or malicious host can violate
+it undetected by the measurement.
 
 An input is permitted to be host-controlled and unmeasured only when a host
 deviation can cause at most denial of service, which a host can always inflict
@@ -733,8 +726,7 @@ by the guest. Accordingly:
 A guest **MUST NOT** assume an unmeasured "MUST" was honored. Where it depends on
 an unmeasured property beyond denial of service, it **MUST** verify it and fail
 safe, drawing on an authoritative architectural source: `CPUID` and the ID
-registers (`MIDR_EL1`, `ID_AA64*`), `TDCALL[TDG.VP.INFO]`, `RSI_REALM_CONFIG`, or
-the validated overlay.
+registers (`MIDR_EL1`, `ID_AA64*`), `TDCALL[TDG.VP.INFO]`, or the validated overlay.
 
 ---
 
@@ -794,7 +786,7 @@ contiguously within a 2M-aligned region (including the freed tail of a large
 section, above). The benefit is target-specific: on SEV a VMM **MAY** then submit a
 densely-filled 2M-aligned region as a single 2M `SNP_LAUNCH_UPDATE` (fewer PSP
 round-trips; the launch digest is unchanged, being computed per 4K), and any target
-**MAY** back the dense region with a 2M guest page. On TDX and CCA the measured-load
+**MAY** back the dense region with a 2M guest page. On TDX the measured-load
 primitive is 4K-granular, so packing does not reduce the number of target API
 calls.
 
@@ -1505,8 +1497,7 @@ reads from, writes to, or branches through at a host-chosen location. The guest
   the guest physical or IPA width without overflow. That width comes from the
   architectural or target source: `CPUID Fn8000_0008_EAX` (x86-64, reduced by
   `Fn8000_001F_EBX` under SEV), the TD `GPAW` from `TDCALL[TDG.VP.INFO]` (TDX),
-  `ID_AA64MMFR0_EL1.PARange` (aarch64 `vm`), or the realm IPA width from
-  `RSI_REALM_CONFIG` (CCA). It is never a hardcoded constant.
+  or `ID_AA64MMFR0_EL1.PARange` (aarch64 `vm`). It is never a hardcoded constant.
 
 - **No overlap.** Host `/memory@*` regions are pairwise disjoint, and disjoint from
   every base-declared `reg` region and from the guest-physical ranges holding the
@@ -1939,197 +1930,16 @@ kernel.
 
 ---
 
-# 13 The `cca` Extension
-
-**Prefix:** `cca`. This is a registered extension (Annex C). **This extension is a
-draft; see Appendix 3.**
-
-The `cca` extension provides the essential functionality for launching a PMI as a
-confidential virtual machine on Arm CCA (Confidential Compute Architecture). It
-defines two extension points:
-
-1. the new target `.pmi.cca` (Section 13.1);
-2. the new target attribute `cca:vcpu` (Section 13.2).
-
-The `cca` target is built on `vm` (Section 9): it inherits vm's base launch model
-and admits the `load` (Section 5.3.3) and `fill` (Section 5.3.4) actions with
-CCA-specific kinds.
-
-## 13.1 New Target: `.pmi.cca`
-
-The `.pmi.cca` PE section carries the `cca` target spec, subject to the page
-granularity rules (Section 6).
-
-### 13.1.1 Launch Model
-
-The `cca` target follows the core launch model (Section 5.1.2), layering the Arm CCA
-firmware ABI onto the five ordered steps:
-
-1. Read the `.pmi.cca` PE section.
-2. `RMI_REALM_CREATE` then `RMI_REC_CREATE` for the BSP. `RmiRealmParams` is
-   constructed per Section 13.1.4: its measured subset is derived from PMI image
-   data, and its unmeasured subset is host-supplied. The BSP REC is initialized from
-   `cca:vcpu` (see Section 13.2).
-3. Process each entry in `actions` in array order. A measured `default` load uses
-   `RMI_DATA_CREATE` with its content extended into RIM; a Zero section (reserved
-   memory) uses `RMI_DATA_CREATE_UNKNOWN` (zeroed private memory, unmeasured). The
-   unmeasured `dt:dtbo` overlay uses `RMI_DATA_CREATE` with the measure flag
-   (`RmiDataFlags.measure`) clear, placing host content in private memory without
-   extending RIM (see Section 10).
-4. `RMI_REALM_ACTIVATE`, which locks RIM.
-5. Start the guest.
-
-RIM extension is reproducible from the image bytes per the order fixed by
-Section 5.3.2.
-
-### 13.1.2 Keys
-
-The `.pmi.cca` CBOR map follows the core target shape (Section 5.1.1). Its `version`
-**MUST** be `1`. It adds two required keys:
-
-- **`cca:vcpu`**: BSP REC parameters (see Section 13.2).
-- **`cpu:profile`**: vCPU ISA baseline (see Section 8).
-
-### 13.1.3 Validation
-
-The core validation rules (Section 5.2) apply. The `cca` target adds no further
-validation rules.
-
-### 13.1.4 Realm Parameters
-
-`RMI_REALM_CREATE` consumes an `RmiRealmParams` structure. PMI splits it into a
-measured subset (folded into RIM per DEN0137 §B4.3.9.4 `RmiRealmParamsMeasured`) and
-an unmeasured subset. The measured subset **MUST** be a deterministic function of the
-PMI image so that RIM is portable across compliant VMMs, per the core attestation
-invariant (Section 4.2). The unmeasured subset **MAY** be host-supplied via
-VMM-defined input (CLI flag, config file, etc.); PMI does not carry it.
-
-CCA does not currently define a signed launch identity equivalent to SEV's `sev:id`.
-The PMI image carries no identity material; verifiers bind to RIM plus the Realm
-Token.
-
-#### 13.1.4.1 Measured Fields
-
-The measured subset comprises `flags`, `s2sz`, `sve_vl`, `num_bps`, `num_wps`,
-`pmu_num_ctrs`, `hash_algo`, and `rpv`. This draft pins the profile-derived fields
-as shown in Table V.
-
-**Table V:** Profile-derived measured `RmiRealmParams` fields.
-
-| Field          | Value                                   | Source                                     |
-| :------------- | :-------------------------------------- | :----------------------------------------- |
-| `flags.sve_en` | `true` iff `cpu:profile` is `armv9.x-a` | SVE/SVE2 mandatory from Armv9-A            |
-| `sve_vl`       | 128 when `flags.sve_en`; otherwise 0    | Minimum legal value satisfying the profile |
-
-The remaining measured fields (`flags.lpa2_en`, `flags.pmu_en`, `s2sz`, `num_bps`,
-`num_wps`, `pmu_num_ctrs`, `hash_algo`, `rpv`) are not yet pinned by this draft. See
-Section 13.1.4.3.
-
-#### 13.1.4.2 Unmeasured Fields
-
-All other `RmiRealmParams` fields, including `vmid`, `rtt_base`, `rtt_level`,
-`rtt_num_start`, and the REC count, are unmeasured and **MAY** be host-supplied via
-VMM-defined input. They **MAY** vary per deployment without perturbing RIM.
-
-#### 13.1.4.3 Open Measured Fields
-
-The following measured fields require deployment-domain expertise before they can be
-pinned. Until they are, leaving them host-supplied violates the attestation
-invariant (Section 4.2); this draft is therefore not fully invariant-compliant for
-the `cca` target.
-
-- `flags.lpa2_en`: whether the realm enables FEAT_LPA2 (52-bit addressing with 4 KiB
-  / 16 KiB granules). FEAT_LPA2 is optional in every current Arm-A revision, so no
-  profile mandates it; the choice is policy.
-- `flags.pmu_en` / `pmu_num_ctrs`: whether the realm gets PMU access, and with how
-  many counters. May warrant an image-author knob (e.g., a future `cpu:pmu`
-  extension or `cca:pmu` attribute).
-- `s2sz`: stage-2 IPA size (40 / 42 / 44 / 48 / 52 bits, subject to FEAT_LPA /
-  FEAT_LPA2 availability). Bounds the realm's maximum IPA.
-- `num_bps` / `num_wps`: breakpoint and watchpoint counts. The Arm-A architectural
-  minimum is 6 / 4; realms may need more for debuggable builds.
-- `hash_algo`: SHA-256 vs SHA-512 for RIM. Determines what every downstream verifier
-  must recompute.
-- `rpv`: 64-byte Realm Personalization Value; image-owned identity material.
-
-### 13.1.5 `load`
-
-On `cca`, the `default` kind submits the section's granules via `RMI_DATA_CREATE`.
-The granule content is copied from a non-secure source granule to the destination
-granule, hashed, and the hash is extended into RIM.
-
-RIM is extended at the fixed 4 KiB granule granularity, binding each granule's
-content and IPA; this is independent of the page size the VMM uses to back or map
-guest memory. Granules are submitted in `actions` array order, and within a section
-in ascending IPA order, so RIM is reproducible from the image bytes (see
-Section 5.3.2).
-
-### 13.1.6 `cpu:profile`
-
-`cpu:profile` drives the SVE enable bit in `RmiRealmParams.flags` and the
-`RmiRealmParams.sve_vl` field per the measured-fields mapping (Section 13.1.4.1).
-Because these fields enter RIM, the profile is a ceiling here as well as a floor: the
-VMM **MUST** set them deterministically from the profile so RIM is portable across
-compliant VMMs. Features mandated by the profile that the host implementation cannot
-satisfy cause `RMI_REALM_CREATE` to fail; the VMM **MUST** refuse to launch.
-
-The realm reads other CPU features from the architectural ID registers via the
-trusted RMM. The host does not synthesize them, so it cannot over-claim, and the SVE
-floor lives in measured RIM with `RMI_REALM_CREATE` refusing an unsatisfiable
-request. The host thus has no deviation here beyond denial of service (see
-Section 5.4).
-
-## 13.2 New Target Attribute: `cca:vcpu`
-
-The `cca:vcpu` field carries the BSP REC parameters the VMM applies at launch step 2
-via `RMI_REC_CREATE`. The schema is vm's `vcpu-aarch64` (Section 9.4); CCA is
-aarch64 only.
-
-The BSP REC is created with `runnable = RUNNABLE`. Its parameters (notably PC, GPRs,
-and the system registers exposed by `vcpu-aarch64`) are measured into RIM. Secondary
-RECs are created non-runnable by the VMM (independent of PMI) and brought up at
-runtime by the realm via `PSCI_CPU_ON`.
-
-## 13.3 Example (Informative)
-
-A `.pmi.cca` that loads a kernel payload, supplies a host devicetree, and sets the
-BSP REC parameters:
-
-```cbor-diag
-{
-  "version": 1,
-  "cpu:profile": "armv9.2-a",
-  "cca:vcpu": {"pc": 0x100000, "x0": 0x80000, "pstate": 0x5},
-  "dt:dtb": ".dtb",
-  "actions": [
-    {"type": "load", "gpa": 0x100000,  "section": ".linux"},
-    {"type": "load", "gpa": 0x1000000, "section": ".initrd"},
-    {"type": "load", "gpa": 0x2000000, "section": ".cmdline"},
-    {"type": "load", "gpa": 0x2001000, "section": ".dtb"},
-    {"type": "fill", "gpa": 0x2011000, "section": ".dtbo", "kind": "dt:dtbo"}
-  ]
-}
-```
-
-After `RMI_REALM_CREATE` and `RMI_REC_CREATE` (applying `cca:vcpu` to the BSP REC),
-each `default` load submits granules via `RMI_DATA_CREATE`, extending RIM with
-`.linux`, `.initrd`, `.cmdline`, and the base `.dtb`. The `.dtbo` is placed as an
-unmeasured granule for the realm to validate and merge. `RMI_REALM_ACTIVATE` locks
-RIM, and the realm starts at the BSP REC's `pc`, where it validates and consumes the
-devicetree before booting the kernel.
-
----
-
-# 14 Safety, Security, and Data Protection Considerations
+# 13 Safety, Security, and Data Protection Considerations
 
 PMI is a boot-image format whose central purpose is to strengthen the security
 posture of virtual machines, particularly confidential virtual machines. The
 following considerations apply.
 
-## 14.1 Threat Model
+## 13.1 Threat Model
 
-On confidential targets (`sev`, `tdx`, `cca`), the host and the VMM are untrusted.
-The guest's security rests on the launch measurement and the target's attestation
+On confidential targets (`sev`, `tdx`), the host and the VMM are untrusted. The
+guest's security rests on the launch measurement and the target's attestation
 report, not on any host-side check. The core distinction between measured and
 host-controlled inputs (Section 5.4) is the load-bearing security property of this
 specification: an input may be left host-controlled and unmeasured only when a host
@@ -2137,7 +1947,7 @@ deviation can cause at most denial of service. Any input a malicious host could
 exploit beyond denial of service **MUST** be measured, attested in a verifier-checked
 report field, or validated by the guest.
 
-## 14.2 Attestation Portability Invariant
+## 13.2 Attestation Portability Invariant
 
 Every extension that participates in a target's launch measurement **MUST** preserve
 the invariant of Section 4.2: image-controlled bytes alone determine the measurement,
@@ -2146,12 +1956,7 @@ image. A violation of this invariant does not weaken confidentiality directly, b
 breaks the ability of a remote verifier to appraise a measurement against a
 predictable reference value, undermining attestation in practice.
 
-The `cca` target is not yet fully invariant-compliant, because several measured
-`RmiRealmParams` fields remain unpinned (Section 13.1.4.3). Deployments relying on
-predictable CCA attestation **SHOULD** treat this as an open risk until those fields
-are pinned.
-
-## 14.3 Host-Supplied Overlay
+## 13.3 Host-Supplied Overlay
 
 The devicetree overlay (`dt:dtbo`, Section 10.3) is unmeasured and, on confidential
 targets, adversarial. The guest is its sole security boundary and **MUST** validate
@@ -2162,23 +1967,23 @@ resource-allocation nodes (Section 10.3.1); CPU identity and features **MUST** b
 derived from architectural registers and attestation reports, never from the
 host-supplied `compatible` property.
 
-## 14.4 Strict Decoding and Fail-Safe Behavior
+## 13.4 Strict Decoding and Fail-Safe Behavior
 
 PMI decodes every CBOR map in strict mode: an unknown key, action type, or kind
 causes the launch to fail rather than proceed with a subtly misconfigured VM
 (Sections 5.2, 7.2). Guests **MUST** fail safe (halt) on any validation failure
 rather than proceeding or crashing (Section 10.6).
 
-## 14.5 Signing and Identity
+## 13.5 Signing and Identity
 
 The `sev:id` attribute (Section 11.2) carries a signed launch identity enforced by
-the PSP at `SNP_LAUNCH_FINISH`. TDX and CCA do not carry image-side signed identity
-in this version; verifiers bind to the target measurement (MRTD, RIM) plus the
-target's attestation report. Image signing at the PE level (for example via `sbsign`
-for the UEFI/UKI path) is independent of and complementary to these mechanisms and is
-out of scope for this specification.
+the PSP at `SNP_LAUNCH_FINISH`. TDX does not carry image-side signed identity in
+this version; verifiers bind to the target measurement (MRTD) plus the target's
+attestation report. Image signing at the PE level (for example via `sbsign` for the
+UEFI/UKI path) is independent of and complementary to these mechanisms and is out of
+scope for this specification.
 
-## 14.6 Data Protection and Privacy
+## 13.6 Data Protection and Privacy
 
 PMI images carry boot code and platform definitions, not personal data, and PMI
 defines no processing of personally identifiable information. No specific data
@@ -2186,36 +1991,36 @@ protection or privacy considerations arise from the format itself.
 
 ---
 
-# 15 Conformance
+# 14 Conformance
 
 An implementation conforms to this specification as one or more of the following
 conformance targets. A conformance claim **MUST** identify the PMI target(s)
-(`vm`, `sev`, `tdx`, `cca`) and role(s) for which conformance is claimed.
+(`vm`, `sev`, `tdx`) and role(s) for which conformance is claimed.
 
-## 15.1 Conformance Targets
+## 14.1 Conformance Targets
 
-**15.1.1 Conformant PMI image (Producer).** A PMI image is conformant with respect
+**14.1.1 Conformant PMI image (Producer).** A PMI image is conformant with respect
 to a named PMI target if it is a valid Portable Executable that carries a
 `.pmi.<target>` section whose CBOR document satisfies the core target shape
 (Section 5.1.1), the requirements of that target's extension section (Sections
-9–13), the page-granularity rules (Section 6), and the namespacing rules
+9–12), the page-granularity rules (Section 6), and the namespacing rules
 (Section 7.2), and if every requirement stated with **MUST**/**SHALL**/**REQUIRED**
 for a producer of that target is satisfied.
 
-**15.1.2 Conformant VMM.** A VMM is conformant with respect to a named PMI target if,
+**14.1.2 Conformant VMM.** A VMM is conformant with respect to a named PMI target if,
 for every conformant PMI image carrying that target, it performs the launch model
-for that target (Section 5.1.2 as specialized in Sections 9–13), enforces every
+for that target (Section 5.1.2 as specialized in Sections 9–12), enforces every
 validation rule stated with **MUST**/**SHALL** (Section 5.2 and the target's
 additional rules), refuses to launch in every case this specification requires
 refusal, and preserves the measurement-determinism (Section 5.3.2) and attestation
 portability (Section 4.2) invariants on targets that produce a launch measurement.
 
-**15.1.3 Conformant guest.** A guest is conformant with respect to a named PMI target
+**14.1.3 Conformant guest.** A guest is conformant with respect to a named PMI target
 if it treats measured and host-controlled inputs as required by Section 5.4 and, when
 a `dt:dtbo` overlay is present, validates and merges it as required by Section 10.6,
 including the address validation of Section 10.6.1, failing safe on any violation.
 
-## 15.2 Interpreting Requirements
+## 14.2 Interpreting Requirements
 
 A conformant implementation **MUST NOT** claim conformance to a target it only
 partially implements. Requirements expressed against a "conformant host" that are not
@@ -2401,10 +2206,6 @@ architecture*, DDI 0487. [Online]. Available:
 https://developer.arm.com/documentation/ddi0487/latest
 <!-- EDITOR NOTE: cite the specific issue/edition relied upon. -->
 
-**[DEN0137]** Arm Limited, *Realm Management Monitor (RMM) Specification*, DEN0137.
-[Online]. Available: https://developer.arm.com/documentation/den0137/latest
-<!-- EDITOR NOTE: cite the specific version; §B4.3.9.4 is referenced by the cca target. -->
-
 ## B.2 Informative References
 
 The following referenced documents are not required for the application of this
@@ -2435,7 +2236,7 @@ a prefix (used per the namespacing rules of Section 7.2) and is defined by the
 corresponding section of this specification. To register a new extension, open a pull
 request against the PMI specification repository.
 
-**Table VI:** Registered PMI extensions.
+**Table V:** Registered PMI extensions.
 
 | Prefix | Defined in  | Description                                        |
 | :----- | :---------- | :------------------------------------------------- |
@@ -2444,7 +2245,6 @@ request against the PMI specification repository.
 | `dt`   | Section 10  | Image base DTB + host overlay (split-trust)        |
 | `sev`  | Section 11  | AMD SEV 3.0 (SEV-SNP) confidential VMs             |
 | `tdx`  | Section 12  | Intel TDX confidential VMs (draft; see Appendix 3) |
-| `cca`  | Section 13  | Arm CCA confidential VMs (draft; see Appendix 3)   |
 
 ---
 
@@ -2508,22 +2308,16 @@ changes from a previous version.
 (This appendix does not form an integral part of this Specification and is
 informational.)
 
-Two targets in this specification are explicitly marked as drafts by the upstream
-source material and are reproduced here for completeness and early review. A future
-TC should decide, before advancing this document beyond a Working Draft, whether
-they are ready to be normative at the same maturity as the `vm` and `sev` targets,
-or whether they should be split into a separate work product.
+One target in this specification is explicitly marked as a draft by the upstream
+source material and is reproduced here for completeness and early review. A future
+TC should decide, before advancing this document beyond a Working Draft, whether it
+is ready to be normative at the same maturity as the `vm` and `sev` targets, or
+whether it should be split into a separate work product.
 
 - **`tdx` (Section 12).** Marked "draft" upstream. The mechanism is complete, but the
   requirement that the image carry a measured PMI consumer at the reset vector
   (Section 12.1.5) implies a companion consumer specification that is currently out of
   scope.
-
-- **`cca` (Section 13).** Marked "draft" upstream and, more significantly, **not yet
-  fully compliant with the attestation portability invariant** (Section 4.2): several
-  measured `RmiRealmParams` fields remain unpinned (Section 13.1.4.3). Until those
-  fields are pinned, RIM is not guaranteed to be portable across compliant VMMs for
-  the `cca` target.
 
 <!-- EDITOR NOTE: The following line marks the end of the document per the OASIS
 template. -->
