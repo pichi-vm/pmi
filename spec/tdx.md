@@ -89,6 +89,12 @@ For each page whose content is measured, it MUST submit `TDH.MEM.PAGE.ADD`,
 then all sixteen `TDH.MR.EXTEND` operations in ascending offset order
 (0, 256, …, 3840), before advancing to the next page.
 
+### Guest physical address width
+
+The guest physical address width is one less than `GPAW`, which
+`TDCALL[TDG.VP.INFO]` returns in `RCX[5:0]`. Bit `GPAW - 1` is the shared bit:
+it is set for shared pages and clear for private pages.
+
 ### `cpu:profile`
 
 The VMM builds `XFAM` and `CPUID_VALUES` in `TD_PARAMS` from the profile and

@@ -142,6 +142,15 @@ The VMM MUST submit exactly one VMSA, the BSP's, via `SNP_LAUNCH_UPDATE` with
 GPA, page type, and content, so the launch digest binds the BSP's initial
 register state. No action places the VMSA, so this spec fixes its GPA.
 
+### Guest physical address width
+
+The guest physical address width is the
+[x86-64 width](x86-64.md#guest-physical-address-width), or the C-bit position,
+`CPUID Fn8000_001F_EBX[5:0]` (`CbitPosition`), if that is smaller. A guest marks
+its private pages with the C-bit, so no guest address may set it. The physical
+address reduction in `CPUID Fn8000_001F_EBX[PhysAddrReduction]` does not apply
+to a guest.
+
 ### `cpu:profile`
 
 The VMM populates the CPUID page (via the

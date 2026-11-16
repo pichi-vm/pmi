@@ -84,6 +84,9 @@ of this specification and of its extensions:
 - [x86-64](x86-64.md)
 - [aarch64](aarch64.md)
 
+The guest physical address width is the one the guest's architecture document
+defines, except where its target's spec defines another.
+
 ## Validation
 
 A VMM MUST refuse to launch on any of:
