@@ -1469,12 +1469,13 @@ out-of-band, tenant-authored base into it (measured):
 **Prefix:** `sev`. This is a registered extension (Annex C).
 
 The `sev` extension provides the essential functionality for launching a PMI as a
-virtual machine on AMD SEV (3.0+; a.k.a. SEV-SNP). It defines four extension points:
+virtual machine on AMD SEV (3.0+; a.k.a. SEV-SNP). It defines five extension points:
 
 1. the new target `.pmi.sev` (Section 11.1);
 2. the new target attribute `sev:id` (Section 11.2);
 3. the new `fill` kind `sev:secrets` (Section 11.3);
-4. the new `fill` kind `sev:cpuid` (Section 11.4).
+4. the new `fill` kind `sev:cpuid` (Section 11.4);
+5. the new target attribute `sev:features` (Section 11.5).
 
 ## 11.1 New Target: `.pmi.sev`
 
@@ -1487,7 +1488,9 @@ The `sev` target follows the core launch model (Section 5.1.2), layering the
 SEV-SNP firmware ABI onto it in six ordered steps:
 
 1. Read the `.pmi.sev` PE section.
-2. `SNP_LAUNCH_START` with the host-supplied launch policy (see Section 11.1.4).
+2. `SNP_LAUNCH_START` with the host-supplied launch policy (see Section 11.1.4). If
+   `sev:features` sets `SecureTSC`, also pass the host-supplied TSC frequency (see
+   Section 11.5).
 3. Process each entry in `actions` in array order using the `load` (Section 11.1.5),
    `fill` (Section 11.1.6), and target-specific kind operations defined below.
 4. Submit the BSP's VMSA (see Section 11.1.8).
@@ -1501,12 +1504,14 @@ The `.pmi.sev` CBOR map follows the core target shape (Section 5.1.1). Its `vers
 **MUST** be `1`. It adds the following keys:
 
 - **`cpu:profile`**: vCPU ISA baseline (required; see Section 8).
+- **`sev:features`**: SEV-SNP features to enable (optional; see Section 11.5).
 - **`sev:id`**: signed launch identity (optional; see Section 11.2).
 
 ### 11.1.3 Validation
 
 The core validation rules (Section 5.3) apply. The `sev` target adds the
-`sev:id`-pairing rule described under Section 11.2.
+`sev:id`-pairing rule described under Section 11.2 and the `sev:features` rules
+described under Section 11.5.
 
 The VMM **MUST** also refuse to launch if an action's `[gpa, gpa + VirtualSize)`
 range intersects the VMSA page `[0xFFFFFFFFF000, 0x1000000000000)` (see
@@ -1578,14 +1583,14 @@ every compliant VMM produces the same bytes.
 
 **Table III:** VMSA fields the boot vCPU state does not give.
 
-| VMSA field                                                      | Value               |
-| :-------------------------------------------------------------- | :------------------ |
-| `CS.attrib`                                                     | `0x0C9B`            |
-| `DS.attrib`, `ES.attrib`, `FS.attrib`, `GS.attrib`, `SS.attrib` | `0x0C93`            |
-| `TR.attrib`                                                     | `0x008B`            |
-| `X87_FTW`                                                       | `0`                 |
-| `SEV_FEATURES`                                                  | `0x1` (`SNPActive`) |
-| every other byte                                                | `0`                 |
+| VMSA field                                                      | Value                                                 |
+| :-------------------------------------------------------------- | :---------------------------------------------------- |
+| `CS.attrib`                                                     | `0x0C9B`                                              |
+| `DS.attrib`, `ES.attrib`, `FS.attrib`, `GS.attrib`, `SS.attrib` | `0x0C93`                                              |
+| `TR.attrib`                                                     | `0x008B`                                              |
+| `X87_FTW`                                                       | `0`                                                   |
+| `SEV_FEATURES`                                                  | `SNPActive` (bit 0) plus the bits `sev:features` sets |
+| every other byte                                                | `0`                                                   |
 
 The VMM **MUST** submit exactly one VMSA, the BSP's, via `SNP_LAUNCH_UPDATE` with
 `PAGE_TYPE_VMSA` at the fixed GPA `0xFFFFFFFFF000`. The PSP measures the page's GPA,
@@ -1658,7 +1663,35 @@ a Zero section (`SizeOfRawData == 0`) with `VirtualSize == 4096`. The page
 contributes to the launch digest as a typed page: the GPA and page type are bound,
 the content is not.
 
-## 11.5 Example (Informative)
+## 11.5 New Target Attribute: `sev:features`
+
+`sev:features` selects the SEV-SNP features the BSP's VMSA enables beyond
+`SNPActive` (see Section 11.1.8). It is an unsigned integer. Each bit has the
+meaning it has in the VMSA's `SEV_FEATURES` field. When `sev:features` is absent, no
+feature is selected.
+
+```cddl
+sev-features = uint                 ; bits from the table below
+```
+
+**Table IV:** `sev:features` bits.
+
+| Bit | Feature               |
+| :-- | :-------------------- |
+| 5   | `DebugVirtualization` |
+| 9   | `SecureTSC`           |
+
+The VMM **MUST** refuse to launch if `sev:features` sets a bit the table does not
+list. It **MUST** also refuse to launch if the host cannot enable a feature that
+`sev:features` sets.
+
+When `sev:features` sets `SecureTSC`, the VMM passes a host-supplied TSC frequency
+to `SNP_LAUNCH_START`. This value is not measured. A bad value can only make the
+guest's clock run fast or slow. The host already controls the guest's wall-clock
+time. A guest cannot rely on its clock for security. The value can therefore cause
+at most denial of service (see Section 5.5).
+
+## 11.6 Example (Informative)
 
 A `.pmi.sev` that launches OVMF and a kernel under a signed identity, with secrets
 and CPUID pages:
@@ -1896,7 +1929,7 @@ superset of the one below.
 The x86-64 boot vCPU state is 32-bit protected mode with paging disabled, at the
 reset vector `0xFFFFFFF0`.
 
-**Table IV:** x86-64 boot vCPU state.
+**Table V:** x86-64 boot vCPU state.
 
 | Register                     | Value                                                                                        |
 | :--------------------------- | :------------------------------------------------------------------------------------------- |
@@ -1968,7 +2001,7 @@ Arm ARM for the relevant baseline.
 The aarch64 boot vCPU state is EL1 with the MMU and caches disabled, at address
 `0x0`.
 
-**Table V:** aarch64 boot vCPU state.
+**Table VI:** aarch64 boot vCPU state.
 
 | Register                                      | Value                                                          |
 | :-------------------------------------------- | :------------------------------------------------------------- |
@@ -2296,7 +2329,7 @@ a prefix (used per the namespacing rules of Section 7.2) and is defined by the
 corresponding section of this specification. To register a new extension, open a pull
 request against the PMI specification repository.
 
-**Table VI:** Registered PMI extensions.
+**Table VII:** Registered PMI extensions.
 
 | Prefix | Defined in  | Description                                        |
 | :----- | :---------- | :------------------------------------------------- |
