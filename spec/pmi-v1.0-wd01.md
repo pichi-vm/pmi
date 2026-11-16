@@ -120,9 +120,10 @@ contributed to an OASIS TC; no OASIS copyright is asserted here. -->
   - [4.5 Changes From the Previous Version](#45-changes-from-the-previous-version)
 - [5 PMI Core Specification](#5-pmi-core-specification)
   - [5.1 Targets](#51-targets)
-  - [5.2 Validation](#52-validation)
-  - [5.3 Actions](#53-actions)
-  - [5.4 Measured vs. Host-Controlled Inputs](#54-measured-vs-host-controlled-inputs)
+  - [5.2 Architectures](#52-architectures)
+  - [5.3 Validation](#53-validation)
+  - [5.4 Actions](#54-actions)
+  - [5.5 Measured vs. Host-Controlled Inputs](#55-measured-vs-host-controlled-inputs)
 - [6 Page Granularity](#6-page-granularity)
   - [6.1 Large Sections (≥ 2M)](#61-large-sections--2m)
   - [6.2 Small Sections (< 2M)](#62-small-sections--2m)
@@ -136,8 +137,10 @@ contributed to an OASIS TC; no OASIS copyright is asserted here. -->
 - [11 The sev Extension](#11-the-sev-extension)
 - [12 The tdx Extension](#12-the-tdx-extension)
 - [13 The lbc Extension](#13-the-lbc-extension)
-- [14 Safety, Security, and Data Protection Considerations](#14-safety-security-and-data-protection-considerations)
-- [15 Conformance](#15-conformance)
+- [14 The x86-64 Architecture](#14-the-x86-64-architecture)
+- [15 The aarch64 Architecture](#15-the-aarch64-architecture)
+- [16 Safety, Security, and Data Protection Considerations](#16-safety-security-and-data-protection-considerations)
+- [17 Conformance](#17-conformance)
 - [Annex A License, Document Status and Notices](#annex-a-license-document-status-and-notices)
 - [Annex B References](#annex-b-references)
 - [Annex C Extension Registry](#annex-c-extension-registry)
@@ -160,9 +163,10 @@ PMI is intentionally narrow. It specifies how to load pages into a virtual
 machine and how to communicate the virtual-machine platform definition safely,
 without sacrificing portability across targets, attestation measurements, or VMM
 implementations. This specification defines the PMI core — the target shape, the
-launch model, the validation rules, and the `load` and `fill` actions — and a set
-of registered extensions (`cpu`, `vm`, `dt`, `sev`, `tdx`, and `lbc`) that together
-provide enough functionality to launch a guest on each supported target.
+launch model, the validation rules, and the `load` and `fill` actions — the parts
+specific to the x86-64 and aarch64 architectures, and a set of registered extensions
+(`cpu`, `vm`, `dt`, `sev`, `tdx`, and `lbc`) that together provide enough
+functionality to launch a guest on each supported target.
 
 Higher-level concerns — image signing policy, registry distribution, guest
 operating-system behavior after boot, and the internal implementation of a PMI
@@ -464,8 +468,9 @@ carry PMI, but need not. They are parallel, compatible extensions to the same PE
 container.
 
 This section defines the PMI core: the target shape (Section 5.1), the launch
-model (Section 5.1.2), the validation rules (Section 5.2), and the `load`
-(Section 5.3.3) and `fill` (Section 5.3.4) actions. Everything else — every launch
+model (Section 5.1.2), the validation rules (Section 5.3), and the `load`
+(Section 5.4.3) and `fill` (Section 5.4.4) actions. The architecture chapters
+(Section 5.2) define its architecture-specific parts. Everything else — every launch
 target and platform mechanism — is an extension (Section 7).
 
 ## 5.1 Targets
@@ -519,7 +524,16 @@ A VMM launches a target by executing this ordered sequence:
    the CC measurement).
 5. **Start the guest.**
 
-## 5.2 Validation
+## 5.2 Architectures
+
+`PE.FileHeader.Machine` identifies an image's architecture. Each architecture PMI
+supports has its own chapter, which defines the architecture-specific parts of this
+specification and of its extensions:
+
+- x86-64 (Section 14);
+- aarch64 (Section 15).
+
+## 5.3 Validation
 
 A VMM **MUST** refuse to launch on any of:
 
@@ -538,11 +552,11 @@ launch, and the VMM reads only the `.pmi.<target>` section for its target, so a
 `gpa` shared between actions in, say, `.pmi.sev` and `.pmi.tdx` can never collide
 in guest memory.
 
-## 5.3 Actions
+## 5.4 Actions
 
-### 5.3.1 Placement and `VirtualAddress`
+### 5.4.1 Placement and `VirtualAddress`
 
-Both `load` (Section 5.3.3) and `fill` (Section 5.3.4) place bytes at an explicit,
+Both `load` (Section 5.4.3) and `fill` (Section 5.4.4) place bytes at an explicit,
 absolute guest-physical address given by the action's `gpa`. PMI does not consult
 the PE `VirtualAddress` of a referenced section, and applies no relocation: `gpa`
 is the GPA verbatim. (`VirtualAddress` is a PE *relative* virtual address, relative
@@ -556,10 +570,10 @@ firmware near the 4 GiB reset vector) via `gpa`, with no effect on the PE layout
 `SizeOfImage`. Dual-use images **SHOULD** set `ImageBase` to 0; PMI ignores
 `ImageBase` regardless.
 
-The granularity rules (Section 6) and the overlap check (Section 5.2) operate on
+The granularity rules (Section 6) and the overlap check (Section 5.3) operate on
 `gpa`, not `VirtualAddress`.
 
-### 5.3.2 Measurement Determinism
+### 5.4.2 Measurement Determinism
 
 On targets that produce a launch measurement, the measurement **MUST** be a
 deterministic function of the image and supplied measured inputs: each measured
@@ -572,11 +586,11 @@ sub-operation (e.g. TDX's page-add followed by content-extend), the target's spe
 **MUST** additionally define the order of those sub-operations. Each target's spec
 states its fixed measurement granularity and any such sub-operation order.
 
-### 5.3.3 `load`
+### 5.4.3 `load`
 
 The `load` action loads a PE section's on-disk bytes into guest memory.
 
-#### 5.3.3.1 Schema
+#### 5.4.3.1 Schema
 
 ```cddl
 load = {
@@ -589,15 +603,15 @@ load = {
 
 The `load` action **MAY** include a `kind` value. The `gpa` field gives the
 absolute guest-physical address at which the bytes are placed; it is required. PMI
-does not use the section's PE `VirtualAddress` for placement (see Section 5.3.1).
+does not use the section's PE `VirtualAddress` for placement (see Section 5.4.1).
 
-#### 5.3.3.2 Procedure
+#### 5.4.3.2 Procedure
 
 1. The VMM locates the PE section with the same name as `section`.
 
 2. The VMM maps or copies the bytes from the PE section into guest memory at the
    action's `gpa`. The number of bytes placed is the section's `VirtualSize`. The
-   section's `VirtualAddress` is not consulted (see Section 5.3.1). Note that the
+   section's `VirtualAddress` is not consulted (see Section 5.4.1). Note that the
    specific behavior of this operation is dictated by the `kind` value.
 
    The VMM reads the section's bytes from the file at `PointerToRawData`, so a
@@ -606,9 +620,9 @@ does not use the section's PE `VirtualAddress` for placement (see Section 5.3.1)
 
    The VMM **MAY** break the section into page-sized operations and **MAY** choose
    any loading page size; that choice is an implementation detail and **MUST NOT**
-   affect any launch measurement (see Section 5.3.2).
+   affect any launch measurement (see Section 5.4.2).
 
-#### 5.3.3.3 Section Shapes
+#### 5.4.3.3 Section Shapes
 
 There are three PE-section shapes:
 
@@ -630,7 +644,7 @@ A loaded section is placed in guest memory as whole 4 KiB pages. The first
 them, up to the end of the section's last page, is zero. File bytes past
 `SizeOfRawData` are never loaded.
 
-#### 5.3.3.4 `kind`
+#### 5.4.3.4 `kind`
 
 The `kind` value determines the behavior of the `load` action. If `kind` is
 omitted, `default` is assumed. However, the core specification does not define any
@@ -642,12 +656,12 @@ define the behavior of the `load` action when `kind = "default"`. Extensions
 follow all namespacing rules. A VMM **MUST** refuse to launch on a `load` whose
 `kind` it does not recognize.
 
-### 5.3.4 `fill`
+### 5.4.4 `fill`
 
 The `fill` action populates a reserved GPA range at launch with kind-specific
 content.
 
-#### 5.3.4.1 Schema
+#### 5.4.4.1 Schema
 
 ```cddl
 fill = {
@@ -660,9 +674,9 @@ fill = {
 
 The `fill` action **MUST** include a `kind` value, and a required `gpa` giving the
 absolute guest-physical address of the filled range. As with `load`, PMI does not
-use the section's `VirtualAddress` for placement (see Section 5.3.1).
+use the section's `VirtualAddress` for placement (see Section 5.4.1).
 
-#### 5.3.4.2 Procedure
+#### 5.4.4.2 Procedure
 
 1. The VMM locates the PE section with the same name as `section`.
 
@@ -673,14 +687,14 @@ use the section's `VirtualAddress` for placement (see Section 5.3.1).
 
    The VMM **MAY** break the range into page-sized operations and **MAY** choose
    any loading page size; that choice is an implementation detail and **MUST NOT**
-   affect any launch measurement (see Section 5.3.2).
+   affect any launch measurement (see Section 5.4.2).
 
-#### 5.3.4.3 Section Shape
+#### 5.4.4.3 Section Shape
 
 The referenced PE section **MUST** be a Zero section (`SizeOfRawData == 0`,
 `VirtualSize > 0`); the fill content comes from the `kind`, not from disk.
 
-#### 5.3.4.4 `kind`
+#### 5.4.4.4 `kind`
 
 The `kind` value defines the fill's content and semantics. It has no default; every
 `fill` action **MUST** carry a `kind`.
@@ -689,7 +703,7 @@ The `kind` value is extensible (Section 7). Extensions **MAY** define `kind`
 values. Extension-defined `kind` values **MUST** follow all namespacing rules. A
 VMM **MUST** refuse to launch on a `fill` whose `kind` it does not recognize.
 
-#### 5.3.4.5 Measurement
+#### 5.4.4.5 Measurement
 
 A fill kind usable across targets **MUST** declare its content measured or
 unmeasured. On targets with a launch measurement:
@@ -701,10 +715,10 @@ unmeasured. On targets with a launch measurement:
 
 Each target **MUST** define the placement, memory class, and launch operations for
 both classes. The VMM supplies the bytes and **MUST** invoke those operations in the
-order defined by Section 5.3.2. The platform computes the measurement where the
+order defined by Section 5.4.2. The platform computes the measurement where the
 target provides one.
 
-## 5.4 Measured vs. Host-Controlled Inputs
+## 5.5 Measured vs. Host-Controlled Inputs
 
 A PMI requirement on the VMM falls into one of two classes, and guests **MUST**
 treat them differently.
@@ -764,13 +778,13 @@ section to be correctly aligned on disk.
 A 2M alignment is always compatible with a 4K alignment, so a VMM can efficiently
 downgrade from a larger alignment on disk to a smaller alignment requirement in
 memory. These rules govern only file and guest mapping; the loading page size a VMM
-chooses never enters a launch measurement (see Section 5.3.2).
+chooses never enters a launch measurement (see Section 5.4.2).
 
 Therefore, to facilitate efficient VMM construction, PMI makes the following
 alignment rules. They constrain only the *start* of a section, its `gpa` and
 `PointerToRawData`. A section's `SizeOfRawData` is not otherwise constrained (it
 follows PE's own `FileAlignment`); a section occupies whole 4 KiB guest pages, and
-a loaded section's contents are defined under Section 5.3.3.3.
+a loaded section's contents are defined under Section 5.4.3.3.
 
 ## 6.1 Large Sections (≥ 2M)
 
@@ -878,7 +892,7 @@ new actions (beside `load` and `fill`) for use during VM construction. The actio
 ### 7.3.4 Action-Defined Extension Points
 
 An action's own schema **MAY** declare an extension point. PMI's `load`
-(Section 5.3.3) and `fill` (Section 5.3.4) declare their `kind` field as such an
+(Section 5.4.3) and `fill` (Section 5.4.4) declare their `kind` field as such an
 extension point. Extension points defined by an action definition **MUST** define
 how namespacing rules are applicable.
 
@@ -895,20 +909,16 @@ key in their target spec.
 
 ## 8.1 New Target Attribute: `cpu:profile`
 
-`cpu:profile` names the ISA baseline the guest is built against, drawn from a small
-per-architecture set. The schema is selected by `PE.FileHeader.Machine`:
-
-- `profile-x64` (Section 8.4) for `0x8664`;
-- `profile-aarch64` (Section 8.5) for `0xAA64`.
+`cpu:profile` names the ISA baseline the guest is built against. Each architecture's
+chapter (Section 5.2) lists the values valid for that architecture.
 
 ```cddl
-cpu-profile = profile-x64 / profile-aarch64
+cpu-profile = tstr
 ```
 
 A VMM **MUST** refuse to launch on any of:
 
-- the `cpu:profile` variant does not match `PE.FileHeader.Machine`;
-- the VMM does not recognize the requested profile;
+- the value is not listed by the chapter for the image's `PE.FileHeader.Machine`;
 - the host cannot deliver every feature mandated by the requested profile.
 
 When determining whether the host satisfies the requested profile, the VMM **MUST**
@@ -926,7 +936,7 @@ The floor is unmeasured on targets where the profile-derived configuration does 
 enter the launch measurement (e.g. TDX `XFAM`/`CPUID_VALUES`, the SEV CPUID page
 contents). There a non-conformant host can expose fewer features than the profile,
 but the only consequence is the guest's own boot failure, a denial of service,
-which is why the configuration is permitted to be unmeasured (see Section 5.4). A
+which is why the configuration is permitted to be unmeasured (see Section 5.5). A
 guest therefore does not rely on the floor and need not verify it. A host cannot
 *over*-claim features it lacks, and the security-relevant subset is captured by
 measurement or attestation; each target's `cpu:profile` section gives the
@@ -947,38 +957,6 @@ target's separately-attested report fields.
 
 Each target's spec defines how the VMM translates `cpu:profile` into the target's
 firmware ABI inputs.
-
-## 8.3 `profile-x64`
-
-```cddl
-profile-x64 = tstr                          ; x86-64 microarchitecture level
-```
-
-A `profile-x64` value is an x86-64 microarchitecture level name of the form
-`x86-64-vN` (e.g., `x86-64-v3`), as defined by the System V x86-64 psABI
-[SYSV-ABI]. The mandatory feature set at each level is fixed by the psABI; each
-level is a strict superset of the one below. Levels added by future revisions of
-the psABI are valid `cpu:profile` values without updates to this specification.
-
-## 8.4 `profile-aarch64`
-
-```cddl
-profile-aarch64 = tstr                      ; Armv8-A / Armv9-A revision
-```
-
-A `profile-aarch64` value is an Armv8-A or Armv9-A architecture revision name of
-the form `armvN.M-a` (e.g., `armv8.2-a`, `armv9.0-a`), as defined by the Arm
-Architecture Reference Manual for A-profile architecture [ARM-ARM]. The set of
-mandatory features at each revision is fixed by the Arm ARM. Revisions added by
-future editions of the Arm ARM are valid `cpu:profile` values without updates to
-this specification.
-
-Armv9.x-A is not a strict superset of Armv8.(x+n)-A for n>0: each Armv9.x-A
-revision is built on a fixed Armv8-A baseline (Armv9.0-A on Armv8.5-A, Armv9.1-A on
-Armv8.6-A, Armv9.2-A on Armv8.7-A, and so on). A host satisfying `armv9.0-a`
-therefore does not necessarily satisfy `armv8.6-a` or higher, and vice versa. Image
-authors choosing between an `armv8.x-a` and `armv9.y-a` profile should consult the
-Arm ARM for the relevant baseline.
 
 ---
 
@@ -1019,7 +997,7 @@ The `.pmi.vm` CBOR map follows the core target shape (Section 5.1.1). Its `versi
 
 ### 9.1.3 Validation
 
-The core validation rules (Section 5.2) apply. In addition, the VMM **MUST** refuse
+The core validation rules (Section 5.3) apply. In addition, the VMM **MUST** refuse
 to launch on any of:
 
 - `PE.FileHeader.Machine` is neither `0x8664` nor `0xAA64`;
@@ -1028,13 +1006,13 @@ to launch on any of:
 
 ### 9.1.4 `load`
 
-On `vm`, the `default` kind (Section 5.3.3.4) places the section's bytes in guest
-memory per section shape (Section 5.3.3.3); no measurement is performed.
+On `vm`, the `default` kind (Section 5.4.3.4) places the section's bytes in guest
+memory per section shape (Section 5.4.3.3); no measurement is performed.
 Implementations **MAY** copy or map the contents into guest memory.
 
 ### 9.1.5 `fill`
 
-Both measured and unmeasured fills (Section 5.3.4.5) place their supplied bytes in
+Both measured and unmeasured fills (Section 5.4.4.5) place their supplied bytes in
 ordinary guest RAM. Implementations **MAY** copy or map the contents. The `vm`
 target produces no launch measurement.
 
@@ -1298,16 +1276,16 @@ The `dt:dtb` fill kind delivers the base DTB into a reserved region of guest mem
 at launch, instead of carrying it as image bytes. It is what enables the
 **detached** and **optional** channel modes. **Bundled** mode needs no fill: the
 base travels in the image and reaches guest memory by an ordinary `default` load
-(Section 5.3.3), so an image that always ships its own base never uses this kind.
+(Section 5.4.3), so an image that always ships its own base never uses this kind.
 
 ```cbor-diag
 {"type": "fill", "gpa": 0x2001000, "section": ".dtb", "kind": "dt:dtb"}
 ```
 
-As with every `fill` (Section 5.3.4), the action's `section` is a Zero section: it
+As with every `fill` (Section 5.4.4), the action's `section` is a Zero section: it
 reserves the guest-physical range and its size but carries no image bytes. At launch
 the VMM writes a base DTB into that range. This kind is a measured fill
-(Section 5.3.4.5).
+(Section 5.4.4.5).
 
 Which base the VMM writes depends on whether the `dt:dtb` attribute (Section 10.1)
 is also present:
@@ -1337,7 +1315,7 @@ reserved Zero section.
 {"type": "fill", "gpa": 0x2011000, "section": ".dtbo", "kind": "dt:dtbo"}
 ```
 
-This kind is an unmeasured fill (Section 5.3.4.5). The overlay allocates the
+This kind is an unmeasured fill (Section 5.4.4.5). The overlay allocates the
 resources the base leaves open (CPUs, memory, and NUMA), so that host resource
 choices do not change the guest's identity. The VMM places it (see Section 10.5) and
 the guest validates it (see Section 10.6).
@@ -1396,7 +1374,7 @@ A PMI producer **MUST**:
 
 - provide a base DTB in one of the channel modes:
   - **bundled**: place the base in a section, name it with the `dt:dtb` attribute
-    (Section 10.1), and deliver it with a `default` load (Section 5.3.3);
+    (Section 10.1), and deliver it with a `default` load (Section 5.4.3);
   - **detached**: reserve a Zero section for the base and add a `dt:dtb` fill
     (Section 10.2) action naming it, with no attribute;
   - **optional**: set the `dt:dtb` attribute (Section 10.1; the fallback base) and
@@ -1407,7 +1385,7 @@ A PMI producer **MUST**:
   `dt:dtbo` fill (Section 10.3) action naming it;
 - size each reserved Zero section for the largest DTB it will hold;
 - lay out sections so that no device `reg` region in the base falls within the
-  2 MiB-aligned region of any `load` (Section 5.3.3) or `fill` (Section 5.3.4)
+  2 MiB-aligned region of any `load` (Section 5.4.3) or `fill` (Section 5.4.4)
   section (see Section 6).
 
 To keep attestation predictable, the base **SHOULD** be tenant-authored (see
@@ -1456,7 +1434,7 @@ A VMM **MUST** refuse to launch on any of:
   the format defined by the Devicetree Specification [DTSPEC] v0.4 or later;
 - a `dt:dtb` fill delivers a base DTB larger than its reserved section;
 - a device `reg` region declared in the base DTB falls within the 2 MiB-aligned
-  region occupied by any `load` (Section 5.3.3) or `fill` (Section 5.3.4) section
+  region occupied by any `load` (Section 5.4.3) or `fill` (Section 5.4.4) section
   (see Section 6);
 - the base declares NUMA (a `/distance-map` node or a `numa-node-id` property);
 - the base omits `/cpus` or `/memory@*` and no `dt:dtbo` fill delegates it;
@@ -1634,7 +1612,7 @@ The `.pmi.sev` CBOR map follows the core target shape (Section 5.1.1). Its `vers
 
 ### 11.1.3 Validation
 
-The core validation rules (Section 5.2) apply. The `sev` target adds the
+The core validation rules (Section 5.3) apply. The `sev` target adds the
 `sev:id`-pairing rule described under Section 11.2.
 
 The `sev` target also requires exactly one `load` with `kind = "sev:vmsa"` (the BSP
@@ -1674,7 +1652,7 @@ data-page operations for zero-page operations or vice versa.
 
 ### 11.1.6 `fill`
 
-For the core fill classes (Section 5.3.4.5), the VMM **MUST** submit every occupied
+For the core fill classes (Section 5.4.4.5), the VMM **MUST** submit every occupied
 page through `SNP_LAUNCH_UPDATE` into private guest memory:
 
 - **Measured fills:** use `PAGE_TYPE_NORMAL`, including for zero-filled pages. The
@@ -1691,7 +1669,7 @@ The PSP computes the launch digest from 4 KiB `PAGE_INFO` records. Each record b
 the page's GPA, page type, and content as specified by that type. A 2 MiB submission
 produces the same digest as the 512 corresponding 4 KiB submissions. The VMM **MAY**
 choose the submission page size and **MUST** follow the core's measurement order
-(Section 5.3.2).
+(Section 5.4.2).
 
 ### 11.1.8 `cpu:profile`
 
@@ -1705,7 +1683,7 @@ host-supported features beyond the profile in the CPUID page.
 Leaving the CPUID page unmeasured is safe: the PSP rejects entries claiming features
 the processor lacks (no over-claim), and the SEV feature set (`SEV_FEATURES`) lives
 in the measured VMSA. The only host deviation left is under-provisioning, a denial
-of service (see Section 5.4).
+of service (see Section 5.5).
 
 ## 11.2 New Target Attribute: `sev:id`
 
@@ -1851,7 +1829,7 @@ The `.pmi.tdx` CBOR map follows the core target shape (Section 5.1.1). Its `vers
 
 ### 12.1.3 Validation
 
-The core validation rules (Section 5.2) apply. The `tdx` target adds no further
+The core validation rules (Section 5.3) apply. The `tdx` target adds no further
 validation rules.
 
 ### 12.1.4 TD Parameters
@@ -1883,7 +1861,7 @@ scope for this spec.
 
 ### 12.1.6 `fill`
 
-For the core fill classes (Section 5.3.4.5), the VMM **MUST** submit every occupied
+For the core fill classes (Section 5.4.4.5), the VMM **MUST** submit every occupied
 page through `KVM_TDX_INIT_MEM_REGION` into private guest memory.
 `KVM_TDX_MEASURE_MEMORY_REGION` **MUST** be set for measured fills and clear for
 unmeasured fills.
@@ -1898,7 +1876,7 @@ The TDX module incorporates each 4 KiB page's GPA into MRTD through
 `TDH.MEM.PAGE.ADD`. When content is measured, `TDH.MR.EXTEND` incorporates it in
 256-byte chunks.
 
-The VMM **MUST** follow the core's measurement order (Section 5.3.2). For each page
+The VMM **MUST** follow the core's measurement order (Section 5.4.2). For each page
 whose content is measured, it **MUST** submit `TDH.MEM.PAGE.ADD`, then all sixteen
 `TDH.MR.EXTEND` operations in ascending offset order (0, 256, …, 3840), before
 advancing to the next page.
@@ -1916,7 +1894,7 @@ remain visible in the report fields.
 Leaving `TD_PARAMS` unmeasured is safe: the TDX module validates `CPUID_VALUES`
 against the hardware and enforces the fixed-1 bits (no over-claim), and `XFAM` and
 the TD attributes are attested in the report for the verifier. The only host
-deviation is under-provisioning, a denial of service (see Section 5.4).
+deviation is under-provisioning, a denial of service (see Section 5.5).
 
 ## 12.2 Example (Informative)
 
@@ -1954,7 +1932,7 @@ kernel.
 **Prefix:** `lbc`. This is a registered extension (Annex C).
 
 The `lbc:bootconfig` fill supplies Linux boot configuration as a measured fill
-(Section 5.3.4.5). A PMI image **MAY** declare this fill; each target's action list
+(Section 5.4.4.5). A PMI image **MAY** declare this fill; each target's action list
 **MUST** contain at most one.
 
 ```cbor-diag
@@ -1965,7 +1943,7 @@ The `lbc:bootconfig` fill supplies Linux boot configuration as a measured fill
 ## 13.1 Wire Representation
 
 The fill **MUST** name a Zero section whose `VirtualSize` sets the reservation
-capacity. Placement and zero page padding follow the core `fill` (Section 5.3.4) and
+capacity. Placement and zero page padding follow the core `fill` (Section 5.4.4) and
 page granularity (Section 6) rules.
 
 For nonempty input, the VMM **MUST** place the complete native Linux bootconfig
@@ -1994,24 +1972,85 @@ exposure and errors. Consumers are responsible for checking settings they requir
 
 ---
 
-# 14 Safety, Security, and Data Protection Considerations
+# 14 The x86-64 Architecture
+
+This chapter defines the parts of PMI specific to the x86-64 architecture. An image
+is x86-64 when its `PE.FileHeader.Machine` is `0x8664`.
+
+## 14.1 `cpu:profile`
+
+The x86-64 values of the `cpu:profile` target attribute (Section 8.1) are the
+microarchitecture levels of the System V x86-64 psABI [SYSV-ABI]:
+
+- `x86-64-v1`, the psABI baseline
+- `x86-64-v2`
+- `x86-64-v3`
+- `x86-64-v4`
+
+The psABI fixes the mandatory features of each level; each level is a strict
+superset of the one below.
+
+---
+
+# 15 The aarch64 Architecture
+
+This chapter defines the parts of PMI specific to the aarch64 architecture. An image
+is aarch64 when its `PE.FileHeader.Machine` is `0xAA64`.
+
+## 15.1 `cpu:profile`
+
+The aarch64 values of the `cpu:profile` target attribute (Section 8.1) are the
+A-profile architecture revisions of the Arm Architecture Reference Manual [ARM-ARM]:
+
+- `armv8.0-a`
+- `armv8.1-a`
+- `armv8.2-a`
+- `armv8.3-a`
+- `armv8.4-a`
+- `armv8.5-a`
+- `armv8.6-a`
+- `armv8.7-a`
+- `armv8.8-a`
+- `armv8.9-a`
+- `armv9.0-a`
+- `armv9.1-a`
+- `armv9.2-a`
+- `armv9.3-a`
+- `armv9.4-a`
+- `armv9.5-a`
+- `armv9.6-a`
+- `armv9.7-a`
+- `armv9.8-a`
+
+The Arm ARM fixes the mandatory features of each revision.
+
+Armv9.x-A is not a strict superset of Armv8.(x+n)-A for n>0: each Armv9.x-A revision
+is built on a fixed Armv8-A baseline (Armv9.0-A on Armv8.5-A, Armv9.1-A on
+Armv8.6-A, Armv9.2-A on Armv8.7-A, and so on). A host satisfying `armv9.0-a`
+therefore does not necessarily satisfy `armv8.6-a` or higher, and vice versa. Image
+authors choosing between an `armv8.x-a` and `armv9.y-a` profile should consult the
+Arm ARM for the relevant baseline.
+
+---
+
+# 16 Safety, Security, and Data Protection Considerations
 
 PMI is a boot-image format whose central purpose is to strengthen the security
 posture of virtual machines, particularly confidential virtual machines. The
 following considerations apply.
 
-## 14.1 Threat Model
+## 16.1 Threat Model
 
 On confidential targets (`sev`, `tdx`), the host and the VMM are untrusted. The
 guest's security rests on the launch measurement and the target's attestation
 report, not on any host-side check. The core distinction between measured and
-host-controlled inputs (Section 5.4) is the load-bearing security property of this
+host-controlled inputs (Section 5.5) is the load-bearing security property of this
 specification: an input may be left host-controlled and unmeasured only when a host
 deviation can cause at most denial of service. Any input a malicious host could
 exploit beyond denial of service **MUST** be measured, attested in a verifier-checked
 report field, or validated by the guest.
 
-## 14.2 Attestation Portability Invariant
+## 16.2 Attestation Portability Invariant
 
 Every extension that participates in a target's launch measurement **MUST** preserve
 the invariant of Section 4.2: image-controlled bytes alone determine the measurement,
@@ -2020,7 +2059,7 @@ image. A violation of this invariant does not weaken confidentiality directly, b
 breaks the ability of a remote verifier to appraise a measurement against a
 predictable reference value, undermining attestation in practice.
 
-## 14.3 Host-Supplied Overlay
+## 16.3 Host-Supplied Overlay
 
 The devicetree overlay (`dt:dtbo`, Section 10.3) is unmeasured and, on confidential
 targets, adversarial. The guest is its sole security boundary and **MUST** validate
@@ -2031,14 +2070,14 @@ resource-allocation nodes (Section 10.3.1); CPU identity and features **MUST** b
 derived from architectural registers and attestation reports, never from the
 host-supplied `compatible` property.
 
-## 14.4 Strict Decoding and Fail-Safe Behavior
+## 16.4 Strict Decoding and Fail-Safe Behavior
 
 PMI decodes every CBOR map in strict mode: an unknown key, action type, or kind
 causes the launch to fail rather than proceed with a subtly misconfigured VM
-(Sections 5.2, 7.2). Guests **MUST** fail safe (halt) on any validation failure
+(Sections 5.3, 7.2). Guests **MUST** fail safe (halt) on any validation failure
 rather than proceeding or crashing (Section 10.6).
 
-## 14.5 Signing and Identity
+## 16.5 Signing and Identity
 
 The `sev:id` attribute (Section 11.2) carries a signed launch identity enforced by
 the PSP at `SNP_LAUNCH_FINISH`. TDX does not carry image-side signed identity in
@@ -2047,7 +2086,7 @@ attestation report. Image signing at the PE level (for example via `sbsign` for 
 UEFI/UKI path) is independent of and complementary to these mechanisms and is out of
 scope for this specification.
 
-## 14.6 Data Protection and Privacy
+## 16.6 Data Protection and Privacy
 
 PMI images carry boot code and platform definitions, not personal data, and PMI
 defines no processing of personally identifiable information. No specific data
@@ -2055,40 +2094,41 @@ protection or privacy considerations arise from the format itself.
 
 ---
 
-# 15 Conformance
+# 17 Conformance
 
 An implementation conforms to this specification as one or more of the following
 conformance targets. A conformance claim **MUST** identify the PMI target(s)
 (`vm`, `sev`, `tdx`) and role(s) for which conformance is claimed.
 
-## 15.1 Conformance Targets
+## 17.1 Conformance Targets
 
-**15.1.1 Conformant PMI image (Producer).** A PMI image is conformant with respect
+**17.1.1 Conformant PMI image (Producer).** A PMI image is conformant with respect
 to a named PMI target if it is a valid Portable Executable that carries a
 `.pmi.<target>` section whose CBOR document satisfies the core target shape
-(Section 5.1.1), the requirements of that target's extension section (Sections
-9–12), the page-granularity rules (Section 6), and the namespacing rules
-(Section 7.2), and if every requirement stated with **MUST**/**SHALL**/**REQUIRED**
-for a producer of that target is satisfied.
+(Section 5.1.1), the requirements of that target's extension section (Sections 9–12)
+and of the image's architecture chapter (Sections 14–15), the page-granularity rules
+(Section 6), and the namespacing rules (Section 7.2), and if every requirement
+stated with **MUST**/**SHALL**/**REQUIRED** for a producer of that target is
+satisfied.
 
-**15.1.2 Conformant VMM.** A VMM is conformant with respect to a named PMI target if,
+**17.1.2 Conformant VMM.** A VMM is conformant with respect to a named PMI target if,
 for every conformant PMI image carrying that target, it performs the launch model
-for that target (Section 5.1.2 as specialized in Sections 9–12), enforces every
-validation rule stated with **MUST**/**SHALL** (Section 5.2 and the target's
+for that target (Section 5.1.2 as specialized in Sections 9–12 and 14–15), enforces
+every validation rule stated with **MUST**/**SHALL** (Section 5.3 and the target's
 additional rules), refuses to launch in every case this specification requires
-refusal, and preserves the measurement-determinism (Section 5.3.2) and attestation
+refusal, and preserves the measurement-determinism (Section 5.4.2) and attestation
 portability (Section 4.2) invariants on targets that produce a launch measurement.
 
-**15.1.3 Conformant guest.** A guest is conformant with respect to a named PMI target
-if it treats measured and host-controlled inputs as required by Section 5.4 and, when
+**17.1.3 Conformant guest.** A guest is conformant with respect to a named PMI target
+if it treats measured and host-controlled inputs as required by Section 5.5 and, when
 a `dt:dtbo` overlay is present, validates and merges it as required by Section 10.6,
 including the address validation of Section 10.6.1, failing safe on any violation.
 
-## 15.2 Interpreting Requirements
+## 17.2 Interpreting Requirements
 
 A conformant implementation **MUST NOT** claim conformance to a target it only
 partially implements. Requirements expressed against a "conformant host" that are not
-enforced by a launch measurement (Section 5.4) are conformance requirements on the
+enforced by a launch measurement (Section 5.5) are conformance requirements on the
 VMM but are not, by themselves, security guarantees to the guest; a guest **MUST NOT**
 assume such a requirement was honored where it depends on the property beyond denial
 of service.
