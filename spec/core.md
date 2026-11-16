@@ -286,6 +286,9 @@ both classes. The VMM supplies the bytes and MUST invoke those operations in
 the order defined by [Measurement determinism](#measurement-determinism).
 The platform computes the measurement where the target provides one.
 
+On targets with a launch measurement, the target MUST place both classes in
+private memory, which the host cannot change after launch.
+
 ## Measured vs. host-controlled inputs
 
 A PMI requirement on the VMM falls into one of two classes, and guests MUST treat

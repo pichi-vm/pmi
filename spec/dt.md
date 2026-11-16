@@ -295,9 +295,9 @@ validate it before relying on the platform description.
 The guest MUST:
 
 - validate and merge the overlay only from memory the host cannot mutate after
-  the check. The VMM places the overlay in private, content-unmeasured memory
-  (see [VMM](#vmm)), which is immutable after launch, so the guest validates it
-  in place;
+  the check. On targets with a launch measurement, the overlay is in private
+  memory, which the host cannot change after launch (see
+  [fill measurement](core.md#measurement)), so the guest validates it in place;
 - reject malformed or disallowed input by halting (a denial of service) rather
   than proceeding or crashing;
 - accept only the content defined under [Overlay contents](#overlay-contents):
