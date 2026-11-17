@@ -25,11 +25,17 @@ A VMM MUST refuse to launch on any of:
   `PE.FileHeader.Machine`;
 - the host cannot deliver every feature mandated by the requested profile.
 
-When determining whether the host satisfies the requested profile, the VMM MUST
-check each mandatory feature individually. A host's self-claimed architecture
-revision is not authoritative: some shipping cores (e.g., Apple M4, Qualcomm
-Snapdragon 8 Gen 2/3) self-identify as Armv9-class while omitting mandatory
-features such as SVE/SVE2.
+The profile's defining specification determines its mandatory features,
+including conditional requirements whose conditions hold for the guest-visible
+CPU. The VMM MUST check each mandatory feature individually. A host's
+self-claimed architecture revision is not authoritative evidence that those
+features are available to the guest.
+
+The profile requires the minimum defined by that specification. It does not
+implicitly add requirements from a system architecture, operating-system
+environment, or other software baseline beyond its definition. Features that
+are optional under that definition remain optional unless an applicable
+condition requires them.
 
 ### Floor and measured ceiling
 
