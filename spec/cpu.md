@@ -39,8 +39,11 @@ condition requires them.
 
 ### Floor and measured ceiling
 
-The profile is a **floor** the VMM MUST always honor: every feature mandated by
-the requested profile MUST be exposed to the guest.
+The profile is a **floor**: the VMM MUST expose every mandated feature,
+including the architectural controls guest software needs to enable it. Profile
+selection does not change the initial vCPU state specified by the
+[launch model](core.md#launch-model). Guest software enables the processor state
+required by the features it uses.
 
 The floor is unmeasured on targets where the profile-derived configuration does
 not enter the launch measurement (e.g. TDX `XFAM`/`CPUID_VALUES`, the SEV CPUID

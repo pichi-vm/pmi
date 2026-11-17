@@ -30,11 +30,7 @@ Manual][arm-arm]:
 - `armv9.7-a`
 - `armv9.8-a`
 
-These profiles select the architectural minimum defined by the Arm ARM for
-the listed revision, subject to the [shared profile
-requirements](cpu.md#1-new-target-attribute-cpuprofile).
-
-For example, [Arm 109697_2025_12_en, §9.11, page 119][arm-features] distinguishes
+[Arm 109697_2025_12_en, §9.11, page 119][arm-features] distinguishes
 SVE2's optional architectural status from its provision in systems with rich
 application environments. Selecting `armv9.0-a` alone does not require SVE2.
 

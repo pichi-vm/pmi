@@ -944,16 +944,25 @@ A VMM **MUST** refuse to launch on any of:
 - the value is not listed by the chapter for the image's `PE.FileHeader.Machine`;
 - the host cannot deliver every feature mandated by the requested profile.
 
-When determining whether the host satisfies the requested profile, the VMM **MUST**
-check each mandatory feature individually. A host's self-claimed architecture
-revision is not authoritative: some shipping cores (e.g., Apple M4, Qualcomm
-Snapdragon 8 Gen 2/3) self-identify as Armv9-class while omitting mandatory
-features such as SVE/SVE2.
+The profile's defining specification determines its mandatory features,
+including conditional requirements whose conditions hold for the guest-visible
+CPU. The VMM **MUST** check each mandatory feature individually. A host's
+self-claimed architecture revision is not authoritative evidence that those
+features are available to the guest.
+
+The profile requires the minimum defined by that specification. It does not
+implicitly add requirements from a system architecture, operating-system
+environment, or other software baseline beyond its definition. Features that
+are optional under that definition remain optional unless an applicable
+condition requires them.
 
 ## 8.2 Floor and Measured Ceiling
 
-The profile is a **floor** the VMM **MUST** always honor: every feature mandated by
-the requested profile **MUST** be exposed to the guest.
+The profile is a **floor**: the VMM **MUST** expose every mandated feature,
+including the architectural controls guest software needs to enable it. Profile
+selection does not change the initial vCPU state specified by the
+launch model (Section 5.1.2). Guest software enables the processor state
+required by the features it uses.
 
 The floor is unmeasured on targets where the profile-derived configuration does not
 enter the launch measurement (e.g. TDX `XFAM`/`CPUID_VALUES`, the SEV CPUID page
@@ -1935,8 +1944,7 @@ microarchitecture levels of the System V x86-64 psABI [SYSV-ABI]:
 - `x86-64-v3`
 - `x86-64-v4`
 
-The psABI fixes the mandatory features of each level; each level is a strict
-superset of the one below.
+Each level is a strict superset of the one below.
 
 ## 14.2 Boot vCPU
 
@@ -2006,7 +2014,9 @@ A-profile architecture revisions of the Arm Architecture Reference Manual [ARM-A
 - `armv9.7-a`
 - `armv9.8-a`
 
-The Arm ARM fixes the mandatory features of each revision.
+[Arm 109697_2025_12_en, §9.11, page 119][arm-features] distinguishes
+SVE2's optional architectural status from its provision in systems with rich
+application environments. Selecting `armv9.0-a` alone does not require SVE2.
 
 Armv9.x-A is not a strict superset of Armv8.(x+n)-A for n>0: each Armv9.x-A revision
 is built on a fixed Armv8-A baseline (Armv9.0-A on Armv8.5-A, Armv9.1-A on
@@ -2445,3 +2455,5 @@ whether it should be split into a separate work product.
 template. -->
 
 ____________________________________________
+
+[arm-features]: https://documentation-service.arm.com/static/69402e206efc1635355c3bb2
