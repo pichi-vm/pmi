@@ -30,7 +30,13 @@ Manual][arm-arm]:
 - `armv9.7-a`
 - `armv9.8-a`
 
-The Arm ARM fixes the mandatory features of each revision.
+These profiles select the architectural minimum defined by the Arm ARM for
+the listed revision, subject to the [shared profile
+requirements](cpu.md#1-new-target-attribute-cpuprofile).
+
+For example, [Arm 109697_2025_12_en, §9.11, page 119][arm-features] distinguishes
+SVE2's optional architectural status from its provision in systems with rich
+application environments. Selecting `armv9.0-a` alone does not require SVE2.
 
 Armv9.x-A is not a strict superset of Armv8.(x+n)-A for n>0: each Armv9.x-A
 revision is built on a fixed Armv8-A baseline (Armv9.0-A on Armv8.5-A,
@@ -60,3 +66,4 @@ A guest learns its guest physical address (IPA) width from
 `ID_AA64MMFR0_EL1.PARange`.
 
 [arm-arm]: https://developer.arm.com/documentation/ddi0487/latest
+[arm-features]: https://documentation-service.arm.com/static/69402e206efc1635355c3bb2
