@@ -10,7 +10,7 @@ The aarch64 values of the
 the A-profile architecture revisions of the [Arm Architecture Reference
 Manual][arm-arm]:
 
-- `armv8.0-a`
+- `armv8.0-a` (default)
 - `armv8.1-a`
 - `armv8.2-a`
 - `armv8.3-a`

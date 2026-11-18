@@ -31,7 +31,7 @@ is reproducible from the image and supplied measured inputs.
 ### Keys
 
 The `.pmi.tdx` CBOR map follows the [core target shape](core.md#shape). Its
-`version` MUST be `1`. It adds one required key:
+`version` MUST be `1`. It adds one optional key:
 
 - **`cpu:profile`**: vCPU ISA baseline (see [cpu.md](cpu.md)).
 
