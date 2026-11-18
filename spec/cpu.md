@@ -7,7 +7,7 @@ guest requires. It defines one extension point:
 
 1. The new target attribute [`cpu:profile`](#1-new-target-attribute-cpuprofile).
 
-Targets opt in by listing `cpu:profile` as a required key in their target spec.
+Targets opt in by listing `cpu:profile` as an optional key in their target spec.
 
 ## 1. New target attribute: `cpu:profile`
 
@@ -18,6 +18,10 @@ architecture.
 ```cddl
 cpu-profile = tstr
 ```
+
+If absent, the VMM MUST use the default profile defined by the image's
+architecture. The same validation and configuration rules apply to an explicit
+profile and to the default.
 
 A VMM MUST refuse to launch on any of:
 

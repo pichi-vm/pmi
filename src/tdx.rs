@@ -24,8 +24,12 @@ pub struct Spec {
     /// Ordered launch recipe.
     pub actions: Vec<Action>,
 
-    /// vCPU ISA baseline (`cpu:profile` target attribute).
-    #[serde(rename = "cpu:profile")]
+    /// Effective vCPU ISA baseline; defaults to the architecture baseline.
+    #[serde(
+        rename = "cpu:profile",
+        default,
+        skip_serializing_if = "crate::IsDefault::is_default"
+    )]
     pub cpu_profile: Profile,
 
     /// Optional `dt:dtb` target attribute: PE section holding the bundled

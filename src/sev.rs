@@ -28,8 +28,12 @@ pub struct Spec {
     #[serde(rename = "sev:id", default, skip_serializing_if = "Option::is_none")]
     pub id: Option<Id>,
 
-    /// vCPU ISA baseline (`cpu:profile` target attribute).
-    #[serde(rename = "cpu:profile")]
+    /// Effective vCPU ISA baseline; defaults to the architecture baseline.
+    #[serde(
+        rename = "cpu:profile",
+        default,
+        skip_serializing_if = "crate::IsDefault::is_default"
+    )]
     pub cpu_profile: Profile,
 
     /// SEV-SNP features the BSP's VMSA enables beyond `SNPActive`

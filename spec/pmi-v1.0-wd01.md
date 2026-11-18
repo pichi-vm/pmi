@@ -927,7 +927,7 @@ how namespacing rules are applicable.
 
 The `cpu` extension defines a portable declaration of the vCPU ISA baseline the
 guest requires. It defines one extension point: the new target attribute
-`cpu:profile` (Section 8.1). Targets opt in by listing `cpu:profile` as a required
+`cpu:profile` (Section 8.1). Targets opt in by listing `cpu:profile` as an optional
 key in their target spec.
 
 ## 8.1 New Target Attribute: `cpu:profile`
@@ -938,6 +938,10 @@ chapter (Section 5.2) lists the values valid for that architecture.
 ```cddl
 cpu-profile = tstr
 ```
+
+If absent, the VMM **MUST** use the default profile defined by the image's
+architecture. The same validation and configuration rules apply to an explicit
+profile and to the default.
 
 A VMM **MUST** refuse to launch on any of:
 
@@ -1020,7 +1024,7 @@ The VMM executes the launch in five ordered steps:
 ### 9.1.2 Keys
 
 The `.pmi.vm` CBOR map follows the core target shape (Section 5.1.1). Its `version`
-**MUST** be `1`. It adds one required key:
+**MUST** be `1`. It adds one optional key:
 
 - **`cpu:profile`** — vCPU ISA baseline (see Section 8).
 
@@ -1513,7 +1517,7 @@ SEV-SNP firmware ABI onto it in six ordered steps:
 The `.pmi.sev` CBOR map follows the core target shape (Section 5.1.1). Its `version`
 **MUST** be `1`. It adds the following keys:
 
-- **`cpu:profile`**: vCPU ISA baseline (required; see Section 8).
+- **`cpu:profile`**: vCPU ISA baseline (optional; see Section 8).
 - **`sev:features`**: SEV-SNP features to enable (optional; see Section 11.5).
 - **`sev:id`**: signed launch identity (optional; see Section 11.2).
 
@@ -1776,7 +1780,7 @@ reproducible from the image and supplied measured inputs.
 ### 12.1.2 Keys
 
 The `.pmi.tdx` CBOR map follows the core target shape (Section 5.1.1). Its `version`
-**MUST** be `1`. It adds one required key:
+**MUST** be `1`. It adds one optional key:
 
 - **`cpu:profile`**: vCPU ISA baseline (see Section 8).
 
@@ -1939,7 +1943,7 @@ is x86-64 when its `PE.FileHeader.Machine` is `0x8664`.
 The x86-64 values of the `cpu:profile` target attribute (Section 8.1) are the
 microarchitecture levels of the System V x86-64 psABI [SYSV-ABI]:
 
-- `x86-64-v1`, the psABI baseline
+- `x86-64-v1`, the psABI baseline (default)
 - `x86-64-v2`
 - `x86-64-v3`
 - `x86-64-v4`
@@ -1994,7 +1998,7 @@ is aarch64 when its `PE.FileHeader.Machine` is `0xAA64`.
 The aarch64 values of the `cpu:profile` target attribute (Section 8.1) are the
 A-profile architecture revisions of the Arm Architecture Reference Manual [ARM-ARM]:
 
-- `armv8.0-a`
+- `armv8.0-a` (default)
 - `armv8.1-a`
 - `armv8.2-a`
 - `armv8.3-a`

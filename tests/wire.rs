@@ -257,6 +257,45 @@ fn cpu_profile_values_are_per_architecture() {
 }
 
 #[test]
+fn profiles_are_optional_but_present_values_must_be_valid() {
+    fn check<T: pmi::Target>(baseline: &str, higher: &str) {
+        for profile in [
+            None,
+            Some(Value::Text(baseline.into())),
+            Some(Value::Text(higher.into())),
+            Some(Value::Null),
+        ] {
+            let mut map = vec![
+                (Value::Text("version".into()), Value::Integer(1.into())),
+                (Value::Text("actions".into()), Value::Array(vec![])),
+            ];
+            if let Some(value) = &profile {
+                map.push((Value::Text("cpu:profile".into()), value.clone()));
+            }
+            let bytes = to_cbor(&Value::Map(map));
+            let decoded = ciborium::from_reader::<T, _>(bytes.as_slice());
+            if profile == Some(Value::Null) {
+                assert!(decoded.is_err());
+            } else {
+                let expected = profile
+                    .as_ref()
+                    .filter(|value| value.as_text() != Some(baseline));
+                assert_eq!(get(&value_of(&decoded.unwrap()), "cpu:profile"), expected);
+            }
+        }
+    }
+    check::<Spec<Profile>>("x86-64-v1", "x86-64-v3");
+    check::<Spec<pmi::aarch64::Profile>>("armv8.0-a", "armv8.2-a");
+    check::<pmi::sev::Spec>("x86-64-v1", "x86-64-v3");
+    check::<pmi::tdx::Spec>("x86-64-v1", "x86-64-v4");
+    assert_eq!(Profile::default(), Profile::V1);
+    assert_eq!(
+        pmi::aarch64::Profile::default(),
+        pmi::aarch64::Profile::V8_0
+    );
+}
+
+#[test]
 fn sev_features_is_an_optional_bit_field() {
     let target = |features: Option<u64>| {
         let mut map = vec![

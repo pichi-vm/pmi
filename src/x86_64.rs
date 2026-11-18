@@ -6,10 +6,11 @@
 use serde::{Deserialize, Serialize};
 
 /// x86-64 `cpu:profile` value. Serializes as its name in the spec.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Profile {
     /// `x86-64-v1`, the psABI baseline.
     #[serde(rename = "x86-64-v1")]
+    #[default]
     V1,
     /// `x86-64-v2`.
     #[serde(rename = "x86-64-v2")]

@@ -6,10 +6,11 @@
 use serde::{Deserialize, Serialize};
 
 /// aarch64 `cpu:profile` value. Serializes as its name in the spec.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Profile {
     /// `armv8.0-a`.
     #[serde(rename = "armv8.0-a")]
+    #[default]
     V8_0,
     /// `armv8.1-a`.
     #[serde(rename = "armv8.1-a")]

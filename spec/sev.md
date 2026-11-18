@@ -41,7 +41,7 @@ the SEV-SNP firmware ABI onto it in six ordered steps:
 The `.pmi.sev` CBOR map follows the [core target shape](core.md#shape). Its
 `version` MUST be `1`. It adds the following keys:
 
-- **`cpu:profile`**: vCPU ISA baseline (required; see [cpu.md](cpu.md)).
+- **`cpu:profile`**: vCPU ISA baseline (optional; see [cpu.md](cpu.md)).
 - **`sev:features`**: SEV-SNP features to enable (optional; see
   [§5](#5-new-target-attribute-sevfeatures)).
 - **`sev:id`**: signed launch identity (optional; see

@@ -73,3 +73,12 @@ impl<'de, const N: u32> Deserialize<'de> for Version<N> {
         Ok(Self::default())
     }
 }
+
+// Shared serde predicate for omitting values equal to their type's default.
+trait IsDefault: Default + PartialEq {
+    fn is_default(&self) -> bool {
+        self == &Self::default()
+    }
+}
+
+impl<T: Default + PartialEq> IsDefault for T {}

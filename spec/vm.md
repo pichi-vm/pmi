@@ -26,7 +26,7 @@ The VMM executes the launch in five ordered steps:
 ### Keys
 
 The `.pmi.vm` CBOR map follows the [core target shape](core.md#shape). Its
-`version` MUST be `1`. It adds one required key:
+`version` MUST be `1`. It adds one optional key:
 
 - **`cpu:profile`** — vCPU ISA baseline (see [cpu.md](cpu.md)).
 

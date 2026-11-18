@@ -15,7 +15,10 @@ pub use crate::kind::{FillKind, LoadKind};
 /// [`crate::x86_64::Profile`] for `0x8664` and [`crate::aarch64::Profile`] for
 /// `0xAA64`. The caller selects it from the PE header before decoding.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(
+    deny_unknown_fields,
+    bound(serialize = "P: Serialize + Default + PartialEq")
+)]
 pub struct Spec<P> {
     /// Schema version; MUST be `1`.
     pub version: Version<1>,
@@ -23,8 +26,12 @@ pub struct Spec<P> {
     /// Ordered launch recipe.
     pub actions: Vec<Action>,
 
-    /// vCPU ISA baseline (`cpu:profile` target attribute).
-    #[serde(rename = "cpu:profile")]
+    /// Effective vCPU ISA baseline; defaults to the architecture baseline.
+    #[serde(
+        rename = "cpu:profile",
+        default,
+        skip_serializing_if = "crate::IsDefault::is_default"
+    )]
     pub cpu_profile: P,
 
     /// Optional `dt:dtb` target attribute: PE section holding the bundled
@@ -35,7 +42,7 @@ pub struct Spec<P> {
     pub dt_dtb: Option<String>,
 }
 
-impl<P: DeserializeOwned + Serialize> Target for Spec<P> {
+impl<P: DeserializeOwned + Serialize + Default + PartialEq> Target for Spec<P> {
     const NAME: &'static str = "vm";
     const SECTION: &'static str = ".pmi.vm";
 }
