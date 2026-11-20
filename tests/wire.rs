@@ -236,6 +236,14 @@ fn cpu_profile_values_use_their_spec_names() {
         assert_eq!(value_of(&profile), Value::Text(name.to_owned()));
         let back: P = ciborium::from_reader(to_cbor(&profile).as_slice()).expect("decode profile");
         assert_eq!(back, profile);
+
+        let (first, rest) = name.split_at(4);
+        let mut chunked = vec![0x7f];
+        chunked.extend(to_cbor(&first));
+        chunked.extend(to_cbor(&rest));
+        chunked.push(0xff);
+        let back: P = ciborium::from_reader(chunked.as_slice()).expect("decode chunked profile");
+        assert_eq!(back, profile);
     }
     check(pmi::x86_64::Profile::V1, "x86-64-v1");
     check(pmi::x86_64::Profile::V4, "x86-64-v4");
@@ -246,10 +254,10 @@ fn cpu_profile_values_use_their_spec_names() {
 #[test]
 fn cpu_profile_values_are_per_architecture() {
     let decode = |name: &str| to_cbor(&Value::Text(name.into()));
-    for name in ["x86-64", "x86-64-v5", "armv8.0-a"] {
+    for name in ["x86-64", "x86-64-v5", "armv8.0-a", "V1", ""] {
         assert!(ciborium::from_reader::<pmi::x86_64::Profile, _>(decode(name).as_slice()).is_err());
     }
-    for name in ["armv8-a", "armv9.9-a", "x86-64-v1"] {
+    for name in ["armv8-a", "armv9.9-a", "x86-64-v1", "V8_0", ""] {
         assert!(
             ciborium::from_reader::<pmi::aarch64::Profile, _>(decode(name).as_slice()).is_err()
         );
@@ -264,6 +272,11 @@ fn profiles_are_optional_but_present_values_must_be_valid() {
             Some(Value::Text(baseline.into())),
             Some(Value::Text(higher.into())),
             Some(Value::Null),
+            Some(Value::Bytes(baseline.as_bytes().to_vec())),
+            Some(Value::Map(vec![(
+                Value::Text(baseline.into()),
+                Value::Null,
+            )])),
         ] {
             let mut map = vec![
                 (Value::Text("version".into()), Value::Integer(1.into())),
@@ -274,7 +287,7 @@ fn profiles_are_optional_but_present_values_must_be_valid() {
             }
             let bytes = to_cbor(&Value::Map(map));
             let decoded = ciborium::from_reader::<T, _>(bytes.as_slice());
-            if profile == Some(Value::Null) {
+            if matches!(profile.as_ref(), Some(value) if !value.is_text()) {
                 assert!(decoded.is_err());
             } else {
                 let expected = profile

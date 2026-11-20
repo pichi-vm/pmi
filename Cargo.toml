@@ -9,6 +9,7 @@ description = "Type definitions for the Portable Machine Image (PMI) spec."
 [dependencies]
 flagset = { version = "0.4", features = ["serde"] }
 serde = { version = "1", features = ["derive"] }
+strum = { version = "0.28", features = ["derive"] }
 
 [dev-dependencies]
 ciborium = "0.2"
