@@ -236,6 +236,14 @@ fn cpu_profile_values_use_their_spec_names() {
         assert_eq!(value_of(&profile), Value::Text(name.to_owned()));
         let back: P = ciborium::from_reader(to_cbor(&profile).as_slice()).expect("decode profile");
         assert_eq!(back, profile);
+
+        let (first, second) = name.split_at(4);
+        let mut chunked = vec![0x7f];
+        chunked.extend(to_cbor(&first));
+        chunked.extend(to_cbor(&second));
+        chunked.push(0xff);
+        let back: P = ciborium::from_reader(chunked.as_slice()).expect("decode chunked text");
+        assert_eq!(back, profile);
     }
     check(pmi::x86_64::Profile::V1, "x86-64-v1");
     check(pmi::x86_64::Profile::V4, "x86-64-v4");
@@ -264,6 +272,12 @@ fn profiles_are_optional_but_present_values_must_be_valid() {
             Some(Value::Text(baseline.into())),
             Some(Value::Text(higher.into())),
             Some(Value::Null),
+            Some(Value::Map(vec![(
+                Value::Text(baseline.into()),
+                Value::Null,
+            )])),
+            Some(Value::Bytes(baseline.as_bytes().to_vec())),
+            Some(Value::Tag(42, Box::new(Value::Text(baseline.into())))),
         ] {
             let mut map = vec![
                 (Value::Text("version".into()), Value::Integer(1.into())),
@@ -274,8 +288,8 @@ fn profiles_are_optional_but_present_values_must_be_valid() {
             }
             let bytes = to_cbor(&Value::Map(map));
             let decoded = ciborium::from_reader::<T, _>(bytes.as_slice());
-            if profile == Some(Value::Null) {
-                assert!(decoded.is_err());
+            if matches!(&profile, Some(value) if value.as_text().is_none()) {
+                assert!(decoded.is_err(), "accepted non-text profile {profile:?}");
             } else {
                 let expected = profile
                     .as_ref()
